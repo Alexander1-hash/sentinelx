@@ -2,23 +2,39 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+  ),
   title: {
     default: "SentinelX",
     template: "%s | SentinelX",
   },
   description:
-    "AI-powered cybersecurity intelligence for modern businesses.",
+    "SentinelX is an AI-powered cybersecurity intelligence platform for monitoring threats, protecting assets, and improving security operations.",
   applicationName: "SentinelX",
   keywords: [
+    "SentinelX",
     "cybersecurity",
+    "AI cybersecurity",
     "security intelligence",
     "threat detection",
-    "AI security",
-    "SentinelX",
+    "security operations",
+    "risk management",
+    "vulnerability management",
   ],
+  authors: [
+    {
+      name: "SentinelX",
+    },
+  ],
+  creator: "SentinelX",
+  publisher: "SentinelX",
   robots: {
     index: true,
     follow: true,
+  },
+  icons: {
+    icon: "/favicon.ico",
   },
 };
 
