@@ -1,410 +1,375 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import {
-  Activity,
   AlertTriangle,
-  ArrowUpRight,
   CheckCircle2,
-  ChevronRight,
-  CircleDot,
-  Globe2,
-  LockKeyhole,
-  Radar,
+  Clock3,
+  LogOut,
   ShieldCheck,
-  ShieldAlert,
-  Server,
   Settings,
-  Terminal,
-  Users,
+  TrendingUp,
+  UserRound,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
-const findings = [
-  {
-    title: "Suspicious login activity",
-    asset: "Admin Portal",
-    severity: "High",
-    time: "12 min ago",
-  },
-  {
-    title: "Outdated dependency detected",
-    asset: "Web Application",
-    severity: "Medium",
-    time: "38 min ago",
-  },
-  {
-    title: "Unusual outbound traffic",
-    asset: "Production API",
-    severity: "Medium",
-    time: "1 hr ago",
-  },
-];
+export default function DashboardPage() {
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
 
-const activity = [
-  {
-    icon: ShieldCheck,
-    title: "Security scan completed",
-    description: "142 assets analyzed",
-    time: "18 min ago",
-  },
-  {
-    icon: LockKeyhole,
-    title: "Access policy updated",
-    description: "Admin Portal",
-    time: "42 min ago",
-  },
-  {
-    icon: Radar,
-    title: "Threat monitoring active",
-    description: "Continuous protection enabled",
-    time: "1 hr ago",
-  },
-];
+  useEffect(() => {
+    const supabase = createClient();
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  detail,
-}: {
-  icon: typeof ShieldCheck;
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">
-          <Icon className="h-5 w-5 text-slate-700" />
-        </div>
-        <ArrowUpRight className="h-4 w-4 text-slate-400" />
-      </div>
+    async function loadUser() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      <div className="mt-5">
-        <p className="text-sm font-medium text-slate-500">{label}</p>
-        <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
-          {value}
-        </p>
-        <p className="mt-1 text-xs text-slate-500">{detail}</p>
-      </div>
-    </div>
-  );
-}
+      if (!user) {
+        return;
+      }
 
-function SeverityBadge({ severity }: { severity: string }) {
-  const styles = {
-    High: "bg-red-50 text-red-700 border-red-200",
-    Medium: "bg-amber-50 text-amber-700 border-amber-200",
-    Low: "bg-slate-50 text-slate-600 border-slate-200",
-  };
+      setEmail(user.email ?? "");
 
-  return (
-    <span
-      className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
-        styles[severity as keyof typeof styles]
-      }`}
-    >
-      {severity}
-    </span>
-  );
-}
+      const metadataName =
+        typeof user.user_metadata?.full_name === "string"
+          ? user.user_metadata.full_name.trim()
+          : "";
 
-export default function Home() {
+      setDisplayName(metadataName);
+    }
+
+    loadUser();
+  }, []);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } finally {
+      window.location.href = "/login";
+    }
+  }
+
+  const operatorName = displayName || email || "Security operator";
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
-      <div className="flex min-h-screen">
-        {/* Sidebar */}
-        <aside className="hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
-          <div className="flex h-20 items-center border-b border-slate-200 px-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950">
-                <ShieldCheck className="h-5 w-5 text-white" />
-              </div>
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
 
-              <div>
-                <p className="text-base font-bold tracking-tight">SentinelX</p>
-                <p className="text-[11px] text-slate-500">
-                  Security Intelligence
-                </p>
-              </div>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight">
+                SentinelX
+              </h1>
+              <p className="text-xs text-slate-500">
+                Security Intelligence Platform
+              </p>
             </div>
           </div>
 
-          <nav className="flex-1 space-y-1 p-4">
-            <a
-              href="#"
-              className="flex items-center gap-3 rounded-xl bg-slate-950 px-3 py-2.5 text-sm font-medium text-white"
-            >
-              <Activity className="h-4 w-4" />
-              Overview
-            </a>
+          <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 sm:flex">
+              <UserRound className="h-4 w-4 text-slate-500" />
 
-            <a
-              href="#"
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
-            >
-              <Radar className="h-4 w-4" />
-              Threat Detection
-            </a>
-
-            <a
-              href="#"
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
-            >
-              <Server className="h-4 w-4" />
-              Assets
-            </a>
-
-            <a
-              href="#"
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
-            >
-              <AlertTriangle className="h-4 w-4" />
-              Findings
-            </a>
-
-            <a
-              href="#"
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
-            >
-              <Terminal className="h-4 w-4" />
-              Security Operations
-            </a>
-
-            <a
-              href="#"
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
-            >
-              <Users className="h-4 w-4" />
-              Team
-            </a>
-          </nav>
-
-          <div className="border-t border-slate-200 p-4">
-            <a
-              href="#"
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
-            >
-              <Settings className="h-4 w-4" />
-              Settings
-            </a>
-          </div>
-        </aside>
-
-        {/* Main content */}
-        <section className="min-w-0 flex-1">
-          {/* Header */}
-          <header className="border-b border-slate-200 bg-white">
-            <div className="flex min-h-20 items-center justify-between gap-4 px-5 py-4 sm:px-8">
-              <div>
-                <p className="text-sm font-medium text-slate-500">
-                  Security Operations
+              <div className="max-w-[180px]">
+                <p className="truncate text-sm font-medium text-slate-800">
+                  {operatorName}
                 </p>
-                <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">
-                  Security Overview
-                </h1>
-              </div>
 
-              <div className="flex items-center gap-3">
-                <div className="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 sm:flex">
-                  <CircleDot className="h-3.5 w-3.5 fill-emerald-500 text-emerald-500" />
-                  <span className="text-xs font-medium text-emerald-700">
-                    Systems Operational
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  className="rounded-xl border border-slate-200 p-2.5 text-slate-600 hover:bg-slate-50"
-                  aria-label="Settings"
-                >
-                  <Settings className="h-4 w-4" />
-                </button>
+                {displayName && email && (
+                  <p className="truncate text-xs text-slate-500">
+                    {email}
+                  </p>
+                )}
               </div>
             </div>
-          </header>
 
-          <div className="mx-auto max-w-7xl space-y-6 p-5 sm:p-8">
-            {/* Security status */}
-            <section className="overflow-hidden rounded-2xl bg-slate-950 p-6 text-white shadow-sm sm:p-8">
-              <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-center">
-                <div className="max-w-2xl">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10">
-                      <ShieldCheck className="h-5 w-5" />
-                    </div>
-                    <span className="text-sm font-medium text-slate-300">
-                      SentinelX Protection
-                    </span>
-                  </div>
+            <button
+              type="button"
+              className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+              aria-label="Settings"
+            >
+              <Settings className="h-5 w-5" />
+            </button>
 
-                  <h2 className="mt-5 text-2xl font-semibold tracking-tight sm:text-3xl">
-                    Your environment is being monitored.
-                  </h2>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <LogOut className="h-4 w-4" />
 
-                  <p className="mt-3 max-w-xl text-sm leading-6 text-slate-400">
-                    SentinelX continuously analyzes your digital environment,
-                    identifies security risks, and turns findings into
-                    actionable intelligence.
-                  </p>
+              <span className="hidden sm:inline">
+                {signingOut ? "Signing out..." : "Sign out"}
+              </span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        <section className="mb-8">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  System operational
                 </div>
 
-                <div className="flex shrink-0 items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-5">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-400/10">
-                    <CheckCircle2 className="h-7 w-7 text-emerald-400" />
-                  </div>
+                <h2 className="text-3xl font-bold tracking-tight text-slate-950">
+                  Welcome back,{" "}
+                  {displayName || "security operator"}.
+                </h2>
 
-                  <div>
-                    <p className="text-xs text-slate-400">Protection status</p>
-                    <p className="mt-1 text-lg font-semibold text-emerald-400">
-                      Active
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Stats */}
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard
-                icon={Server}
-                label="Protected assets"
-                value="142"
-                detail="Across your environment"
-              />
-
-              <StatCard
-                icon={AlertTriangle}
-                label="Open findings"
-                value="7"
-                detail="3 require attention"
-              />
-
-              <StatCard
-                icon={ShieldCheck}
-                label="Security score"
-                value="94%"
-                detail="Up 4% this month"
-              />
-
-              <StatCard
-                icon={Globe2}
-                label="Threats blocked"
-                value="1,284"
-                detail="Last 30 days"
-              />
-            </section>
-
-            {/* Findings + Activity */}
-            <section className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-                  <div>
-                    <h2 className="font-semibold">Priority findings</h2>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Security issues requiring review
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="flex items-center gap-1 text-xs font-medium text-slate-700 hover:text-slate-950"
-                  >
-                    View all
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-
-                <div className="divide-y divide-slate-100">
-                  {findings.map((finding) => (
-                    <div
-                      key={finding.title}
-                      className="flex items-center justify-between gap-4 px-5 py-4"
-                    >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100">
-                          <ShieldAlert className="h-4 w-4 text-slate-700" />
-                        </div>
-
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">
-                            {finding.title}
-                          </p>
-                          <p className="mt-1 truncate text-xs text-slate-500">
-                            {finding.asset} · {finding.time}
-                          </p>
-                        </div>
-                      </div>
-
-                      <SeverityBadge severity={finding.severity} />
-                    </div>
-                  ))}
-                </div>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                  Your security environment is being monitored.
+                  Review threats, security events, and operational
+                  indicators from your SentinelX dashboard.
+                </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-200 px-5 py-4">
-                  <h2 className="font-semibold">Recent activity</h2>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Latest security events
-                  </p>
-                </div>
-
-                <div className="divide-y divide-slate-100">
-                  {activity.map((item) => {
-                    const Icon = item.icon;
-
-                    return (
-                      <div
-                        key={item.title}
-                        className="flex gap-3 px-5 py-4"
-                      >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100">
-                          <Icon className="h-4 w-4 text-slate-700" />
-                        </div>
-
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium">{item.title}</p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {item.description}
-                          </p>
-                          <p className="mt-1 text-[11px] text-slate-400">
-                            {item.time}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                <ShieldCheck className="h-8 w-8" />
               </div>
-            </section>
-
-            {/* Bottom intelligence panel */}
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100">
-                    <Radar className="h-5 w-5 text-slate-700" />
-                  </div>
-
-                  <div>
-                    <h2 className="font-semibold">Security intelligence</h2>
-                    <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                      SentinelX is ready to connect your security data,
-                      analyze threats, and provide AI-assisted recommendations.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
-                >
-                  Configure protection
-                  <ArrowUpRight className="h-4 w-4" />
-                </button>
-              </div>
-            </section>
+            </div>
           </div>
         </section>
+
+        <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-slate-500">
+                Security Score
+              </p>
+
+              <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+            </div>
+
+            <p className="mt-4 text-3xl font-bold text-slate-950">
+              94%
+            </p>
+
+            <div className="mt-2 flex items-center gap-1 text-xs font-medium text-emerald-600">
+              <TrendingUp className="h-3.5 w-3.5" />
+              +4.2% this month
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-slate-500">
+                Active Threats
+              </p>
+
+              <div className="rounded-lg bg-red-50 p-2 text-red-600">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+            </div>
+
+            <p className="mt-4 text-3xl font-bold text-slate-950">
+              3
+            </p>
+
+            <p className="mt-2 text-xs font-medium text-red-600">
+              Requires investigation
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-slate-500">
+                Protected Assets
+              </p>
+
+              <div className="rounded-lg bg-blue-50 p-2 text-blue-600">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+            </div>
+
+            <p className="mt-4 text-3xl font-bold text-slate-950">
+              128
+            </p>
+
+            <p className="mt-2 text-xs font-medium text-slate-500">
+              Devices and services
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-slate-500">
+                Events Today
+              </p>
+
+              <div className="rounded-lg bg-amber-50 p-2 text-amber-600">
+                <Clock3 className="h-5 w-5" />
+              </div>
+            </div>
+
+            <p className="mt-4 text-3xl font-bold text-slate-950">
+              1,284
+            </p>
+
+            <p className="mt-2 text-xs font-medium text-slate-500">
+              Security events processed
+            </p>
+          </div>
+        </section>
+
+        <section className="mt-8 grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 px-6 py-5">
+              <h3 className="text-base font-semibold text-slate-950">
+                Recent Security Activity
+              </h3>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Latest events detected across the environment.
+              </p>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              <div className="flex items-center gap-4 px-6 py-5">
+                <div className="rounded-full bg-emerald-50 p-2 text-emerald-600">
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-800">
+                    Authentication monitoring active
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Identity systems are responding normally.
+                  </p>
+                </div>
+
+                <span className="text-xs text-slate-400">
+                  5 min ago
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4 px-6 py-5">
+                <div className="rounded-full bg-amber-50 p-2 text-amber-600">
+                  <AlertTriangle className="h-4 w-4" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-800">
+                    Suspicious login activity detected
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    An unusual authentication event requires review.
+                  </p>
+                </div>
+
+                <span className="text-xs text-slate-400">
+                  18 min ago
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4 px-6 py-5">
+                <div className="rounded-full bg-blue-50 p-2 text-blue-600">
+                  <ShieldCheck className="h-4 w-4" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-800">
+                    Security policy scan completed
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Environment configuration was checked successfully.
+                  </p>
+                </div>
+
+                <span className="text-xs text-slate-400">
+                  42 min ago
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 px-6 py-5">
+              <h3 className="text-base font-semibold text-slate-950">
+                Account
+              </h3>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Current authenticated operator.
+              </p>
+            </div>
+
+            <div className="space-y-5 p-6">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Name
+                </p>
+
+                <p className="mt-1 text-sm font-medium text-slate-800">
+                  {displayName || "Not provided"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Email
+                </p>
+
+                <p className="mt-1 break-all text-sm font-medium text-slate-800">
+                  {email || "Loading..."}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Access
+                </p>
+
+                <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Authenticated
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSignOut}
+                disabled={signingOut}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <LogOut className="h-4 w-4" />
+
+                {signingOut ? "Signing out..." : "Sign out"}
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <footer className="mt-8 border-t border-slate-200 py-6">
+          <div className="flex flex-col gap-2 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+            <p>SentinelX Security Intelligence</p>
+
+            <p>
+              Dashboard data is currently configured as demonstration
+              telemetry.
+            </p>
+          </div>
+        </footer>
       </div>
     </main>
   );
