@@ -20,6 +20,14 @@ export default function SignupPage() {
     setError("");
     setSuccess("");
 
+    const trimmedName = fullName.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedName) {
+      setError("Please enter your full name.");
+      return;
+    }
+
     if (password.length < 8) {
       setError("Password must be at least 8 characters long.");
       return;
@@ -35,13 +43,17 @@ export default function SignupPage() {
     try {
       const supabase = createClient();
 
+      const siteUrl =
+        process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+
       const { data, error: signupError } = await supabase.auth.signUp({
-        email,
+        email: trimmedEmail,
         password,
         options: {
           data: {
-            full_name: fullName.trim(),
+            full_name: trimmedName,
           },
+          emailRedirectTo: `${siteUrl}/auth/callback?next=/`,
         },
       });
 
