@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
   const [fullName, setFullName] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -21,10 +22,16 @@ export default function SignupPage() {
     setSuccess("");
 
     const trimmedName = fullName.trim();
+    const trimmedOrganization = organizationName.trim();
     const trimmedEmail = email.trim().toLowerCase();
 
     if (!trimmedName) {
       setError("Please enter your full name.");
+      return;
+    }
+
+    if (!trimmedOrganization) {
+      setError("Please enter your organization name.");
       return;
     }
 
@@ -52,6 +59,7 @@ export default function SignupPage() {
         options: {
           data: {
             full_name: trimmedName,
+            organization_name: trimmedOrganization,
           },
           emailRedirectTo: `${siteUrl}/auth/callback?next=/`,
         },
@@ -132,6 +140,28 @@ export default function SignupPage() {
                   placeholder="Your full name"
                   required
                   autoComplete="name"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-white focus:ring-2 focus:ring-white/10"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="organizationName"
+                  className="mb-2 block text-sm font-medium text-slate-300"
+                >
+                  Organization name
+                </label>
+
+                <input
+                  id="organizationName"
+                  type="text"
+                  value={organizationName}
+                  onChange={(event) =>
+                    setOrganizationName(event.target.value)
+                  }
+                  placeholder="Your company or organization"
+                  required
+                  autoComplete="organization"
                   className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-white focus:ring-2 focus:ring-white/10"
                 />
               </div>
