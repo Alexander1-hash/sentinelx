@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { ShieldCheck, Loader2, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -11,26 +11,52 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const callbackError = params.get("error");
+
+    if (!callbackError) {
+      return;
+    }
+
+    if (callbackError === "missing_code") {
+      setError("The authentication link is incomplete. Please try again.");
+      return;
+    }
+
+    setError(callbackError);
+  }, []);
+
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setLoading(true);
     setError("");
 
-    const supabase = createClient();
+    try {
+      const supabase = createClient();
 
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+      const trimmedEmail = email.trim().toLowerCase();
 
-    if (loginError) {
-      setError(loginError.message);
+      const { error: loginError } =
+        await supabase.auth.signInWithPassword({
+          email: trimmedEmail,
+          password,
+        });
+
+      if (loginError) {
+        setError(loginError.message);
+        setLoading(false);
+        return;
+      }
+
+      window.location.href = "/";
+    } catch {
+      setError(
+        "Something went wrong while signing in. Please try again."
+      );
       setLoading(false);
-      return;
     }
-
-    window.location.href = "/";
   }
 
   return (
@@ -127,7 +153,7 @@ export default function LoginPage() {
 
             <div className="mt-6 border-t border-slate-800 pt-6 text-center">
               <p className="text-sm text-slate-500">
-                Don't have a SentinelX account?{" "}
+                Don&apos;t have a SentinelX account?{" "}
                 <Link
                   href="/signup"
                   className="font-medium text-white hover:underline"
