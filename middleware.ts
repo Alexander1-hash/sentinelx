@@ -21,6 +21,7 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
+
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value);
@@ -38,7 +39,36 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const pathname = request.nextUrl.pathname;
+
+  const isAuthRoute =
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname === "/forgot-password" ||
+    pathname === "/auth/reset-password" ||
+    pathname === "/auth/callback";
+
+  if (!user && !isAuthRoute) {
+    const loginUrl = request.nextUrl.clone();
+
+    loginUrl.pathname = "/login";
+    loginUrl.search = "";
+
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (user && (pathname === "/login" || pathname === "/signup")) {
+    const dashboardUrl = request.nextUrl.clone();
+
+    dashboardUrl.pathname = "/";
+    dashboardUrl.search = "";
+
+    return NextResponse.redirect(dashboardUrl);
+  }
 
   return response;
 }
