@@ -18,7 +18,7 @@ type Change = {
   title: string;
   detail: string;
   observedAt: string;
-  state: "new" | "changed" | "remembered";
+  state: "new" | "changed" | "remembered" | "resolved";
   href: string;
 };
 
@@ -119,7 +119,7 @@ export async function GET() {
           ? memory.data.change_type
           : "new";
 
-      if (changeType !== "new" && changeType !== "changed") continue;
+      if (!["new", "changed", "resolved"].includes(changeType)) continue;
 
       const evidenceId =
         typeof memory.data.evidence_id === "string"
@@ -136,10 +136,14 @@ export async function GET() {
         kind: "evidence",
         title: changeType === "changed"
           ? memory.title.replace(/^Evidence changed:\s*/i, "Changed: ")
+          : changeType === "resolved"
+            ? memory.title.replace(/^Evidence resolved:\s*/i, "Resolved: ")
           : memory.title.replace(/^New evidence:\s*/i, "New evidence: "),
         detail: changeType === "changed"
           ? `${source} reported a different recorded evidence state.`
-          : `${source} reported a new evidence pattern.`,
+          : changeType === "resolved"
+            ? `${source} explicitly reported a cleared or resolved state.`
+            : `${source} reported a new evidence pattern.`,
         observedAt: memory.occurred_at,
         state: changeType,
         href: "/brain",
@@ -242,10 +246,10 @@ export async function GET() {
         remembered: visible.filter((item) => item.state === "remembered").length,
         // Resolved state requires a recorded disappearance/state-transition
         // model. SentinelX deliberately does not infer resolution from silence.
-        resolved: 0,
+        resolved: visible.filter((item) => item.state === "resolved").length,
       },
       boundary:
-        "Change intelligence compares recorded evidence and current security state with SentinelX security memory. Unchanged telemetry is suppressed. Resolved means a verified state transition; silence or missing telemetry is not treated as resolution. A change alone is not proof of compromise.",
+        "Change intelligence compares recorded evidence and current security state with SentinelX security memory. Unchanged telemetry is suppressed. Resolved is shown only when an authorized source explicitly reports a cleared, resolved, or healthy state after an active/degraded state. Silence or missing telemetry is never treated as resolution. A change alone is not proof of compromise.",
     });
   } catch {
     return NextResponse.json(
