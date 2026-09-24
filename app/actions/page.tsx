@@ -169,7 +169,7 @@ export default function SecurityActionsPage() {
                     </p>
                   </div>
 
-                  <p className="mt-3 text-[10px] leading-5 text-slate-600">
+                  {action.result.response_plan && typeof action.result.response_plan === "object" && (                    <div className="mt-3 rounded-xl border border-orange-400/10 bg-orange-400/[0.025] p-3">                      <p className="text-[9px] font-semibold uppercase tracking-wider text-orange-200">Response plan</p>                      <p className="mt-2 text-[10px] leading-5 text-slate-400">{String((action.result.response_plan as Record<string, unknown>).objective ?? "Evidence-grounded response recommendation.")}</p>                      <div className="mt-2 flex flex-wrap gap-2 text-[9px] text-slate-500">                        <span>Severity: {String((action.result.response_plan as Record<string, unknown>).severity ?? "unknown")}</span>                        <span>Action: {ACTION_LABELS[action.action_type] ?? action.action_type.replaceAll("_", " ")}</span>                      </div>                    </div>                  )}                  <p className="mt-3 text-[10px] leading-5 text-slate-600">
                     {String(action.result.message ?? "Awaiting operator decision.")}
                   </p>
 
