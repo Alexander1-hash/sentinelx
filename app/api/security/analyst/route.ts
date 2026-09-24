@@ -230,6 +230,7 @@ export async function POST(request: Request) {
       blastRadius: Array<{ asset: AssetItem; hops: number; confidence: number; chain: string[] }>;
       supportingEvidence: EvidenceItem[];
       unknowns: string[];
+      memory: Array<{ memory_type: string; title: string; summary: string; state: string; occurred_at: string }>;
     } | null = null;
 
     if (selectedFinding && body.mode === "investigate") {
@@ -278,6 +279,10 @@ export async function POST(request: Request) {
         affectedAsset: rootAssetId ? assetMap.get(rootAssetId) ?? null : null,
         blastRadius,
         supportingEvidence,
+        memory: memory
+          .filter((item) => item.subject_id === selectedFinding.id || item.memory_type === "finding_state")
+          .slice(0, 20)
+          .map((item) => ({ memory_type: item.memory_type, title: item.title, summary: item.summary, state: item.state, occurred_at: item.occurred_at })),
         unknowns: [
           !rootAssetId ? "The finding is not linked to a confirmed asset." : null,
           supportingEvidence.length === 0 ? "No directly matching evidence record was found." : null,
