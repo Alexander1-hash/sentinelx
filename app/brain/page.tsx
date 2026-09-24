@@ -43,7 +43,7 @@ export default function SecurityBrainPage() {
   async function loadGraph() {
     setLoading(true);
     try {
-      const [assetsResponse, relationshipsResponse] = await Promise.all([
+      const [assetsResponse, relationshipsResponse, findingsResponse] = await Promise.all([
         fetch("/api/security/assets", { cache: "no-store" }),
         fetch("/api/security/relationships", { cache: "no-store" }),\n        fetch("/api/security/analysis", { cache: "no-store" }),
       ]);
