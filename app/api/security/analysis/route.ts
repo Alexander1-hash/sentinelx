@@ -408,6 +408,23 @@ export async function POST() {
       }
 
       findingsCreated += 1;
+
+      await supabase.from("security_memory").insert({
+        organization_id: organizationId,
+        memory_type: "finding_state",
+        subject_id: null,
+        title: `New finding: ${candidate.title}`,
+        summary: candidate.summary,
+        state: "open",
+        data: {
+          finding_type: candidate.findingType,
+          severity: candidate.severity,
+          source_event_id: candidate.sourceEventId,
+          asset_id: candidate.assetId,
+          evidence: candidate.evidence,
+          memory_reason: "finding_created_from_evidence",
+        },
+      });
     }
 
     const highImpactEvidence = context.evidence.filter((item) => item.data?.severity === "high" || item.data?.severity === "critical").length;
