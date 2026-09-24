@@ -63,6 +63,38 @@ export default function SecurityBrainPage() {
     void loadGraph();
   }, []);
 
+
+  const [sourceAssetId, setSourceAssetId] = useState("");
+  const [targetAssetId, setTargetAssetId] = useState("");
+  const [relationshipType, setRelationshipType] = useState("depends_on");
+  const [addingRelationship, setAddingRelationship] = useState(false);
+
+  async function addRelationship(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAddingRelationship(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/security/relationships", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceAssetId, targetAssetId, relationshipType, confidence: 1, evidence: { source: "operator_provided", status: "operator_confirmed" } }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error ?? "Unable to create relationship.");
+        return;
+      }
+      setSourceAssetId("");
+      setTargetAssetId("");
+      setMessage("Relationship recorded as operator-confirmed evidence.");
+      await loadGraph();
+    } catch {
+      setMessage("Unable to create relationship.");
+    } finally {
+      setAddingRelationship(false);
+    }
+  }
+
   const assetMap = useMemo(
     () => new Map(assets.map((asset) => [asset.id, asset])),
     [assets]
@@ -196,6 +228,28 @@ export default function SecurityBrainPage() {
                   <p className="mt-2 text-xs leading-5 text-slate-600">The next intelligence layer is to connect assets such as User → AI Agent → Tool → API → Database.</p>
                 </div>
               )}
+
+
+              <div className="mt-6 rounded-2xl border border-white/10 bg-black/10 p-4">
+                <p className="text-xs font-semibold text-white">Connect known assets</p>
+                <p className="mt-1 text-[10px] leading-5 text-slate-600">Only create relationships you are authorized to confirm. SentinelX records the source of the relationship as evidence.</p>
+                <form onSubmit={addRelationship} className="mt-4 space-y-3">
+                  <select value={sourceAssetId} onChange={(e) => setSourceAssetId(e.target.value)} required className="w-full rounded-xl border border-white/10 bg-[#071018] px-3 py-3 text-xs text-white">
+                    <option value="">Source asset</option>
+                    {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
+                  </select>
+                  <select value={relationshipType} onChange={(e) => setRelationshipType(e.target.value)} className="w-full rounded-xl border border-white/10 bg-[#071018] px-3 py-3 text-xs text-white">
+                    {["hosts","resolves_to","depends_on","authenticates_to","connects_to","uses","reads_from","writes_to","calls","protects","managed_by","part_of"].map((type) => <option key={type} value={type}>{type.replaceAll("_"," ")}</option>)}
+                  </select>
+                  <select value={targetAssetId} onChange={(e) => setTargetAssetId(e.target.value)} required className="w-full rounded-xl border border-white/10 bg-[#071018] px-3 py-3 text-xs text-white">
+                    <option value="">Target asset</option>
+                    {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
+                  </select>
+                  <button disabled={addingRelationship} className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 px-3 py-3 text-xs font-semibold text-slate-950 disabled:opacity-50">
+                    {addingRelationship ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Recording...</> : <><GitBranch className="h-3.5 w-3.5" /> Connect assets</>}
+                  </button>
+                </form>
+              </div>
 
               <div className="mt-5 rounded-2xl border border-cyan-400/10 bg-cyan-400/[0.03] p-4">
                 <p className="text-xs font-semibold text-cyan-200">Evidence boundary</p>
