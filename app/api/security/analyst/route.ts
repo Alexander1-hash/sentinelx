@@ -52,11 +52,7 @@ async function getContext() {
     .eq("id", user.id)
     .maybeSingle();
 
-  return {
-    supabase,
-    user,
-    organizationId: profile?.organization_id ?? null,
-  };
+  return { supabase, user, organizationId: profile?.organization_id ?? null };
 }
 
 function severityWeight(value: string) {
@@ -74,62 +70,54 @@ async function runGroundedAI(question: string, context: {
 
   const model = process.env.OPENAI_SECURITY_MODEL || "gpt-5.6-luna";
 
-  const payload = {
-    model,
-    input: [
-      {
-        role: "system",
-        content: [
-          {
-            type: "input_text",
-            text:
-              "You are SentinelX Security Analyst. Analyze only the supplied security records. " +
-              "Never invent telemetry, compromise, attribution, vulnerabilities, identities, or remediation facts. " +
-              "Treat confirmed relationships as confirmed and everything else as unknown. " +
-              "Missing telemetry is not proof of safety. Do not claim an incident is confirmed unless the supplied evidence explicitly supports that conclusion. " +
-              "Do not execute or authorize actions. Recommend review steps only. " +
-              "Return concise analyst prose with these headings: Assessment, Evidence, Unknowns, Recommended next step.",
-          },
-        ],
-      },
-      {
-        role: "user",
-        content: [
-          {
-            type: "input_text",
-            text: JSON.stringify({
-              question,
-              findings: context.findings.slice(0, 20),
-              evidence: context.evidence.slice(0, 30),
-              confirmedRelationships: context.relationships.slice(0, 50),
-              assets: context.assets.slice(0, 50),
-            }),
-          },
-        ],
-      },
-    ],
-  };
-
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       Authorization: "Bearer " + apiKey,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      model,
+      input: [
+        {
+          role: "system",
+          content: [{
+            type: "input_text",
+            text:
+              "You are SentinelX Security Copilot. Analyze only supplied records. " +
+              "Never invent telemetry, compromise, vulnerabilities, attribution, identities, or remediation facts. " +
+              "Confirmed relationships are usable graph evidence; do not upgrade proposed or missing relationships. " +
+              "Missing telemetry is not proof of safety. Never execute, approve, or claim an action was executed. " +
+              "Give a concise response with exactly these sections: Assessment, Evidence, Unknowns, Recommended next step.",
+          }],
+        },
+        {
+          role: "user",
+          content: [{
+            type: "input_text",
+            text: JSON.stringify({
+              question,
+              findings: context.findings.slice(0, 20),
+              evidence: context.evidence.slice(0, 40),
+              confirmedRelationships: context.relationships.slice(0, 80),
+              assets: context.assets.slice(0, 80),
+            }),
+          }],
+        },
+      ],
+    }),
   });
 
   if (!response.ok) return null;
 
   const data = (await response.json()) as {
     output_text?: string;
-    output?: Array<{
-      content?: Array<{ type?: string; text?: string }>;
-    }>;
+    output?: Array<{ content?: Array<{ text?: string }> }>;
   };
 
-  const direct = typeof data.output_text === "string" ? data.output_text.trim() : "";
-  if (direct) return direct;
+  if (typeof data.output_text === "string" && data.output_text.trim()) {
+    return data.output_text.trim();
+  }
 
   const fallback = (data.output ?? [])
     .flatMap((item) => item.content ?? [])
@@ -145,6 +133,14 @@ export async function POST(request: Request) {
     const { supabase, user, organizationId } = await getContext();
 
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const body = (await request.json()) as { question?: string; findingId?: string };
+    let question = body.question?.trim() ?? "";
+
+    if (!question && !body.findingId) {
+      return NextResponse.json({ error: "A security question or finding ID is required." }, { status: 400 });
+    }
+
     if (!organizationId) {
       return NextResponse.json({
         answer: "No organization is connected, so SentinelX has no organization-scoped security evidence to analyze.",
@@ -152,13 +148,6 @@ export async function POST(request: Request) {
         boundary: "No inference was made.",
         aiUsed: false,
       });
-    }
-
-    const body = (await request.json()) as { question?: string };
-    const question = body.question?.trim();
-
-    if (!question) {
-      return NextResponse.json({ error: "A security question is required." }, { status: 400 });
     }
 
     const [findingsResult, evidenceResult, relationshipsResult, assetsResult] = await Promise.all([
@@ -174,18 +163,18 @@ export async function POST(request: Request) {
         .select("id,evidence_type,source,title,summary,observed_at,data")
         .eq("organization_id", organizationId)
         .order("observed_at", { ascending: false })
-        .limit(100),
+        .limit(150),
       supabase
         .from("security_asset_relationships")
         .select("id,source_asset_id,target_asset_id,relationship_type,confidence,evidence_source")
         .eq("organization_id", organizationId)
         .eq("status", "confirmed")
-        .limit(200),
+        .limit(300),
       supabase
         .from("security_assets")
         .select("id,name,asset_type,criticality,status")
         .eq("organization_id", organizationId)
-        .limit(200),
+        .limit(300),
     ]);
 
     const error = findingsResult.error ?? evidenceResult.error ?? relationshipsResult.error ?? assetsResult.error;
@@ -196,17 +185,42 @@ export async function POST(request: Request) {
     const relationships = (relationshipsResult.data ?? []) as RelationshipItem[];
     const assets = (assetsResult.data ?? []) as AssetItem[];
 
-    const rankedFindings = [...findings]
-      .sort((a, b) => severityWeight(b.severity) - severityWeight(a.severity))
-      .slice(0, 5);
+    let selectedFinding: FindingItem | null = null;
 
-    const normalized = question.toLowerCase();
-    const relevantEvidence = evidence.filter((item) => {
-      const haystack = [item.title, item.summary ?? "", item.source, item.evidence_type].join(" ").toLowerCase();
-      return normalized.split(/\s+/).some((term) => term.length > 3 && haystack.includes(term));
-    }).slice(0, 8);
+    if (body.findingId) {
+      selectedFinding = findings.find((finding) => finding.id === body.findingId) ?? null;
+      if (!selectedFinding) {
+        return NextResponse.json({ error: "Finding was not found in the current organization." }, { status: 404 });
+      }
+      question = question || "Explain this finding, the evidence supporting it, the confirmed graph context, the unknowns, and the safest authorized next step.";
+    }
 
-    const citedEvidence = (relevantEvidence.length ? relevantEvidence : evidence.slice(0, 5)).map((item) => ({
+    const rankedFindings = selectedFinding
+      ? [selectedFinding, ...findings.filter((finding) => finding.id !== selectedFinding?.id)].slice(0, 10)
+      : [...findings].sort((a, b) => severityWeight(b.severity) - severityWeight(a.severity)).slice(0, 10);
+
+    const selectedEvidence = selectedFinding
+      ? evidence.filter((item) => {
+          const haystack = [item.title, item.summary ?? "", item.source, item.evidence_type].join(" ").toLowerCase();
+          const findingTerms = [
+            selectedFinding?.title ?? "",
+            selectedFinding?.finding_type ?? "",
+            selectedFinding?.asset_id ?? "",
+          ].join(" ").toLowerCase().split(/\s+/).filter((term) => term.length > 3);
+          return findingTerms.some((term) => haystack.includes(term));
+        }).slice(0, 15)
+      : evidence.slice(0, 20);
+
+    const evidenceForAI = selectedEvidence.length ? selectedEvidence : evidence.slice(0, 20);
+
+    const aiAnswer = await runGroundedAI(question, {
+      findings: rankedFindings,
+      evidence: evidenceForAI,
+      relationships,
+      assets,
+    });
+
+    const citedEvidence = evidenceForAI.slice(0, 10).map((item) => ({
       id: item.id,
       title: item.title,
       source: item.source,
@@ -214,44 +228,33 @@ export async function POST(request: Request) {
       summary: item.summary,
     }));
 
-    const aiAnswer = await runGroundedAI(question, {
-      findings: rankedFindings,
-      evidence: relevantEvidence.length ? relevantEvidence : evidence.slice(0, 20),
-      relationships,
-      assets,
-    });
-
-    const top = rankedFindings[0];
-
-    const deterministicAnswer = top
-      ? "The stored Security Brain data contains an open finding requiring review. SentinelX has limited its conclusion to recorded findings, evidence, assets, and confirmed relationships; missing telemetry is not treated as proof of safety or compromise."
-      : "There are currently no open or acknowledged findings in the stored Security Brain data. That does not establish that the environment is secure because telemetry coverage may be incomplete.";
-
     return NextResponse.json({
-      answer: aiAnswer ?? deterministicAnswer,
+      answer: aiAnswer ?? (
+        selectedFinding
+          ? "This finding is supported only by the recorded finding data and available evidence. Review the cited evidence and confirmed graph context before taking action."
+          : "SentinelX found no available AI response. Review the recorded findings and evidence directly."
+      ),
       question,
       aiUsed: Boolean(aiAnswer),
-      model: aiAnswer ? (process.env.OPENAI_SECURITY_MODEL || "gpt-5.6-luna") : null,
-      topFinding: top ? {
-        id: top.id,
-        title: top.title,
-        severity: top.severity,
-        summary: top.summary,
-        remediation: top.remediation,
-      } : null,
-      findingsReviewed: findings.length,
-      evidenceReviewed: evidence.length,
+      model: aiAnswer ? modelName() : null,
+      finding: selectedFinding,
+      findingsReviewed: rankedFindings.length,
+      evidenceReviewed: evidenceForAI.length,
       confirmedRelationshipsReviewed: relationships.length,
       assetsReviewed: assets.length,
       evidence: citedEvidence,
-      suggestedNextStep: top
-        ? "Validate the cited evidence, inspect the confirmed graph context, and use Security Actions only if an authorized response is appropriate."
-        : "Connect authorized telemetry sources and register protected assets before drawing stronger conclusions.",
+      suggestedNextStep: selectedFinding
+        ? "Validate the finding evidence, inspect its confirmed graph context, and create a Security Action only when an authorized response is appropriate."
+        : "Review the highest-severity finding and its evidence before creating a response recommendation.",
       boundary: aiAnswer
         ? "AI-assisted analysis grounded only in organization-scoped SentinelX records. The model cannot execute or authorize response actions."
-        : "Deterministic evidence-grounded analysis. OPENAI_API_KEY was unavailable or the AI request was unsuccessful, so no external AI conclusion was used.",
+        : "Deterministic evidence-grounded analysis. No unsupported AI conclusion was used.",
     });
   } catch {
     return NextResponse.json({ error: "Security analyst could not complete the analysis." }, { status: 500 });
   }
+}
+
+function modelName() {
+  return process.env.OPENAI_SECURITY_MODEL || "gpt-5.6-luna";
 }
