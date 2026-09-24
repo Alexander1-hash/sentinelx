@@ -58,7 +58,7 @@ export async function GET() {
       });
     }
 
-    const [systemsResult, agentsResult, eventsResult] = await Promise.all([
+    const [systemsResult, agentsResult, eventsResult, relationshipsResult, assetsResult] = await Promise.all([
       supabase
         .from("ai_security_systems")
         .select("id,asset_id,name,provider,model,system_type,environment,data_classification,status,capabilities,permissions,metadata,created_at,updated_at")
@@ -77,16 +77,30 @@ export async function GET() {
         .eq("organization_id", organizationId)
         .order("observed_at", { ascending: false })
         .limit(100),
+      supabase
+        .from("security_asset_relationships")
+        .select("id,source_asset_id,target_asset_id,relationship_type,confidence,status,evidence_source")
+        .eq("organization_id", organizationId)
+        .eq("status", "confirmed")
+        .limit(500),
+      supabase
+        .from("security_assets")
+        .select("id,name,asset_type,criticality,status")
+        .eq("organization_id", organizationId)
+        .limit(500),
     ]);
 
-    const error = systemsResult.error ?? agentsResult.error ?? eventsResult.error;
+    const error = systemsResult.error ?? agentsResult.error ?? eventsResult.error ?? relationshipsResult.error ?? assetsResult.error;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const systems = systemsResult.data ?? [];
     const agents = agentsResult.data ?? [];
     const events = eventsResult.data ?? [];
+    const relationships = relationshipsResult.data ?? [];
+    const assets = assetsResult.data ?? [];
+    const assetMap = new Map(assets.map((asset) => [asset.id, asset]));
 
-    const indicators = [
+    const graphPaths = systems.flatMap((system) => {\n      if (!system.asset_id) return [];\n      return relationships\n        .filter((edge) => edge.source_asset_id === system.asset_id || edge.target_asset_id === system.asset_id)\n        .map((edge) => ({\n          ...edge,\n          system_name: system.name,\n          source_name: assetMap.get(edge.source_asset_id)?.name ?? "Unknown asset",\n          target_name: assetMap.get(edge.target_asset_id)?.name ?? "Unknown asset",\n        }));\n    });\n\n    const indicators = [
       ...agents
         .filter((agent) => agent.autonomy_level === "autonomous")
         .map((agent) =>
@@ -162,7 +176,7 @@ export async function POST(request: Request) {
     if (!organizationId) return NextResponse.json({ error: "No organization is connected." }, { status: 400 });
 
     const body = await request.json();
-    const kind = body?.kind;
+    const kind = body?.kind;\n\n    if (kind === "analyze") {\n      const [systemsResult, agentsResult, eventsResult, evidenceResult, relationshipsResult] = await Promise.all([\n        supabase.from("ai_security_systems").select("id,name,asset_id,data_classification,status").eq("organization_id", organizationId),\n        supabase.from("ai_security_agents").select("id,name,system_id,autonomy_level,tools,permissions,data_access,status").eq("organization_id", organizationId),\n        supabase.from("ai_security_events").select("id,agent_id,system_id,event_type,severity,title,observed_at,evidence").eq("organization_id", organizationId).order("observed_at", { ascending: false }).limit(200),\n        supabase.from("security_evidence").select("id,asset_id,evidence_type,title,summary,data,observed_at").eq("organization_id", organizationId).order("observed_at", { ascending: false }).limit(200),\n        supabase.from("security_asset_relationships").select("source_asset_id,target_asset_id,relationship_type,confidence,status").eq("organization_id", organizationId).eq("status", "confirmed").limit(500),\n      ]);\n      const error = systemsResult.error ?? agentsResult.error ?? eventsResult.error ?? evidenceResult.error ?? relationshipsResult.error;\n      if (error) return NextResponse.json({ error: error.message }, { status: 500 });\n      const systems = systemsResult.data ?? [];\n      const agents = agentsResult.data ?? [];\n      const events = eventsResult.data ?? [];\n      const evidence = evidenceResult.data ?? [];\n      const relationships = relationshipsResult.data ?? [];\n      const observations = [];\n      for (const agent of agents) {\n        const tools = asArray(agent.tools);\n        const dataAccess = asArray(agent.data_access);\n        if (agent.autonomy_level === "autonomous" && (tools.length || dataAccess.length)) {\n          observations.push({ state: "potential", title: "Autonomous capability requires review", detail: agent.name + " is autonomous and has " + tools.length + " declared tool(s) plus " + dataAccess.length + " declared data scope(s). This is an observed configuration, not proof of unsafe behavior." });\n        }\n        if (!agent.system_id) observations.push({ state: "unknown", title: "Agent system relationship unknown", detail: agent.name + " is registered without a linked AI system." });\n      }\n      for (const system of systems) {\n        if ((system.data_classification === "confidential" || system.data_classification === "restricted") && !system.asset_id) {\n          observations.push({ state: "potential", title: "Sensitive AI system is not graph linked", detail: system.name + " is registered with " + system.data_classification + " data classification but has no linked security asset." });\n        }\n      }\n      const highImpact = events.filter((event) => event.severity === "high" || event.severity === "critical");\n      for (const event of highImpact.slice(0, 20)) observations.push({ state: "observed", title: event.title, detail: "Recorded as " + event.severity + " AI security telemetry." });\n      const sensitiveEvidence = evidence.filter((item) => ["confidential", "restricted"].includes(String(item.data?.data_classification)));\n      const connectedAiEdges = relationships.filter((edge) => ["calls", "reads_from", "writes_to", "uses"].includes(edge.relationship_type));\n      return NextResponse.json({\n        analyzed: true,\n        observations: observations.slice(0, 50),\n        summary: {\n          systems: systems.length, agents: agents.length, highImpactEvents: highImpact.length, sensitiveEvidence: sensitiveEvidence.length, confirmedAiRelevantEdges: connectedAiEdges.length,\n        },\n        boundary: "This posture analysis reports observed configuration, telemetry and confirmed graph relationships. Potential means a condition deserves review; it does not mean compromise or malicious behavior was established.",\n      });\n    }
 
     if (kind === "system") {
       const name = typeof body.name === "string" ? body.name.trim() : "";
