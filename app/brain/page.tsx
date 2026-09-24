@@ -33,6 +33,7 @@ export default function SecurityBrainPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [reviewingId, setReviewingId] = useState("");
+  const [discovering, setDiscovering] = useState(false);
 
   const [sourceAssetId, setSourceAssetId] = useState("");
   const [targetAssetId, setTargetAssetId] = useState("");
@@ -109,6 +110,35 @@ export default function SecurityBrainPage() {
     }
   }
 
+  async function runDiscovery() {
+    setDiscovering(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/security/discovery", {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error ?? "Unable to run relationship discovery.");
+        return;
+      }
+
+      setMessage(
+        data.candidatesCreated
+          ? `${data.candidatesCreated} new relationship candidate${data.candidatesCreated === 1 ? "" : "s"} discovered. Review them before confirmation.`
+          : data.message ?? "No new relationship candidates were discovered."
+      );
+      await loadGraph();
+    } catch {
+      setMessage("Unable to run Security Brain discovery.");
+    } finally {
+      setDiscovering(false);
+    }
+  }
+
   async function reviewRelationship(id: string, status: "confirmed" | "rejected") {
     setReviewingId(id);
     setMessage("");
@@ -180,9 +210,19 @@ export default function SecurityBrainPage() {
               <p className="text-[11px] text-slate-500">Evidence-backed Security Graph</p>
             </div>
           </div>
-          <Link href="/" className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-white">
-            <ArrowLeft className="h-3.5 w-3.5" /> Command Center
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void runDiscovery()}
+              disabled={discovering || loading || !assets.length}
+              className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-200 disabled:opacity-50"
+            >
+              {discovering ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {discovering ? "Discovering..." : "Run discovery"}
+            </button>
+            <Link href="/" className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-white">
+              <ArrowLeft className="h-3.5 w-3.5" /> Command Center
+            </Link>
+          </div>
         </div>
       </header>
 
