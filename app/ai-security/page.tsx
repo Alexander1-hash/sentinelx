@@ -388,7 +388,7 @@ export default function AiSecurityCenterPage() {
 
           <div className="mt-5 space-y-3">
             {findings.length ? findings.slice(0, 12).map((finding) => {
-              const intel = intel;
+              const intel = findingIntel[finding.id];
               return (
               <div key={finding.id} className="rounded-2xl border border-white/10 bg-black/10 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
