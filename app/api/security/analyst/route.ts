@@ -279,6 +279,24 @@ export async function POST(request: Request) {
       };
     }
 
+    if (selectedFinding && body.mode === "investigate" && organizationId) {
+      await supabase.from("security_memory").insert({
+        organization_id: organizationId,
+        memory_type: "investigation",
+        subject_id: selectedFinding.id,
+        title: `Investigation: ${selectedFinding.title}`,
+        summary: `SentinelX investigated this finding using recorded evidence and confirmed graph relationships. ${investigation?.blastRadius.length ?? 0} downstream asset(s) were established.`,
+        data: {
+          finding_id: selectedFinding.id,
+          affected_asset_id: investigation?.affectedAsset?.id ?? null,
+          blast_radius_count: investigation?.blastRadius.length ?? 0,
+          supporting_evidence_count: investigation?.supportingEvidence.length ?? 0,
+          unknowns: investigation?.unknowns ?? [],
+          mode: "investigate",
+        },
+      });
+    }
+
     const aiAnswer = await runGroundedAI(question, {
       findings: rankedFindings,
       evidence: evidenceForAI,
