@@ -486,6 +486,16 @@ export default function SecurityBrainPage() {
                       <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-200">Copilot analysis</p>
                       <p className="mt-2 whitespace-pre-wrap text-[10px] leading-5 text-slate-400">{copilotAnswer}</p>
                       {copilotInvestigation && (
+                        <button
+                          disabled={responsePlanFindingId === finding.id}
+                          onClick={() => void createResponsePlan(finding.id)}
+                          className="mt-3 inline-flex items-center gap-2 rounded-xl bg-orange-300 px-3 py-2 text-[10px] font-semibold text-slate-950 disabled:opacity-50"
+                        >
+                          {responsePlanFindingId === finding.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+                          {responsePlanFindingId === finding.id ? "Preparing response plan..." : "Create grounded response plan"}
+                        </button>
+                      )}
+                      {copilotInvestigation && (
                         <div className="mt-4 space-y-3 border-t border-cyan-400/10 pt-3">
                           <div>
                             <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-200">Investigation context</p>
