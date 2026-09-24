@@ -208,6 +208,23 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    await supabase.from("security_memory").insert({
+      organization_id: organizationId,
+      memory_type: "operator_decision",
+      subject_id: data.id,
+      title: body.status === "approved" ? "Operator authorized a security action" : "Operator cancelled a security action",
+      summary: body.status === "approved"
+        ? `The operator authorized ${data.action_type}. No external action was executed by SentinelX.`
+        : `The operator cancelled ${data.action_type}. No external action was executed by SentinelX.`,
+      data: {
+        action_id: data.id,
+        finding_id: data.finding_id,
+        action_type: data.action_type,
+        status: data.status,
+        authorization: data.authorization,
+      },
+    });
+
     return NextResponse.json({
       action: data,
       message: body.status === "approved"
