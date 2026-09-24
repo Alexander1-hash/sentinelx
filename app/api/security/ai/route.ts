@@ -47,6 +47,7 @@ export async function GET() {
         agents: [],
         events: [],
         indicators: [],
+        graphPaths: [],
         summary: {
           systems: 0,
           agents: 0,
