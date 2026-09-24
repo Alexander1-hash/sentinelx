@@ -387,7 +387,9 @@ export default function AiSecurityCenterPage() {
           </div>
 
           <div className="mt-5 space-y-3">
-            {findings.length ? findings.slice(0, 12).map((finding) => (
+            {findings.length ? findings.slice(0, 12).map((finding) => {
+              const intel = intel;
+              return (
               <div key={finding.id} className="rounded-2xl border border-white/10 bg-black/10 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -418,29 +420,29 @@ export default function AiSecurityCenterPage() {
                   {intelLoadingId === finding.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Network className="h-3 w-3" />}
                   {intelLoadingId === finding.id ? "Mapping blast radius…" : expandedFindingId === finding.id ? "Hide finding intelligence" : "Map blast radius & evidence"}
                 </button>
-                {expandedFindingId === finding.id && findingIntel[finding.id] && (
+                {expandedFindingId === finding.id && intel && (
                   <div className="mt-3 space-y-3 rounded-2xl border border-purple-400/10 bg-purple-400/[0.025] p-4">
                     <div className="grid gap-2 sm:grid-cols-2">
                       <div className="rounded-xl border border-white/10 p-3">
                         <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Affected asset</p>
-                        <p className="mt-1 text-xs font-medium text-white">{findingIntel[finding.id].affectedAsset?.name ?? "Not established"}</p>
-                        {findingIntel[finding.id].affectedAsset ? (
+                        <p className="mt-1 text-xs font-medium text-white">{intel.affectedAsset?.name ?? "Not established"}</p>
+                        {intel.affectedAsset ? (
                           <p className="mt-1 text-[9px] capitalize text-slate-600">
-                            {findingIntel[finding.id].affectedAsset.asset_type.replaceAll("_", " ")} · {findingIntel[finding.id].affectedAsset.criticality}
+                            {intel.affectedAsset.asset_type.replaceAll("_", " ")} · {intel.affectedAsset.criticality}
                           </p>
                         ) : null}
                       </div>
                       <div className="rounded-xl border border-purple-400/10 p-3">
                         <p className="text-[9px] font-semibold uppercase tracking-wider text-purple-300">Confirmed reachability</p>
-                        <p className="mt-1 text-xs font-medium text-white">{findingIntel[finding.id].blastRadius.length} downstream asset{findingIntel[finding.id].blastRadius.length === 1 ? "" : "s"}</p>
+                        <p className="mt-1 text-xs font-medium text-white">{intel.blastRadius.length} downstream asset{intel.blastRadius.length === 1 ? "" : "s"}</p>
                       </div>
                     </div>
 
-                    {findingIntel[finding.id].blastRadius.length > 0 && (
+                    {intel.blastRadius.length > 0 && (
                       <div>
                         <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Blast radius context</p>
                         <div className="mt-2 space-y-2">
-                          {findingIntel[finding.id].blastRadius.slice(0, 8).map((item) => (
+                          {intel.blastRadius.slice(0, 8).map((item) => (
                             <div key={item.asset.name + item.hops} className="rounded-xl border border-white/10 p-3">
                               <div className="flex items-center justify-between gap-2">
                                 <p className="text-[10px] font-medium text-white">{item.asset.name}</p>
@@ -455,9 +457,9 @@ export default function AiSecurityCenterPage() {
 
                     <div>
                       <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Supporting evidence</p>
-                      {findingIntel[finding.id].supportingEvidence.length ? (
+                      {intel.supportingEvidence.length ? (
                         <div className="mt-2 space-y-2">
-                          {findingIntel[finding.id].supportingEvidence.slice(0, 6).map((item) => (
+                          {intel.supportingEvidence.slice(0, 6).map((item) => (
                             <div key={item.id} className="rounded-xl border border-white/10 p-3">
                               <p className="text-[10px] font-medium text-white">{item.title}</p>
                               <p className="mt-1 text-[9px] text-slate-600">{item.evidence_type} · {item.source}</p>
@@ -471,13 +473,14 @@ export default function AiSecurityCenterPage() {
                     <div className="rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3">
                       <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-200">Unknowns & boundary</p>
                       <ul className="mt-2 space-y-1">
-                        {findingIntel[finding.id].unknowns.map((unknown) => <li key={unknown} className="text-[9px] leading-4 text-slate-600">• {unknown}</li>)}
+                        {intel.unknowns.map((unknown) => <li key={unknown} className="text-[9px] leading-4 text-slate-600">• {unknown}</li>)}
                       </ul>
                     </div>
                   </div>
                 )}
               </div>
-            )) : (
+              );
+            }) : (
               <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
                 <ShieldCheck className="mx-auto h-5 w-5 text-slate-700" />
                 <p className="mt-3 text-sm font-medium text-slate-400">{findingsLoading ? "Loading findings…" : "No evidence-backed findings recorded yet."}</p>
