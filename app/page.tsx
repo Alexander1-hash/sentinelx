@@ -132,12 +132,15 @@ type SecurityOverview = {
   }>;
 };
 
+type SecurityAttention = { items: Array<{ id: string; kind: "finding" | "event" | "action"; priority: "high" | "medium"; title: string; detail: string; observedAt: string; href: string }>; summary: { high: number; medium: number } };
+
 export default function DashboardPage() {
   const [user, setUser] = useState<UserState>({ email: "", displayName: "" });
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
   const [overview, setOverview] = useState<SecurityOverview | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(true);
+  const [attention, setAttention] = useState<SecurityAttention | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -167,6 +170,8 @@ export default function DashboardPage() {
         if (response.ok) {
           setOverview((await response.json()) as SecurityOverview);
         }
+        const attentionResponse = await fetch("/api/security/attention", { cache: "no-store" });
+        if (attentionResponse.ok) setAttention((await attentionResponse.json()) as SecurityAttention);
       } finally {
         setOverviewLoading(false);
       }
@@ -280,6 +285,14 @@ export default function DashboardPage() {
       </header>
 
       <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 sm:py-8">
+        <section className="mb-5 rounded-3xl border border-amber-400/10 bg-amber-400/[0.025] p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div><p className="text-xs font-semibold uppercase tracking-wider text-amber-200">Continuous security attention</p><p className="mt-1 text-[11px] text-slate-500">Recorded signals requiring human review.</p></div>
+            <div className="flex gap-2 text-[9px]"><span className="rounded-full bg-rose-400/10 px-2 py-1 text-rose-200">{attention?.summary.high ?? 0} high-impact</span><span className="rounded-full bg-amber-400/10 px-2 py-1 text-amber-200">{attention?.summary.medium ?? 0} pending</span></div>
+          </div>
+          {attention?.items.length ? <div className="mt-4 space-y-2">{attention.items.slice(0,5).map((item) => <a key={item.kind+item.id} href={item.href} className="block rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-xs font-medium text-white">{item.title}</p><p className="mt-1 text-[10px] text-slate-600">{item.detail}</p></a>)}</div> : <div className="mt-4 rounded-2xl border border-dashed border-white/10 p-4 text-[10px] text-slate-600">No recorded high-impact findings, events, or pending actions require attention.</div>}
+        </section>
+
         <section id="command-center" className="grid gap-5 xl:grid-cols-[1.55fr_0.45fr]">
           <div className="relative overflow-hidden rounded-3xl border border-cyan-400/15 bg-gradient-to-br from-cyan-400/[0.08] via-white/[0.03] to-transparent p-6 sm:p-8">
             <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
