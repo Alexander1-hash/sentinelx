@@ -27,6 +27,11 @@ type Integration = {
   created_at: string;
 };
 
+type TokenNotice = {
+  integrationName: string;
+  token: string;
+};
+
 const catalog = [
   {
     provider: "Cloud",
@@ -69,6 +74,8 @@ export default function IntegrationsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [tokenNotice, setTokenNotice] = useState<TokenNotice | null>(null);
+  const [rotatingId, setRotatingId] = useState<string | null>(null);
 
   async function loadIntegrations() {
     setLoading(true);
@@ -85,6 +92,33 @@ export default function IntegrationsPage() {
   useEffect(() => {
     void loadIntegrations();
   }, []);
+
+  async function rotateToken(integration: Integration) {
+    setRotatingId(integration.id);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/security/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "rotate_token", integrationId: integration.id }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error ?? "Unable to rotate the ingestion token.");
+        return;
+      }
+
+      if (data.token) {
+        setTokenNotice({ integrationName: integration.display_name, token: data.token });
+        setMessage("The previous ingestion token is no longer valid.");
+      }
+      await loadIntegrations();
+    } finally {
+      setRotatingId(null);
+    }
+  }
 
   async function registerIntegration(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -112,6 +146,9 @@ export default function IntegrationsPage() {
 
       setMessage("Integration registered. SentinelX is ready for an authorized connection.");
       setOpen(false);
+      if (data.token && data.integration?.display_name) {
+        setTokenNotice({ integrationName: data.integration.display_name, token: data.token });
+      }
       await loadIntegrations();
     } finally {
       setSaving(false);
@@ -217,9 +254,19 @@ export default function IntegrationsPage() {
                       <span key={scope} className="rounded-full border border-white/10 px-2 py-1 text-[9px] text-slate-500">{scope.replaceAll("_", " ")}</span>
                     ))}
                   </div>
-                  <p className="mt-3 text-[10px] text-slate-600">
-                    {integration.last_sync_at ? `Last sync: ${new Date(integration.last_sync_at).toLocaleString()}` : "Not connected · no telemetry is being claimed."}
-                  </p>
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-[10px] text-slate-600">
+                      {integration.last_sync_at ? `Last sync: ${new Date(integration.last_sync_at).toLocaleString()}` : "Not connected · no telemetry is being claimed."}
+                    </p>
+                    <button
+                      onClick={() => void rotateToken(integration)}
+                      disabled={rotatingId === integration.id}
+                      className="inline-flex w-fit items-center gap-2 rounded-lg border border-cyan-400/15 px-3 py-2 text-[10px] font-semibold text-cyan-200 hover:bg-cyan-400/5 disabled:opacity-50"
+                    >
+                      {rotatingId === integration.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <KeyRound className="h-3.5 w-3.5" />}
+                      Rotate ingestion token
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -234,6 +281,41 @@ export default function IntegrationsPage() {
           )}
         </section>
       </div>
+
+
+      {tokenNotice && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-3xl border border-cyan-400/20 bg-[#0b151f] p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">One-time credential</p>
+                <h2 className="mt-2 text-xl font-semibold text-white">Ingestion token created</h2>
+              </div>
+              <button onClick={() => setTokenNotice(null)} className="rounded-lg p-2 text-slate-500 hover:text-white">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-slate-400">
+              Use this token only from an authorized telemetry source for <strong className="text-white">{tokenNotice.integrationName}</strong>. SentinelX stores only a hash and will not show this token again.
+            </p>
+            <div className="mt-5 break-all rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-xs text-cyan-200">
+              {tokenNotice.token}
+            </div>
+            <button
+              onClick={() => {
+                void navigator.clipboard?.writeText(tokenNotice.token);
+                setMessage("Ingestion token copied. Store it securely.");
+              }}
+              className="mt-4 w-full rounded-xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950"
+            >
+              Copy token
+            </button>
+            <p className="mt-3 text-[10px] leading-5 text-slate-600">
+              Rotating the token immediately invalidates the previous token. Never place it in client-side code, public repositories, or chat.
+            </p>
+          </div>
+        </div>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center">
