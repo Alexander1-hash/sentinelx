@@ -15,7 +15,7 @@ type Asset = {
   metadata: { onboarding?: { telemetry?: string } } | null;
 };
 
-type Relationship = {
+type Finding = {\n  id: string;\n  asset_id: string | null;\n  title: string;\n  finding_type: string;\n  severity: "low" | "medium" | "high" | "critical";\n  status: "open" | "acknowledged" | "resolved" | "dismissed";\n  summary: string | null;\n  remediation: string | null;\n  detected_at: string;\n};\n\ntype Relationship = {
   id: string;
   source_asset_id: string;
   target_asset_id: string;
@@ -33,7 +33,7 @@ export default function SecurityBrainPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [reviewingId, setReviewingId] = useState("");
-  const [discovering, setDiscovering] = useState(false);
+  const [discovering, setDiscovering] = useState(false);\n  const [analyzing, setAnalyzing] = useState(false);\n  const [findings, setFindings] = useState<Finding[]>([]);
 
   const [sourceAssetId, setSourceAssetId] = useState("");
   const [targetAssetId, setTargetAssetId] = useState("");
@@ -45,11 +45,11 @@ export default function SecurityBrainPage() {
     try {
       const [assetsResponse, relationshipsResponse] = await Promise.all([
         fetch("/api/security/assets", { cache: "no-store" }),
-        fetch("/api/security/relationships", { cache: "no-store" }),
+        fetch("/api/security/relationships", { cache: "no-store" }),\n        fetch("/api/security/analysis", { cache: "no-store" }),
       ]);
 
       const assetsData = await assetsResponse.json();
-      const relationshipsData = await relationshipsResponse.json();
+      const relationshipsData = await relationshipsResponse.json();\n      const findingsData = await (async () => {\n        try { return await fetch("/api/security/analysis", { cache: "no-store" }).then((response) => response.json()); } catch { return { findings: [] }; }\n      })();
 
       if (!assetsResponse.ok) {
         setMessage(assetsData.error ?? "Unable to load assets.");
@@ -62,7 +62,7 @@ export default function SecurityBrainPage() {
       }
 
       setAssets(assetsData.assets ?? []);
-      setRelationships(relationshipsData.relationships ?? []);
+      setRelationships(relationshipsData.relationships ?? []);\n      setFindings(findingsData.findings ?? []);
     } catch {
       setMessage("Security Graph could not be loaded.");
     } finally {
@@ -110,7 +110,7 @@ export default function SecurityBrainPage() {
     }
   }
 
-  async function runDiscovery() {
+  async function runAnalysis() {\n    setAnalyzing(true);\n    setMessage("");\n\n    try {\n      const response = await fetch("/api/security/analysis", { method: "POST" });\n      const data = await response.json();\n      if (!response.ok) {\n        setMessage(data.error ?? "Unable to analyze security evidence.");\n        return;\n      }\n      setMessage(data.message ?? "Security Brain analysis completed.");\n      await loadGraph();\n    } catch {\n      setMessage("Unable to run Security Brain analysis.");\n    } finally {\n      setAnalyzing(false);\n    }\n  }\n\n  async function runDiscovery() {
     setDiscovering(true);
     setMessage("");
 
@@ -212,7 +212,7 @@ export default function SecurityBrainPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => void runDiscovery()}
+              onClick={() => void runAnalysis()}\n              disabled={analyzing || loading || !assets.length}\n              className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-200 disabled:opacity-50"\n            >\n              {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BrainCircuit className="h-3.5 w-3.5" />}\n              {analyzing ? "Analyzing..." : "Analyze evidence"}\n            </button>\n            <button\n              onClick={() => void runDiscovery()}
               disabled={discovering || loading || !assets.length}
               className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-200 disabled:opacity-50"
             >
@@ -256,7 +256,7 @@ export default function SecurityBrainPage() {
           </div>
         </div>
 
-        {message && (
+        {findings.length > 0 && (\n          <section className="mt-6 rounded-3xl border border-rose-400/10 bg-rose-400/[0.025] p-5 sm:p-6">\n            <div className="flex items-center justify-between gap-3">\n              <div>\n                <p className="text-xs font-semibold uppercase tracking-wider text-rose-200">Evidence-backed findings</p>\n                <p className="mt-1 text-[10px] leading-5 text-slate-600">Created only from observed high-impact security or AI security events.</p>\n              </div>\n              <span className="rounded-full bg-white/5 px-2 py-1 text-[9px] uppercase tracking-wider text-slate-500">{findings.length} open</span>\n            </div>\n            <div className="mt-4 grid gap-3 md:grid-cols-2">\n              {findings.filter((finding) => finding.status === "open" || finding.status === "acknowledged").map((finding) => (\n                <div key={finding.id} className="rounded-2xl border border-white/10 bg-black/10 p-4">\n                  <div className="flex items-start justify-between gap-3">\n                    <p className="text-sm font-medium text-white">{finding.title}</p>\n                    <span className="rounded-full bg-white/5 px-2 py-1 text-[9px] uppercase tracking-wider text-rose-200">{finding.severity}</span>\n                  </div>\n                  <p className="mt-2 text-[11px] leading-5 text-slate-500">{finding.summary ?? "Evidence-backed finding requiring investigation."}</p>\n                  <p className="mt-3 text-[10px] text-slate-600">Type: {finding.finding_type.replaceAll("_", " ")}</p>\n                  {finding.remediation && <p className="mt-2 text-[10px] leading-5 text-slate-600">Next step: {finding.remediation}</p>}\n                </div>\n              ))}\n            </div>\n          </section>\n        )}\n\n        {message && (
           <div className="mt-5 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.03] p-4 text-sm text-cyan-200">
             {message}
           </div>
