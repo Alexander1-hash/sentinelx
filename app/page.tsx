@@ -14,6 +14,7 @@ import {
   Database,
   Globe2,
   KeyRound,
+  Link2,
   LogOut,
   Network,
   Radar,
@@ -101,6 +102,7 @@ const navigation = [
   { label: "Command Center", href: "#command-center", icon: Radar },
   { label: "Assets", href: "/assets", icon: Boxes },
   { label: "Security Brain", href: "/brain", icon: BrainCircuit },
+  { label: "Integrations", href: "/integrations", icon: Link2 },
   { label: "Activity", href: "#activity", icon: Activity },
 ];
 
