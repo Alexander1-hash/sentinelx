@@ -202,6 +202,38 @@ export default function AiSecurityCenterPage() {
     setCreatingFindings(false);
   }
 
+  async function loadFindingIntelligence(findingId: string) {
+    if (expandedFindingId === findingId && findingIntel[findingId]) {
+      setExpandedFindingId(null);
+      return;
+    }
+
+    setIntelLoadingId(findingId);
+    setMessage("");
+    try {
+      const response = await fetch("/api/security/findings/" + findingId + "/intelligence", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) {
+        setMessage(result.error ?? "Finding intelligence could not be loaded.");
+        return;
+      }
+
+      setFindingIntel((current) => ({
+        ...current,
+        [findingId]: {
+          affectedAsset: result.affectedAsset ?? null,
+          blastRadius: result.blastRadius ?? [],
+          supportingEvidence: result.supportingEvidence ?? [],
+          unknowns: result.unknowns ?? [],
+        },
+      }));
+      setExpandedFindingId(findingId);
+    } catch {
+      setMessage("Finding intelligence could not be loaded.");
+    } finally {
+      setIntelLoadingId(null);
+    }
+  }
   async function submit() {
     setMessage("");
     const payload = modal === "system"
