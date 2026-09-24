@@ -103,6 +103,7 @@ const navigation = [
   { label: "Command Center", href: "#command-center", icon: Radar },
   { label: "Assets", href: "/assets", icon: Boxes },
   { label: "Security Brain", href: "/brain", icon: BrainCircuit },
+  { label: "Security Analyst", href: "/analyst", icon: BrainCircuit },
   { label: "Actions", href: "/actions", icon: ShieldAlert },
   { label: "Integrations", href: "/integrations", icon: Link2 },
   { label: "Activity", href: "#activity", icon: Activity },
