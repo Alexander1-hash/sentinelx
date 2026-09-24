@@ -24,7 +24,6 @@ import {
   Sparkles,
   UserRound,
   Wifi,
-  XCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -38,6 +37,13 @@ type Surface = {
   description: string;
   icon: typeof Globe2;
   status: "ready" | "coming";
+};
+
+type Metric = {
+  label: string;
+  value: string;
+  detail: string;
+  icon: typeof Boxes;
 };
 
 const surfaces: Surface[] = [
@@ -96,6 +102,13 @@ const navigation = [
   { label: "Assets", href: "#assets", icon: Boxes },
   { label: "Security Brain", href: "#brain", icon: BrainCircuit },
   { label: "Activity", href: "#activity", icon: Activity },
+];
+
+const metrics: Metric[] = [
+  { label: "Protected assets", value: "0", detail: "Connect your first surface", icon: Boxes },
+  { label: "Open findings", value: "0", detail: "No evidence loaded", icon: AlertTriangle },
+  { label: "Security events", value: "0", detail: "Telemetry not connected", icon: Activity },
+  { label: "Attack paths", value: "0", detail: "Graph builds from real relationships", icon: Network },
 ];
 
 export default function DashboardPage() {
@@ -279,13 +292,8 @@ export default function DashboardPage() {
         </section>
 
         <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            ["Protected assets", "0", "Connect your first surface", Boxes],
-            ["Open findings", "0", "No evidence loaded", AlertTriangle],
-            ["Security events", "0", "Telemetry not connected", Activity],
-            ["Attack paths", "0", "Graph builds from real relationships", Network],
-          ].map(([label, value, detail, Icon]) => (
-            <div key={String(label)} className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
+          {metrics.map(({ label, value, detail, icon: Icon }) => (
+            <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium text-slate-500">{label}</p>
                 <Icon className="h-4 w-4 text-slate-600" />
