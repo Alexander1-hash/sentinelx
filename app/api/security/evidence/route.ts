@@ -142,7 +142,7 @@ export async function POST(request: Request) {
 
     const validRelationships: ObservedRelationship[] = observedRelationships
       .filter((item: unknown): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
-      .map((item) => ({
+      .map((item: Record<string, unknown>) => ({
         sourceAssetId: typeof item.sourceAssetId === "string" ? item.sourceAssetId : "",
         targetAssetId: typeof item.targetAssetId === "string" ? item.targetAssetId : "",
         relationshipType: typeof item.relationshipType === "string" ? item.relationshipType : "",
