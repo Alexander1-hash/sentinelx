@@ -167,6 +167,39 @@ export async function POST(request: Request) {
       if (!error) discoveredRelationships += 1;
     }
 
+    const { data: previousEvidence } = await supabase
+      .from("security_evidence")
+      .select("id,observed_at")
+      .eq("organization_id", integration.organization_id)
+      .eq("source", source)
+      .eq("title", title)
+      .order("observed_at", { ascending: false })
+      .limit(2);
+
+    const isNewEvidencePattern = (previousEvidence ?? []).length <= 1;
+
+    if (isNewEvidencePattern) {
+      await supabase.from("security_memory").insert({
+        organization_id: integration.organization_id,
+        memory_type: "evidence_change",
+        subject_id: evidence.id,
+        title: `New evidence: ${title}`,
+        summary: summary ?? `New ${evidenceType} evidence was received from ${source}.`,
+        state: "active",
+        data: {
+          evidence_id: evidence.id,
+          asset_id: assetId,
+          evidence_type: evidenceType,
+          source,
+          title,
+          observed_at: evidence.observed_at,
+          discovered_relationships: discoveredRelationships,
+          memory_reason: "new_evidence_observed",
+        },
+        occurred_at: evidence.observed_at ?? new Date().toISOString(),
+      });
+    }
+
     if (assetId) {
       await supabase
         .from("security_assets")
