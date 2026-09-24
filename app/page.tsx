@@ -95,7 +95,7 @@ const surfaces: Surface[] = [
     title: "AI systems & agents",
     description: "AI models, agents, prompts, tools and delegated permissions.",
     icon: Bot,
-    status: "coming",
+    status: "ready",
   },
 ];
 
@@ -103,6 +103,7 @@ const navigation = [
   { label: "Command Center", href: "#command-center", icon: Radar },
   { label: "Assets", href: "/assets", icon: Boxes },
   { label: "Security Brain", href: "/brain", icon: BrainCircuit },
+  { label: "AI Security Center", href: "/ai-security", icon: Bot },
   { label: "Security Analyst", href: "/analyst", icon: BrainCircuit },
   { label: "Actions", href: "/actions", icon: ShieldAlert },
   { label: "Integrations", href: "/integrations", icon: Link2 },
@@ -385,10 +386,10 @@ export default function DashboardPage() {
               const ready = surface.status === "ready";
 
               return (
-                <button
+                <a
                   key={surface.title}
-                  type="button"
-                  className="group text-left rounded-2xl border border-white/10 bg-white/[0.025] p-5 transition hover:border-cyan-300/20 hover:bg-cyan-300/[0.035]"
+                  href={surface.title === "AI systems & agents" ? "/ai-security" : surface.status === "ready" ? "/assets" : "#"}
+                  className="group block text-left rounded-2xl border border-white/10 bg-white/[0.025] p-5 transition hover:border-cyan-300/20 hover:bg-cyan-300/[0.035]"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5 text-slate-300 group-hover:text-cyan-300">
