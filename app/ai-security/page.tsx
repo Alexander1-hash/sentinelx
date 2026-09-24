@@ -60,6 +60,7 @@ type CenterData = {
   agents: AiAgent[];
   events: AiEvent[];
   indicators: Array<{ label: string; state: string; detail: string }>;
+  graphPaths: Array<{ id: string; source_asset_id: string; target_asset_id: string; relationship_type: string; confidence: number | null; status: string; evidence_source: string; system_name: string; source_name: string; target_name: string }>;
   summary: {
     systems: number;
     agents: number;
@@ -75,6 +76,7 @@ const emptyData: CenterData = {
   agents: [],
   events: [],
   indicators: [],
+  graphPaths: [],
   summary: { systems: 0, agents: 0, activeAgents: 0, autonomousAgents: 0, highImpactEvents: 0, connectedSystems: 0 },
 };
 
@@ -92,6 +94,8 @@ export default function AiSecurityCenterPage() {
   const [modal, setModal] = useState<"system" | "agent" | null>(null);
   const [form, setForm] = useState({ name: "", provider: "", model: "", purpose: "", systemId: "", autonomyLevel: "assisted", dataClassification: "unknown" });
   const [message, setMessage] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [posture, setPosture] = useState<{ observations: Array<{ state: string; title: string; detail: string }>; summary: { systems: number; agents: number; highImpactEvents: number; sensitiveEvidence: number; confirmedAiRelevantEdges: number } } | null>(null);
 
   async function load() {
     const response = await fetch("/api/security/ai", { cache: "no-store" });
@@ -101,6 +105,23 @@ export default function AiSecurityCenterPage() {
   }
 
   useEffect(() => { void load(); }, []);
+
+  async function analyzePosture() {
+    setAnalyzing(true);
+    setMessage("");
+    const response = await fetch("/api/security/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "analyze" }),
+    });
+    const result = await response.json();
+    if (response.ok) {
+      setPosture(result);
+    } else {
+      setMessage(result.error ?? "AI posture analysis failed.");
+    }
+    setAnalyzing(false);
+  }
 
   async function submit() {
     setMessage("");
@@ -154,6 +175,7 @@ export default function AiSecurityCenterPage() {
               <div className="mt-7 flex flex-wrap gap-3">
                 <button onClick={() => setModal("system")} className="inline-flex items-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-200"><Plus className="h-4 w-4" /> Register AI system</button>
                 <button onClick={() => setModal("agent")} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white hover:bg-white/[0.08]"><Bot className="h-4 w-4" /> Register AI agent</button>
+                <button onClick={() => void analyzePosture()} disabled={analyzing} className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-3 text-sm font-semibold text-cyan-200 hover:bg-cyan-400/[0.1] disabled:opacity-50"><Sparkles className="h-4 w-4" /> {analyzing ? "Analyzing evidence…" : "Analyze AI posture"}</button>
               </div>
             </div>
           </div>
@@ -215,6 +237,28 @@ export default function AiSecurityCenterPage() {
                   <p className="mt-3 text-[10px] text-slate-600">{agent.system_id ? "System: " + (systemName.get(agent.system_id) || "registered") : "System relationship unknown"}</p>
                 </div>
               )) : <EmptyState text="No AI agents registered yet." />}
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-8 grid gap-5 lg:grid-cols-2">
+          <div className="rounded-3xl border border-cyan-400/10 bg-cyan-400/[0.025] p-6">
+            <div className="flex items-center justify-between">
+              <div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">05 · Security reasoning</p><h2 className="mt-1 text-xl font-semibold text-white">AI posture analysis</h2></div>
+              <Sparkles className="h-5 w-5 text-cyan-300" />
+            </div>
+            {posture ? <div className="mt-5 space-y-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                {Object.entries(posture.summary).map(([label, value]) => <div key={label} className="rounded-xl border border-white/10 p-3"><p className="text-[9px] uppercase tracking-wider text-slate-600">{label.replaceAll("_", " ")}</p><p className="mt-2 text-lg font-semibold text-white">{value}</p></div>)}
+              </div>
+              {posture.observations.length ? posture.observations.map((item, index) => <div key={item.title + index} className="rounded-2xl border border-white/10 bg-black/10 p-4"><div className="flex items-center justify-between gap-3"><p className="text-sm font-medium text-white">{item.title}</p><span className={"rounded-full border px-2 py-1 text-[9px] uppercase tracking-wider " + badgeTone(item.state)}>{item.state}</span></div><p className="mt-2 text-xs leading-5 text-slate-500">{item.detail}</p></div>) : <EmptyState text="No additional evidence-backed observations were produced." />}
+            </div> : <div className="mt-5 rounded-2xl border border-dashed border-white/10 p-5"><p className="text-sm font-medium text-slate-300">Run the analyzer when you want SentinelX to correlate registered AI configuration, telemetry, evidence, and confirmed graph relationships.</p><p className="mt-2 text-xs leading-5 text-slate-600">Potential observations require review. They are not proof of compromise or malicious behavior.</p></div>}
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-6">
+            <div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">06 · AI graph</p><h2 className="mt-1 text-xl font-semibold text-white">Confirmed AI-connected paths</h2></div><Network className="h-5 w-5 text-cyan-300" /></div>
+            <div className="mt-5 space-y-3">
+              {data.graphPaths.length ? data.graphPaths.slice(0, 12).map((edge) => <div key={edge.id} className="rounded-2xl border border-white/10 bg-black/10 p-4"><div className="flex items-center gap-2 text-xs font-medium text-white"><span>{edge.source_name}</span><ChevronRight className="h-3.5 w-3.5 text-cyan-300" /><span>{edge.target_name}</span></div><div className="mt-2 flex flex-wrap gap-2"><span className="rounded-full border border-cyan-400/20 px-2 py-1 text-[9px] text-cyan-200">{edge.relationship_type}</span><span className="rounded-full border border-emerald-400/20 px-2 py-1 text-[9px] text-emerald-300">confirmed</span><span className="text-[9px] text-slate-600">Evidence: {edge.evidence_source}</span></div></div>) : <EmptyState text="No confirmed AI-connected asset paths are available yet." />}
             </div>
           </div>
         </section>
