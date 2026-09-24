@@ -99,8 +99,8 @@ const surfaces: Surface[] = [
 
 const navigation = [
   { label: "Command Center", href: "#command-center", icon: Radar },
-  { label: "Assets", href: "#assets", icon: Boxes },
-  { label: "Security Brain", href: "#brain", icon: BrainCircuit },
+  { label: "Assets", href: "/assets", icon: Boxes },
+  { label: "Security Brain", href: "/brain", icon: BrainCircuit },
   { label: "Activity", href: "#activity", icon: Activity },
 ];
 
