@@ -9,6 +9,7 @@ type EvidenceItem = {
   summary: string | null;
   observed_at: string;
   data: Record<string, unknown>;
+  asset_id?: string | null;
 };
 
 type FindingItem = {
@@ -64,6 +65,7 @@ async function runGroundedAI(question: string, context: {
   evidence: EvidenceItem[];
   relationships: RelationshipItem[];
   assets: AssetItem[];
+  investigation?: Record<string, unknown> | null;
 }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
@@ -101,6 +103,7 @@ async function runGroundedAI(question: string, context: {
               evidence: context.evidence.slice(0, 40),
               confirmedRelationships: context.relationships.slice(0, 80),
               assets: context.assets.slice(0, 80),
+              investigation: context.investigation ?? null,
             }),
           }],
         },
@@ -160,7 +163,7 @@ export async function POST(request: Request) {
         .limit(100),
       supabase
         .from("security_evidence")
-        .select("id,evidence_type,source,title,summary,observed_at,data")
+        .select("id,asset_id,evidence_type,source,title,summary,observed_at,data")
         .eq("organization_id", organizationId)
         .order("observed_at", { ascending: false })
         .limit(150),
@@ -228,7 +231,7 @@ export async function POST(request: Request) {
           : null
       );
       const supportingEvidence = evidence.filter((item) => {
-        if (rootAssetId && (item as EvidenceItem & { asset_id?: string | null }).asset_id === rootAssetId) return true;
+        if (rootAssetId && item.asset_id === rootAssetId) return true;
         const haystack = [item.title, item.summary ?? "", item.source, item.evidence_type].join(" ").toLowerCase();
         return [selectedFinding.title, selectedFinding.finding_type]
           .some((term) => term && haystack.includes(term.toLowerCase()));
@@ -281,6 +284,7 @@ export async function POST(request: Request) {
       evidence: evidenceForAI,
       relationships,
       assets,
+      investigation,
     });
 
     const citedEvidence = evidenceForAI.slice(0, 10).map((item) => ({
