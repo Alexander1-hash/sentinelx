@@ -93,6 +93,74 @@ export async function POST(request: Request) {
       }
     }
 
+    const previousQuery = supabase
+      .from("security_evidence")
+      .select("id,asset_id,evidence_type,source,title,summary,data,observed_at,created_at")
+      .eq("organization_id", integration.organization_id)
+      .eq("source", source)
+      .eq("title", title)
+      .order("observed_at", { ascending: false })
+      .limit(1);
+
+    const { data: previousEvidence } = assetId
+      ? await previousQuery.eq("asset_id", assetId)
+      : await previousQuery.is("asset_id", null);
+
+    function normalizeValue(value: unknown): unknown {
+      if (Array.isArray(value)) return value.map(normalizeValue);
+      if (value && typeof value === "object") {
+        return Object.fromEntries(
+          Object.entries(value as Record<string, unknown>)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, entry]) => [key, normalizeValue(entry)])
+        );
+      }
+      return value;
+    }
+
+    async function fingerprintEvidence(value: {
+      asset_id: string | null;
+      evidence_type: string;
+      source: string;
+      title: string;
+      summary: string | null;
+      data: unknown;
+    }) {
+      const canonical = JSON.stringify(normalizeValue({
+        asset_id: value.asset_id,
+        evidence_type: value.evidence_type,
+        source: value.source,
+        title: value.title,
+        summary: value.summary,
+        data: value.data,
+      }));
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+      return Array.from(new Uint8Array(digest))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("");
+    }
+
+    const currentFingerprint = await fingerprintEvidence({
+      asset_id: assetId,
+      evidence_type: evidenceType,
+      source,
+      title,
+      summary,
+      data,
+    });
+    const previous = previousEvidence?.[0] ?? null;
+    const previousFingerprint = previous
+      ? await fingerprintEvidence({
+          asset_id: previous.asset_id,
+          evidence_type: previous.evidence_type,
+          source: previous.source,
+          title: previous.title,
+          summary: previous.summary,
+          data: previous.data,
+        })
+      : null;
+    const changeType = !previous ? "new" : previousFingerprint === currentFingerprint ? "unchanged" : "changed";
+
     const { data: evidence, error: evidenceError } = await supabase
       .from("security_evidence")
       .insert({
@@ -167,34 +235,30 @@ export async function POST(request: Request) {
       if (!error) discoveredRelationships += 1;
     }
 
-    const { data: previousEvidence } = await supabase
-      .from("security_evidence")
-      .select("id,observed_at")
-      .eq("organization_id", integration.organization_id)
-      .eq("source", source)
-      .eq("title", title)
-      .order("observed_at", { ascending: false })
-      .limit(2);
-
-    const isNewEvidencePattern = (previousEvidence ?? []).length <= 1;
-
-    if (isNewEvidencePattern) {
+    if (changeType !== "unchanged") {
+      const isChanged = changeType === "changed";
       await supabase.from("security_memory").insert({
         organization_id: integration.organization_id,
         memory_type: "evidence_change",
         subject_id: evidence.id,
-        title: `New evidence: ${title}`,
-        summary: summary ?? `New ${evidenceType} evidence was received from ${source}.`,
+        title: isChanged ? `Evidence changed: ${title}` : `New evidence: ${title}`,
+        summary: isChanged
+          ? `Recorded evidence changed from the previous observed state for ${source}.`
+          : (summary ?? `New ${evidenceType} evidence was received from ${source}.`),
         state: "active",
         data: {
           evidence_id: evidence.id,
+          previous_evidence_id: previous?.id ?? null,
           asset_id: assetId,
           evidence_type: evidenceType,
           source,
           title,
           observed_at: evidence.observed_at,
           discovered_relationships: discoveredRelationships,
-          memory_reason: "new_evidence_observed",
+          change_type: changeType,
+          fingerprint: currentFingerprint,
+          previous_fingerprint: previousFingerprint,
+          memory_reason: isChanged ? "evidence_state_changed" : "new_evidence_observed",
         },
         occurred_at: evidence.observed_at ?? new Date().toISOString(),
       });
