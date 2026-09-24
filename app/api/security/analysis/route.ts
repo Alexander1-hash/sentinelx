@@ -179,6 +179,70 @@ export async function POST() {
     const severeEvents = context.events.filter((event) => severeLevels.has(event.severity));
     const severeAiEvents = context.aiEvents.filter((event) => severeLevels.has(event.severity));
 
+    const explicitAiIndicatorCandidates = context.aiEvents
+      .filter((event) => !severeLevels.has(event.severity))
+      .flatMap((event) => {
+        const combined = [
+          event.event_type,
+          event.title,
+          event.description ?? "",
+          JSON.stringify(event.evidence ?? {}),
+        ].join(" ").toLowerCase();
+
+        const indicator =
+          /prompt.?injection|jailbreak|instruction.?override|indirect.?prompt/.test(combined)
+            ? {
+                type: "ai_prompt_injection_indicator",
+                title: event.title,
+                summary: "AI telemetry contains an explicit prompt-injection or instruction-override indicator. The record establishes an observed indicator, not successful compromise.",
+                remediation: "Review the event payload, affected agent context, authorization boundary, and any tool or data activity that followed.",
+              }
+            : /credential.?exposure|secret.?exposure|api.?key|token.?leak|credential.?leak/.test(combined)
+              ? {
+                  type: "ai_credential_exposure_indicator",
+                  title: event.title,
+                  summary: "AI telemetry contains an explicit credential or secret exposure indicator. The record does not establish whether the exposed credential was used.",
+                  remediation: "Validate the exposed secret, identify its scope, and rotate or revoke it through an authorized control if exposure is confirmed.",
+                }
+              : /sensitive.?data|data.?exfiltration|restricted.?data|confidential.?data|data.?leak/.test(combined)
+                ? {
+                    type: "ai_sensitive_data_indicator",
+                    title: event.title,
+                    summary: "AI telemetry explicitly references sensitive-data access, transfer, or leakage. Further evidence is required to determine whether unauthorized disclosure occurred.",
+                    remediation: "Inspect the affected data scope, destination, and authorization context before taking containment action.",
+                  }
+                : /permission.?escalation|privilege.?escalation|excessive.?permission|unauthorized.?access|access.?denied/.test(combined)
+                  ? {
+                      type: "ai_access_control_indicator",
+                      title: event.title,
+                      summary: "AI telemetry contains an explicit access-control or privilege indicator. The record does not establish successful privilege escalation or unauthorized access.",
+                      remediation: "Review the requested capability, identity or agent authorization, and resulting access before changing permissions.",
+                    }
+                  : null;
+
+        if (!indicator) return [];
+
+        return [{
+          sourceEventId: event.id,
+          assetId: null,
+          title: indicator.title,
+          findingType: indicator.type,
+          severity: event.severity,
+          summary: indicator.summary,
+          remediation: indicator.remediation,
+          evidence: {
+            source: "ai_security_indicator",
+            source_event_id: event.id,
+            system_id: event.system_id,
+            agent_id: event.agent_id,
+            event_type: event.event_type,
+            observed_at: event.observed_at,
+            evidence: event.evidence,
+            analysis_boundary: "explicit_ai_indicator",
+          },
+        }];
+      });
+
     const existingKeys = new Set(
       context.openFindings.flatMap((finding) => {
         const evidence = finding.evidence as Record<string, unknown> | null;
@@ -281,6 +345,7 @@ export async function POST() {
 
     const candidates = [
       ...correlatedCandidates,
+      ...explicitAiIndicatorCandidates,
       ...severeEvents.map((event) => ({
         sourceEventId: event.id,
         assetId: event.asset_id,
@@ -360,7 +425,7 @@ export async function POST() {
         confirmedRelationships: context.relationships.length,
       },
       message: findingsCreated
-        ? `${findingsCreated} evidence-backed finding${findingsCreated === 1 ? "" : "s"} created. No finding was created from an unverified relationship or missing telemetry.`
+        ? `${findingsCreated} evidence-backed finding${findingsCreated === 1 ? "" : "s"} created from observed high-impact events or explicit AI security indicators. Unverified relationships and missing telemetry were excluded.`
         : "Analysis completed. No new evidence-backed high-impact findings were created.",
     });
   } catch {
