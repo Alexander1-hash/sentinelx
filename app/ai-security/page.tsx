@@ -424,7 +424,11 @@ export default function AiSecurityCenterPage() {
                       <div className="rounded-xl border border-white/10 p-3">
                         <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Affected asset</p>
                         <p className="mt-1 text-xs font-medium text-white">{findingIntel[finding.id].affectedAsset?.name ?? "Not established"}</p>
-                        {findingIntel[finding.id].affectedAsset ? (\n                          <p className="mt-1 text-[9px] capitalize text-slate-600">\n                            {findingIntel[finding.id].affectedAsset.asset_type.replaceAll("_", " ")} · {findingIntel[finding.id].affectedAsset.criticality}\n                          </p>\n                        ) : null}
+                        {findingIntel[finding.id].affectedAsset ? (
+                          <p className="mt-1 text-[9px] capitalize text-slate-600">
+                            {findingIntel[finding.id].affectedAsset.asset_type.replaceAll("_", " ")} · {findingIntel[finding.id].affectedAsset.criticality}
+                          </p>
+                        ) : null}
                       </div>
                       <div className="rounded-xl border border-purple-400/10 p-3">
                         <p className="text-[9px] font-semibold uppercase tracking-wider text-purple-300">Confirmed reachability</p>
