@@ -72,6 +72,7 @@ export default function SecurityBrainPage() {
   const [attackPathLoading, setAttackPathLoading] = useState(true);
   const [copilotFindingId, setCopilotFindingId] = useState("");
   const [copilotAnswer, setCopilotAnswer] = useState("");
+  const [copilotResultFindingId, setCopilotResultFindingId] = useState("");
 
   const [sourceAssetId, setSourceAssetId] = useState("");
   const [targetAssetId, setTargetAssetId] = useState("");
@@ -107,6 +108,7 @@ export default function SecurityBrainPage() {
       setRelationships(relationshipsData.relationships ?? []);
       setFindings(findingsData.findings ?? []);
       setAttackPaths(attackPathsData.paths ?? []);
+      setAttackPathLoading(false);
       if (!attackPathsResponse.ok) {
         setMessage(attackPathsData.error ?? "Attack path intelligence is temporarily unavailable.");
       }
@@ -192,6 +194,7 @@ export default function SecurityBrainPage() {
         return;
       }
       setCopilotAnswer(data.answer ?? "No analyst conclusion was returned.");
+      setCopilotResultFindingId(findingId);
     } catch {
       setMessage("Security Copilot could not connect to the Security Brain.");
     } finally {
@@ -458,7 +461,7 @@ export default function SecurityBrainPage() {
                     {copilotFindingId === finding.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
                     {copilotFindingId === finding.id ? "Analyzing..." : "Ask Security Copilot"}
                   </button>
-                  {copilotAnswer && copilotFindingId === "" && (
+                  {copilotAnswer && copilotResultFindingId === finding.id && copilotFindingId === "" && (
                     <div className="mt-3 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.03] p-3">
                       <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-200">Copilot analysis</p>
                       <p className="mt-2 whitespace-pre-wrap text-[10px] leading-5 text-slate-400">{copilotAnswer}</p>
