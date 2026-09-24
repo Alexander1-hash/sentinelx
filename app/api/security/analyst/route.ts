@@ -134,7 +134,7 @@ export async function POST(request: Request) {
 
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = (await request.json()) as { question?: string; findingId?: string };
+    const body = (await request.json()) as { question?: string; findingId?: string; mode?: "standard" | "investigate" };
     let question = body.question?.trim() ?? "";
 
     if (!question && !body.findingId) {
@@ -213,6 +213,69 @@ export async function POST(request: Request) {
 
     const evidenceForAI = selectedEvidence.length ? selectedEvidence : evidence.slice(0, 20);
 
+    let investigation: {
+      affectedAsset: AssetItem | null;
+      blastRadius: Array<{ asset: AssetItem; hops: number; confidence: number; chain: string[] }>;
+      supportingEvidence: EvidenceItem[];
+      unknowns: string[];
+    } | null = null;
+
+    if (selectedFinding && body.mode === "investigate") {
+      const assetMap = new Map(assets.map((asset) => [asset.id, asset]));
+      const rootAssetId = selectedFinding.asset_id ?? (
+        typeof selectedFinding.evidence?.asset_id === "string"
+          ? selectedFinding.evidence.asset_id
+          : null
+      );
+      const supportingEvidence = evidence.filter((item) => {
+        if (rootAssetId && (item as EvidenceItem & { asset_id?: string | null }).asset_id === rootAssetId) return true;
+        const haystack = [item.title, item.summary ?? "", item.source, item.evidence_type].join(" ").toLowerCase();
+        return [selectedFinding.title, selectedFinding.finding_type]
+          .some((term) => term && haystack.includes(term.toLowerCase()));
+      }).slice(0, 20);
+
+      const downstream = new Map<string, { asset: AssetItem; hops: number; confidence: number; chain: string[] }>();
+      if (rootAssetId && assetMap.has(rootAssetId)) {
+        const queue: Array<{ assetId: string; hops: number; confidence: number; chain: string[] }> = [
+          { assetId: rootAssetId, hops: 0, confidence: 1, chain: [] },
+        ];
+        const bestDepth = new Map<string, number>([[rootAssetId, 0]]);
+        while (queue.length) {
+          const current = queue.shift()!;
+          if (current.hops >= 4) continue;
+          for (const edge of relationships.filter((item) => item.source_asset_id === current.assetId)) {
+            const nextHops = current.hops + 1;
+            if (bestDepth.has(edge.target_asset_id) && (bestDepth.get(edge.target_asset_id) ?? 99) <= nextHops) continue;
+            const target = assetMap.get(edge.target_asset_id);
+            if (!target) continue;
+            const nextConfidence = Math.min(current.confidence, edge.confidence ?? 0);
+            bestDepth.set(edge.target_asset_id, nextHops);
+            const chain = [...current.chain, edge.relationship_type];
+            downstream.set(edge.target_asset_id, { asset: target, hops: nextHops, confidence: nextConfidence, chain });
+            queue.push({ assetId: edge.target_asset_id, hops: nextHops, confidence: nextConfidence, chain });
+          }
+        }
+      }
+
+      const blastRadius = [...downstream.values()]
+        .filter((item) => item.asset.id !== rootAssetId)
+        .sort((a, b) => a.hops - b.hops || b.confidence - a.confidence)
+        .slice(0, 25);
+
+      investigation = {
+        affectedAsset: rootAssetId ? assetMap.get(rootAssetId) ?? null : null,
+        blastRadius,
+        supportingEvidence,
+        unknowns: [
+          !rootAssetId ? "The finding is not linked to a confirmed asset." : null,
+          supportingEvidence.length === 0 ? "No directly matching evidence record was found." : null,
+          relationships.length === 0 ? "No confirmed graph relationships are available." : null,
+          blastRadius.length === 0 && rootAssetId ? "No confirmed downstream assets were established." : null,
+          "Confirmed reachability does not establish compromise, attacker movement, or successful exploitation.",
+        ].filter((value): value is string => Boolean(value)),
+      };
+    }
+
     const aiAnswer = await runGroundedAI(question, {
       findings: rankedFindings,
       evidence: evidenceForAI,
@@ -238,6 +301,7 @@ export async function POST(request: Request) {
       aiUsed: Boolean(aiAnswer),
       model: aiAnswer ? modelName() : null,
       finding: selectedFinding,
+      investigation,
       findingsReviewed: rankedFindings.length,
       evidenceReviewed: evidenceForAI.length,
       confirmedRelationshipsReviewed: relationships.length,
