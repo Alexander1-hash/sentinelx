@@ -133,6 +133,7 @@ type SecurityOverview = {
 };
 
 type SecurityAttention = { items: Array<{ id: string; kind: "finding" | "event" | "action"; priority: "high" | "medium"; title: string; detail: string; observedAt: string; href: string }>; summary: { high: number; medium: number } };
+type SecurityChanges = { changes: Array<{ id: string; kind: string; title: string; detail: string; observedAt: string; state: "new" | "changed" | "remembered"; href: string }>; summary: { new: number; changed: number; remembered: number } };
 
 export default function DashboardPage() {
   const [user, setUser] = useState<UserState>({ email: "", displayName: "" });
@@ -141,6 +142,7 @@ export default function DashboardPage() {
   const [overview, setOverview] = useState<SecurityOverview | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [attention, setAttention] = useState<SecurityAttention | null>(null);
+  const [changes, setChanges] = useState<SecurityChanges | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -172,6 +174,8 @@ export default function DashboardPage() {
         }
         const attentionResponse = await fetch("/api/security/attention", { cache: "no-store" });
         if (attentionResponse.ok) setAttention((await attentionResponse.json()) as SecurityAttention);
+        const changesResponse = await fetch("/api/security/changes", { cache: "no-store" });
+        if (changesResponse.ok) setChanges((await changesResponse.json()) as SecurityChanges);
       } finally {
         setOverviewLoading(false);
       }
@@ -291,6 +295,36 @@ export default function DashboardPage() {
             <div className="flex gap-2 text-[9px]"><span className="rounded-full bg-rose-400/10 px-2 py-1 text-rose-200">{attention?.summary.high ?? 0} high-impact</span><span className="rounded-full bg-amber-400/10 px-2 py-1 text-amber-200">{attention?.summary.medium ?? 0} pending</span></div>
           </div>
           {attention?.items.length ? <div className="mt-4 space-y-2">{attention.items.slice(0,5).map((item) => <a key={item.kind+item.id} href={item.href} className="block rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-xs font-medium text-white">{item.title}</p><p className="mt-1 text-[10px] text-slate-600">{item.detail}</p></a>)}</div> : <div className="mt-4 rounded-2xl border border-dashed border-white/10 p-4 text-[10px] text-slate-600">No recorded high-impact findings, events, or pending actions require attention.</div>}
+        </section>
+
+        <section className="mb-5 rounded-3xl border border-cyan-400/10 bg-cyan-400/[0.025] p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Change intelligence</p>
+              <p className="mt-1 text-[11px] text-slate-500">What changed against SentinelX's remembered security state.</p>
+            </div>
+            <div className="flex gap-2 text-[9px]">
+              <span className="rounded-full bg-rose-400/10 px-2 py-1 text-rose-200">{changes?.summary.new ?? 0} new</span>
+              <span className="rounded-full bg-amber-400/10 px-2 py-1 text-amber-200">{changes?.summary.changed ?? 0} changed</span>
+            </div>
+          </div>
+          {changes?.changes.length ? (
+            <div className="mt-4 grid gap-2 md:grid-cols-2">
+              {changes.changes.slice(0, 6).map((item) => (
+                <a key={item.kind + item.id} href={item.href} className="rounded-2xl border border-white/10 bg-black/10 p-3 transition hover:bg-white/[0.04]">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-white">{item.title}</p>
+                    <span className="text-[9px] uppercase tracking-wider text-cyan-300">{item.state}</span>
+                  </div>
+                  <p className="mt-1 text-[10px] leading-4 text-slate-500">{item.detail}</p>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-2xl border border-dashed border-white/10 p-4 text-[10px] text-slate-600">
+              No state changes are currently established against SentinelX memory.
+            </div>
+          )}
         </section>
 
         <section id="command-center" className="grid gap-5 xl:grid-cols-[1.55fr_0.45fr]">
