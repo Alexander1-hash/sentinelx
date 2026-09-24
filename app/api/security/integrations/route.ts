@@ -144,7 +144,7 @@ export async function POST(request: Request) {
         organization_id: organizationId,
         provider,
         integration_type: integrationType,
-        display_name,
+        display_name: displayName,
         status: "planned",
         scopes,
         configuration: {
