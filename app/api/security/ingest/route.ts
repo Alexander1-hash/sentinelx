@@ -70,6 +70,14 @@ export async function POST(request: Request) {
     const assetId = typeof body.assetId === "string" ? body.assetId : null;
     const observedAt = typeof body.observedAt === "string" ? body.observedAt : null;
     const data = body.data && typeof body.data === "object" ? body.data : {};
+    const securityState =
+      body.securityState === "active" ||
+      body.securityState === "degraded" ||
+      body.securityState === "cleared" ||
+      body.securityState === "resolved" ||
+      body.securityState === "healthy"
+        ? body.securityState
+        : null;
     const relationships = Array.isArray(body.observedRelationships) ? body.observedRelationships : [];
 
     if (!evidenceTypes.includes(evidenceType as (typeof evidenceTypes)[number])) {
@@ -125,6 +133,7 @@ export async function POST(request: Request) {
       title: string;
       summary: string | null;
       data: unknown;
+      security_state: string | null;
     }) {
       const canonical = JSON.stringify(normalizeValue({
         asset_id: value.asset_id,
@@ -147,6 +156,7 @@ export async function POST(request: Request) {
       title,
       summary,
       data,
+      security_state: securityState,
     });
     const previous = previousEvidence?.[0] ?? null;
     const previousFingerprint = previous
@@ -157,9 +167,31 @@ export async function POST(request: Request) {
           title: previous.title,
           summary: previous.summary,
           data: previous.data,
+          security_state:
+            previous.data && typeof previous.data === "object" && "security_state" in previous.data
+              ? (typeof (previous.data as Record<string, unknown>).security_state === "string"
+                  ? (previous.data as Record<string, unknown>).security_state as string
+                  : null)
+              : null,
         })
       : null;
-    const changeType = !previous ? "new" : previousFingerprint === currentFingerprint ? "unchanged" : "changed";
+    const previousSecurityState =
+      previous?.data && typeof previous.data === "object" && "security_state" in previous.data
+        ? (typeof (previous.data as Record<string, unknown>).security_state === "string"
+            ? (previous.data as Record<string, unknown>).security_state as string
+            : null)
+        : null;
+    const isExplicitResolution =
+      securityState !== null &&
+      ["cleared", "resolved", "healthy"].includes(securityState) &&
+      ["active", "degraded"].includes(previousSecurityState ?? "");
+    const changeType = !previous
+      ? "new"
+      : isExplicitResolution
+        ? "resolved"
+        : previousFingerprint === currentFingerprint
+          ? "unchanged"
+          : "changed";
 
     const { data: evidence, error: evidenceError } = await supabase
       .from("security_evidence")
@@ -170,7 +202,10 @@ export async function POST(request: Request) {
         source,
         title,
         summary,
-        data,
+        data: {
+          ...(data as Record<string, unknown>),
+          ...(securityState ? { security_state: securityState } : {}),
+        },
         ...(observedAt ? { observed_at: observedAt } : {}),
       })
       .select("id,asset_id,evidence_type,source,title,summary,data,observed_at,created_at")
@@ -237,14 +272,21 @@ export async function POST(request: Request) {
 
     if (changeType !== "unchanged") {
       const isChanged = changeType === "changed";
+      const isResolved = changeType === "resolved";
       await supabase.from("security_memory").insert({
         organization_id: integration.organization_id,
         memory_type: "evidence_change",
         subject_id: evidence.id,
-        title: isChanged ? `Evidence changed: ${title}` : `New evidence: ${title}`,
-        summary: isChanged
-          ? `Recorded evidence changed from the previous observed state for ${source}.`
-          : (summary ?? `New ${evidenceType} evidence was received from ${source}.`),
+        title: isResolved
+          ? `Evidence resolved: ${title}`
+          : isChanged
+            ? `Evidence changed: ${title}`
+            : `New evidence: ${title}`,
+        summary: isResolved
+          ? `The authorized source explicitly reported a resolved or cleared state for this evidence pattern.`
+          : isChanged
+            ? `Recorded evidence changed from the previous observed state for ${source}.`
+            : (summary ?? `New ${evidenceType} evidence was received from ${source}.`),
         state: "active",
         data: {
           evidence_id: evidence.id,
@@ -258,7 +300,12 @@ export async function POST(request: Request) {
           change_type: changeType,
           fingerprint: currentFingerprint,
           previous_fingerprint: previousFingerprint,
-          memory_reason: isChanged ? "evidence_state_changed" : "new_evidence_observed",
+          memory_reason: isResolved
+            ? "explicit_evidence_resolution"
+            : isChanged
+              ? "evidence_state_changed"
+              : "new_evidence_observed",
+          security_state: securityState,
         },
         occurred_at: evidence.observed_at ?? new Date().toISOString(),
       });
