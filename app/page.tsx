@@ -133,7 +133,7 @@ type SecurityOverview = {
 };
 
 type SecurityAttention = { items: Array<{ id: string; kind: "finding" | "event" | "action"; priority: "high" | "medium"; title: string; detail: string; observedAt: string; href: string }>; summary: { high: number; medium: number } };
-type SecurityChanges = { changes: Array<{ id: string; kind: string; title: string; detail: string; observedAt: string; state: "new" | "changed" | "remembered"; href: string }>; summary: { new: number; changed: number; remembered: number } };
+type SecurityChanges = { changes: Array<{ id: string; kind: string; title: string; detail: string; observedAt: string; state: "new" | "changed" | "remembered" | "resolved"; href: string }>; summary: { new: number; changed: number; remembered: number } };
 
 export default function DashboardPage() {
   const [user, setUser] = useState<UserState>({ email: "", displayName: "" });
@@ -306,6 +306,7 @@ export default function DashboardPage() {
             <div className="flex gap-2 text-[9px]">
               <span className="rounded-full bg-rose-400/10 px-2 py-1 text-rose-200">{changes?.summary.new ?? 0} new</span>
               <span className="rounded-full bg-amber-400/10 px-2 py-1 text-amber-200">{changes?.summary.changed ?? 0} changed</span>
+              <span className="rounded-full bg-emerald-400/10 px-2 py-1 text-emerald-200">{changes?.summary.resolved ?? 0} resolved</span>
             </div>
           </div>
           {changes?.changes.length ? (
@@ -314,7 +315,7 @@ export default function DashboardPage() {
                 <a key={item.kind + item.id} href={item.href} className="rounded-2xl border border-white/10 bg-black/10 p-3 transition hover:bg-white/[0.04]">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-medium text-white">{item.title}</p>
-                    <span className="text-[9px] uppercase tracking-wider text-cyan-300">{item.state}</span>
+                    <span className={`text-[9px] uppercase tracking-wider ${item.state === "resolved" ? "text-emerald-300" : item.state === "changed" ? "text-amber-300" : "text-cyan-300"}`}>{item.state}</span>
                   </div>
                   <p className="mt-1 text-[10px] leading-4 text-slate-500">{item.detail}</p>
                 </a>
