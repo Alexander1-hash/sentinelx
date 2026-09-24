@@ -66,6 +66,7 @@ async function runGroundedAI(question: string, context: {
   relationships: RelationshipItem[];
   assets: AssetItem[];
   investigation?: Record<string, unknown> | null;
+  memory?: Array<{ memory_type: string; subject_id: string | null; title: string; summary: string; state: string; data: Record<string, unknown>; occurred_at: string }>;
 }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
@@ -104,6 +105,7 @@ async function runGroundedAI(question: string, context: {
               confirmedRelationships: context.relationships.slice(0, 80),
               assets: context.assets.slice(0, 80),
               investigation: context.investigation ?? null,
+              securityMemory: context.memory ?? [],
             }),
           }],
         },
@@ -153,7 +155,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const [findingsResult, evidenceResult, relationshipsResult, assetsResult] = await Promise.all([
+    const [findingsResult, evidenceResult, relationshipsResult, assetsResult, memoryResult] = await Promise.all([
       supabase
         .from("security_findings")
         .select("id,asset_id,title,finding_type,severity,status,summary,remediation,evidence")
@@ -177,16 +179,23 @@ export async function POST(request: Request) {
         .from("security_assets")
         .select("id,name,asset_type,criticality,status")
         .eq("organization_id", organizationId)
-        .limit(300),
+  .limit(300),
+      supabase
+        .from("security_memory")
+        .select("memory_type,subject_id,title,summary,state,data,occurred_at")
+        .eq("organization_id", organizationId)
+        .order("occurred_at", { ascending: false })
+        .limit(100),
     ]);
 
-    const error = findingsResult.error ?? evidenceResult.error ?? relationshipsResult.error ?? assetsResult.error;
+    const error = findingsResult.error ?? evidenceResult.error ?? relationshipsResult.error ?? assetsResult.error ?? memoryResult.error;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const findings = (findingsResult.data ?? []) as FindingItem[];
     const evidence = (evidenceResult.data ?? []) as EvidenceItem[];
     const relationships = (relationshipsResult.data ?? []) as RelationshipItem[];
     const assets = (assetsResult.data ?? []) as AssetItem[];
+    const memory = (memoryResult.data ?? []) as Array<{ memory_type: string; subject_id: string | null; title: string; summary: string; state: string; data: Record<string, unknown>; occurred_at: string }>;
 
     let selectedFinding: FindingItem | null = null;
 
@@ -303,6 +312,9 @@ export async function POST(request: Request) {
       relationships,
       assets,
       investigation,
+      memory: selectedFinding
+        ? memory.filter((item) => item.subject_id === selectedFinding?.id || item.memory_type === "finding_state").slice(0, 20)
+        : memory.slice(0, 20),
     });
 
     const citedEvidence = evidenceForAI.slice(0, 10).map((item) => ({
@@ -328,6 +340,9 @@ export async function POST(request: Request) {
       evidenceReviewed: evidenceForAI.length,
       confirmedRelationshipsReviewed: relationships.length,
       assetsReviewed: assets.length,
+      memoryReviewed: selectedFinding
+        ? memory.filter((item) => item.subject_id === selectedFinding?.id || item.memory_type === "finding_state").slice(0, 20).length
+        : Math.min(memory.length, 20),
       evidence: citedEvidence,
       suggestedNextStep: selectedFinding
         ? "Validate the finding evidence, inspect its confirmed graph context, and create a Security Action only when an authorized response is appropriate."
