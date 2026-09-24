@@ -3,6 +3,16 @@ import { createClient } from "@/lib/supabase/server";
 
 const allowedStatuses = ["planned", "pending", "connected", "paused", "error"] as const;
 
+async function createIngestionToken() {
+  const token = `sx_ing_${crypto.randomUUID().replaceAll("-", "")}${crypto.randomUUID().replaceAll("-", "")}`;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  const hash = Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+
+  return { token, hash, prefix: token.slice(0, 16) };
+}
+
 async function getContext() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -56,6 +66,47 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
+
+    if (body.action === "rotate_token") {
+      const integrationId = typeof body.integrationId === "string" ? body.integrationId : "";
+
+      if (!integrationId) {
+        return NextResponse.json({ error: "Integration ID is required." }, { status: 400 });
+      }
+
+      const { data: integration } = await supabase
+        .from("security_integrations")
+        .select("id")
+        .eq("id", integrationId)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (!integration) {
+        return NextResponse.json({ error: "Integration not found." }, { status: 404 });
+      }
+
+      const generated = await createIngestionToken();
+
+      const { error } = await supabase
+        .from("security_integrations")
+        .update({
+          ingestion_token_hash: generated.hash,
+          ingestion_token_prefix: generated.prefix,
+          ingestion_token_created_at: new Date().toISOString(),
+          ingestion_token_last_used_at: null,
+          status: "pending",
+        })
+        .eq("id", integrationId)
+        .eq("organization_id", organizationId);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+      return NextResponse.json({
+        token: generated.token,
+        message: "New ingestion token created. Store it securely; SentinelX will not show it again.",
+      });
+    }
+
     const provider = typeof body.provider === "string" ? body.provider.trim() : "";
     const integrationType = typeof body.integrationType === "string" ? body.integrationType.trim() : "";
     const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
@@ -85,6 +136,8 @@ export async function POST(request: Request) {
       );
     }
 
+    const generated = await createIngestionToken();
+
     const { data, error } = await supabase
       .from("security_integrations")
       .insert({
@@ -96,8 +149,11 @@ export async function POST(request: Request) {
         scopes,
         configuration: {
           connection_state: "not_connected",
-          credential_storage: "not_configured",
+          credential_storage: "hash_only",
         },
+        ingestion_token_hash: generated.hash,
+        ingestion_token_prefix: generated.prefix,
+        ingestion_token_created_at: new Date().toISOString(),
       })
       .select("id,provider,integration_type,display_name,status,scopes,last_sync_at,created_at")
       .single();
@@ -106,7 +162,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       integration: data,
-      message: "Integration registered. Connection credentials have not been requested or stored.",
+      token: generated.token,
+      message: "Integration registered. A one-time ingestion token was created. Store it securely; SentinelX will not show it again.",
     }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Invalid integration request." }, { status: 400 });
