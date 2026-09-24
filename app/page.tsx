@@ -404,7 +404,7 @@ export default function DashboardPage() {
                   <div className="mt-4 flex items-center gap-1 text-[11px] font-medium text-slate-400 group-hover:text-cyan-300">
                     {ready ? "Configure" : "Planned"} <ChevronRight className="h-3.5 w-3.5" />
                   </div>
-                </button>
+                </a>
               );
             })}
           </div>
