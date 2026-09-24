@@ -55,6 +55,18 @@ type AiEvent = {
   observed_at: string;
 };
 
+type SecurityFinding = {
+  id: string;
+  asset_id: string | null;
+  title: string;
+  finding_type: string;
+  severity: string;
+  status: string;
+  summary: string | null;
+  remediation: string | null;
+  detected_at: string;
+};
+
 type CenterData = {
   systems: AiSystem[];
   agents: AiAgent[];
@@ -101,6 +113,9 @@ export default function AiSecurityCenterPage() {
   const [detectionSummary, setDetectionSummary] = useState<{ total: number; observed: number; potential: number } | null>(null);
   const [attackPaths, setAttackPaths] = useState<Array<{ id: string; source: { name: string; asset_type: string }; target: { name: string; asset_type: string }; hops: Array<{ asset: { name: string; asset_type: string }; relationship: string; confidence: number | null }>; confidence: number; rationale: string }>>([]);
   const [pathsLoading, setPathsLoading] = useState(false);
+  const [findings, setFindings] = useState<SecurityFinding[]>([]);
+  const [findingsLoading, setFindingsLoading] = useState(false);
+  const [creatingFindings, setCreatingFindings] = useState(false);
 
   async function load() {
     const response = await fetch("/api/security/ai", { cache: "no-store" });
@@ -109,7 +124,21 @@ export default function AiSecurityCenterPage() {
     setRefreshing(false);
   }
 
-  useEffect(() => { void load(); void loadAttackPaths(); }, []);
+  async function loadFindings() {
+    setFindingsLoading(true);
+    const response = await fetch("/api/security/analysis", { cache: "no-store" });
+    if (response.ok) {
+      const result = await response.json();
+      setFindings(result.findings ?? []);
+    }
+    setFindingsLoading(false);
+  }
+
+  useEffect(() => {
+    void load();
+    void loadAttackPaths();
+    void loadFindings();
+  }, []);
 
   async function loadAttackPaths() {
     setPathsLoading(true);
@@ -146,6 +175,23 @@ export default function AiSecurityCenterPage() {
     if (response.ok) { setDetections(result.detections ?? []); setDetectionSummary(result.summary ?? null); }
     else setMessage(result.error ?? "Threat detection failed.");
     setDetecting(false);
+  }
+
+  async function createFindings() {
+    setCreatingFindings(true);
+    setMessage("");
+    const response = await fetch("/api/security/analysis", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const result = await response.json();
+    if (response.ok) {
+      setMessage(result.message ?? "Security findings analysis completed.");
+      await loadFindings();
+    } else {
+      setMessage(result.error ?? "Security findings analysis failed.");
+    }
+    setCreatingFindings(false);
   }
 
   async function submit() {
@@ -202,6 +248,7 @@ export default function AiSecurityCenterPage() {
                 <button onClick={() => setModal("agent")} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white hover:bg-white/[0.08]"><Bot className="h-4 w-4" /> Register AI agent</button>
                 <button onClick={() => void detectThreats()} disabled={detecting} className="inline-flex items-center gap-2 rounded-xl border border-red-400/20 bg-red-400/[0.05] px-4 py-3 text-sm font-semibold text-red-200 hover:bg-red-400/[0.1] disabled:opacity-50"><AlertTriangle className="h-4 w-4" /> {detecting ? "Detecting…" : "Run threat detection"}</button>
                 <button onClick={() => void analyzePosture()} disabled={analyzing} className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-3 text-sm font-semibold text-cyan-200 hover:bg-cyan-400/[0.1] disabled:opacity-50"><Sparkles className="h-4 w-4" /> {analyzing ? "Analyzing evidence…" : "Analyze AI posture"}</button>
+                <button onClick={() => void createFindings()} disabled={creatingFindings} className="inline-flex items-center gap-2 rounded-xl border border-purple-400/20 bg-purple-400/[0.05] px-4 py-3 text-sm font-semibold text-purple-200 hover:bg-purple-400/[0.1] disabled:opacity-50"><ShieldCheck className="h-4 w-4" /> {creatingFindings ? "Correlating evidence…" : "Create security findings"}</button>
               </div>
             </div>
           </div>
@@ -279,6 +326,63 @@ export default function AiSecurityCenterPage() {
               <div className="mt-3 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.025] p-3"><p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-300">Next step</p><p className="mt-1 text-[11px] leading-5 text-slate-400">{item.recommendedNextStep}</p></div>
               {(item.eventIds.length || item.evidenceIds.length) ? <p className="mt-3 text-[9px] text-slate-600">Evidence references: {item.eventIds.length} event(s) · {item.evidenceIds.length} evidence record(s)</p> : null}
             </div>) : <div className="lg:col-span-2 rounded-2xl border border-dashed border-white/10 p-8 text-center"><ShieldCheck className="mx-auto h-5 w-5 text-emerald-300" /><p className="mt-3 text-sm font-medium text-slate-300">No evidence-backed AI threat indicators detected.</p><p className="mt-2 text-xs text-slate-600">This means the current registered telemetry did not match the detection rules. Missing telemetry remains unknown.</p></div>}
+          </div>
+        </section>
+
+        <section className="mt-8 rounded-3xl border border-rose-400/10 bg-rose-400/[0.025] p-6 sm:p-7">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-rose-300">06 · Security findings intelligence</p>
+              <h2 className="mt-1 text-xl font-semibold text-white">Correlated findings, not isolated alerts</h2>
+              <p className="mt-2 max-w-3xl text-xs leading-5 text-slate-500">
+                SentinelX converts observed high-impact events and explicit AI security indicators into reviewable findings. Confirmed graph context can enrich a finding, but an unverified relationship never becomes a finding.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] text-slate-400">{findings.length} findings</span>
+              <button onClick={() => void loadFindings()} disabled={findingsLoading} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-white disabled:opacity-50">
+                <RefreshCw className={"h-3.5 w-3.5 " + (findingsLoading ? "animate-spin" : "")} /> Refresh
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {findings.length ? findings.slice(0, 12).map((finding) => (
+              <div key={finding.id} className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-white">{finding.title}</p>
+                    <p className="mt-1 text-[10px] capitalize text-slate-600">{finding.finding_type.replaceAll("_", " ")} · {new Date(finding.detected_at).toLocaleString()}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className={"rounded-full border px-2 py-1 text-[9px] font-semibold uppercase tracking-wider " + badgeTone(finding.severity)}>{finding.severity}</span>
+                    <span className={"rounded-full border px-2 py-1 text-[9px] font-semibold uppercase tracking-wider " + badgeTone(finding.status)}>{finding.status}</span>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-slate-500">{finding.summary || "Evidence-backed finding requiring investigation."}</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-xl border border-white/10 p-3">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Affected asset</p>
+                    <p className="mt-1 text-[10px] text-slate-400">{finding.asset_id ? "Linked asset: " + finding.asset_id : "Asset linkage not established"}</p>
+                  </div>
+                  <div className="rounded-xl border border-cyan-400/10 bg-cyan-400/[0.025] p-3">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-300">Recommended intervention</p>
+                    <p className="mt-1 text-[10px] leading-5 text-slate-400">{finding.remediation || "Review supporting evidence before selecting an authorized response."}</p>
+                  </div>
+                </div>
+              </div>
+            )) : (
+              <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
+                <ShieldCheck className="mx-auto h-5 w-5 text-slate-700" />
+                <p className="mt-3 text-sm font-medium text-slate-400">{findingsLoading ? "Loading findings…" : "No evidence-backed findings recorded yet."}</p>
+                <p className="mt-2 text-xs text-slate-600">Run “Create security findings” after telemetry or evidence has been connected.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-4">
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Evidence boundary</p>
+            <p className="mt-1 text-[10px] leading-5 text-slate-600">A finding is an evidence-backed investigation record. It is not a declaration of compromise, malicious intent, or successful exploitation.</p>
           </div>
         </section>
 
