@@ -73,6 +73,7 @@ export default function SecurityBrainPage() {
   const [copilotFindingId, setCopilotFindingId] = useState("");
   const [copilotAnswer, setCopilotAnswer] = useState("");
   const [copilotResultFindingId, setCopilotResultFindingId] = useState("");
+  const [responsePlanFindingId, setResponsePlanFindingId] = useState("");
 
   const [sourceAssetId, setSourceAssetId] = useState("");
   const [targetAssetId, setTargetAssetId] = useState("");
@@ -202,7 +203,7 @@ export default function SecurityBrainPage() {
     }
   }
 
-  async function runDiscovery() {
+  async function createResponsePlan(findingId: string) {\n    setResponsePlanFindingId(findingId);\n    setMessage("");\n    try {\n      const response = await fetch("/api/security/response-plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ findingId }) });\n      const data = await response.json();\n      if (!response.ok) { setMessage(data.error ?? "Unable to create a response plan."); return; }\n      setMessage("Response plan created and queued in Security Actions for explicit review.");\n    } catch { setMessage("Unable to create the response plan."); } finally { setResponsePlanFindingId(""); }\n  }\n\n  async function runDiscovery() {
     setDiscovering(true);
     setMessage("");
 
