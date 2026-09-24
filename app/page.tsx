@@ -297,7 +297,7 @@ export default function DashboardPage() {
 
               <div className="mt-7 flex flex-wrap gap-3">
                 <a
-                  href="#assets"
+                  href="/assets"
                   className="inline-flex items-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
                 >
                   Add protected surface
