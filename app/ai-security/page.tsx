@@ -95,7 +95,12 @@ export default function AiSecurityCenterPage() {
   const [form, setForm] = useState({ name: "", provider: "", model: "", purpose: "", systemId: "", autonomyLevel: "assisted", dataClassification: "unknown" });
   const [message, setMessage] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
-  const [posture, setPosture] = useState<{ observations: Array<{ state: string; title: string; detail: string }>; summary: { systems: number; agents: number; highImpactEvents: number; sensitiveEvidence: number; confirmedAiRelevantEdges: number } } | null>(null);\n  const [detecting, setDetecting] = useState(false);\n  const [detections, setDetections] = useState<Array<{ state: string; category: string; title: string; detail: string; evidenceIds: string[]; eventIds: string[]; recommendedNextStep: string }>>([]);\n  const [detectionSummary, setDetectionSummary] = useState<{ total: number; observed: number; potential: number } | null>(null);
+  const [posture, setPosture] = useState<{ observations: Array<{ state: string; title: string; detail: string }>; summary: { systems: number; agents: number; highImpactEvents: number; sensitiveEvidence: number; confirmedAiRelevantEdges: number } } | null>(null);
+  const [detecting, setDetecting] = useState(false);
+  const [detections, setDetections] = useState<Array<{ state: string; category: string; title: string; detail: string; evidenceIds: string[]; eventIds: string[]; recommendedNextStep: string }>>([]);
+  const [detectionSummary, setDetectionSummary] = useState<{ total: number; observed: number; potential: number } | null>(null);
+  const [attackPaths, setAttackPaths] = useState<Array<{ id: string; source: { name: string; asset_type: string }; target: { name: string; asset_type: string }; hops: Array<{ asset: { name: string; asset_type: string }; relationship: string; confidence: number | null }>; confidence: number; rationale: string }>>([]);
+  const [pathsLoading, setPathsLoading] = useState(false);
 
   async function load() {
     const response = await fetch("/api/security/ai", { cache: "no-store" });
@@ -104,7 +109,17 @@ export default function AiSecurityCenterPage() {
     setRefreshing(false);
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); void loadAttackPaths(); }, []);
+
+  async function loadAttackPaths() {
+    setPathsLoading(true);
+    const response = await fetch("/api/security/attack-paths", { cache: "no-store" });
+    if (response.ok) {
+      const result = await response.json();
+      setAttackPaths(result.paths ?? []);
+    }
+    setPathsLoading(false);
+  }
 
   async function analyzePosture() {
     setAnalyzing(true);
@@ -123,7 +138,17 @@ export default function AiSecurityCenterPage() {
     setAnalyzing(false);
   }
 
-  async function detectThreats() {\n    setDetecting(true);\n    setMessage("");\n    const response = await fetch("/api/security/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "detect" }) });\n    const result = await response.json();\n    if (response.ok) { setDetections(result.detections ?? []); setDetectionSummary(result.summary ?? null); }\n    else setMessage(result.error ?? "Threat detection failed.");\n    setDetecting(false);\n  }\n\n  async function submit() {
+  async function detectThreats() {
+    setDetecting(true);
+    setMessage("");
+    const response = await fetch("/api/security/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "detect" }) });
+    const result = await response.json();
+    if (response.ok) { setDetections(result.detections ?? []); setDetectionSummary(result.summary ?? null); }
+    else setMessage(result.error ?? "Threat detection failed.");
+    setDetecting(false);
+  }
+
+  async function submit() {
     setMessage("");
     const payload = modal === "system"
       ? { kind: "system", name: form.name, provider: form.provider, model: form.model, dataClassification: form.dataClassification }
@@ -175,7 +200,8 @@ export default function AiSecurityCenterPage() {
               <div className="mt-7 flex flex-wrap gap-3">
                 <button onClick={() => setModal("system")} className="inline-flex items-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-200"><Plus className="h-4 w-4" /> Register AI system</button>
                 <button onClick={() => setModal("agent")} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white hover:bg-white/[0.08]"><Bot className="h-4 w-4" /> Register AI agent</button>
-                <button onClick={() => void detectThreats()} disabled={detecting} className="inline-flex items-center gap-2 rounded-xl border border-red-400/20 bg-red-400/[0.05] px-4 py-3 text-sm font-semibold text-red-200 hover:bg-red-400/[0.1] disabled:opacity-50"><AlertTriangle className="h-4 w-4" /> {detecting ? "Detecting…" : "Run threat detection"}</button>\n                <button onClick={() => void analyzePosture()} disabled={analyzing} className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-3 text-sm font-semibold text-cyan-200 hover:bg-cyan-400/[0.1] disabled:opacity-50"><Sparkles className="h-4 w-4" /> {analyzing ? "Analyzing evidence…" : "Analyze AI posture"}</button>
+                <button onClick={() => void detectThreats()} disabled={detecting} className="inline-flex items-center gap-2 rounded-xl border border-red-400/20 bg-red-400/[0.05] px-4 py-3 text-sm font-semibold text-red-200 hover:bg-red-400/[0.1] disabled:opacity-50"><AlertTriangle className="h-4 w-4" /> {detecting ? "Detecting…" : "Run threat detection"}</button>
+                <button onClick={() => void analyzePosture()} disabled={analyzing} className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-3 text-sm font-semibold text-cyan-200 hover:bg-cyan-400/[0.1] disabled:opacity-50"><Sparkles className="h-4 w-4" /> {analyzing ? "Analyzing evidence…" : "Analyze AI posture"}</button>
               </div>
             </div>
           </div>
@@ -241,7 +267,45 @@ export default function AiSecurityCenterPage() {
           </div>
         </section>
 
-        <section className="mt-8 rounded-3xl border border-red-400/10 bg-red-400/[0.025] p-6 sm:p-7">\n          <div className="flex flex-wrap items-start justify-between gap-4">\n            <div><p className="text-xs font-semibold uppercase tracking-wider text-red-300">05 · AI threat detection</p><h2 className="mt-1 text-xl font-semibold text-white">Evidence-grounded detection</h2><p className="mt-2 max-w-3xl text-xs leading-5 text-slate-500">Rules inspect recorded AI telemetry and evidence for explicit security indicators. Potential conditions are surfaced for review; detection never executes a response action.</p></div>\n            {detectionSummary && <div className="flex gap-2"><span className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] text-slate-400">{detectionSummary.total} detected</span><span className="rounded-full border border-red-400/20 px-3 py-1.5 text-[10px] text-red-300">{detectionSummary.observed} observed</span><span className="rounded-full border border-amber-400/20 px-3 py-1.5 text-[10px] text-amber-300">{detectionSummary.potential} potential</span></div>}\n          </div>\n          <div className="mt-5 grid gap-3 lg:grid-cols-2">\n            {detections.length ? detections.map((item, index) => <div key={item.title + index} className="rounded-2xl border border-white/10 bg-black/10 p-4">\n              <div className="flex items-start justify-between gap-3"><div><span className="text-[9px] font-semibold uppercase tracking-wider text-red-300">{item.category}</span><p className="mt-1 text-sm font-medium text-white">{item.title}</p></div><span className={"rounded-full border px-2 py-1 text-[9px] font-semibold uppercase tracking-wider " + badgeTone(item.state)}>{item.state}</span></div>\n              <p className="mt-3 text-xs leading-5 text-slate-500">{item.detail}</p>\n              <div className="mt-3 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.025] p-3"><p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-300">Next step</p><p className="mt-1 text-[11px] leading-5 text-slate-400">{item.recommendedNextStep}</p></div>\n              {(item.eventIds.length || item.evidenceIds.length) ? <p className="mt-3 text-[9px] text-slate-600">Evidence references: {item.eventIds.length} event(s) · {item.evidenceIds.length} evidence record(s)</p> : null}\n            </div>) : <div className="lg:col-span-2 rounded-2xl border border-dashed border-white/10 p-8 text-center"><ShieldCheck className="mx-auto h-5 w-5 text-emerald-300" /><p className="mt-3 text-sm font-medium text-slate-300">No evidence-backed AI threat indicators detected.</p><p className="mt-2 text-xs text-slate-600">This means the current registered telemetry did not match the detection rules. Missing telemetry remains unknown.</p></div>}\n          </div>\n        </section>\n\n        <section className="mt-8 grid gap-5 lg:grid-cols-2">
+        <section className="mt-8 rounded-3xl border border-red-400/10 bg-red-400/[0.025] p-6 sm:p-7">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div><p className="text-xs font-semibold uppercase tracking-wider text-red-300">05 · AI threat detection</p><h2 className="mt-1 text-xl font-semibold text-white">Evidence-grounded detection</h2><p className="mt-2 max-w-3xl text-xs leading-5 text-slate-500">Rules inspect recorded AI telemetry and evidence for explicit security indicators. Potential conditions are surfaced for review; detection never executes a response action.</p></div>
+            {detectionSummary && <div className="flex gap-2"><span className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] text-slate-400">{detectionSummary.total} detected</span><span className="rounded-full border border-red-400/20 px-3 py-1.5 text-[10px] text-red-300">{detectionSummary.observed} observed</span><span className="rounded-full border border-amber-400/20 px-3 py-1.5 text-[10px] text-amber-300">{detectionSummary.potential} potential</span></div>}
+          </div>
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+            {detections.length ? detections.map((item, index) => <div key={item.title + index} className="rounded-2xl border border-white/10 bg-black/10 p-4">
+              <div className="flex items-start justify-between gap-3"><div><span className="text-[9px] font-semibold uppercase tracking-wider text-red-300">{item.category}</span><p className="mt-1 text-sm font-medium text-white">{item.title}</p></div><span className={"rounded-full border px-2 py-1 text-[9px] font-semibold uppercase tracking-wider " + badgeTone(item.state)}>{item.state}</span></div>
+              <p className="mt-3 text-xs leading-5 text-slate-500">{item.detail}</p>
+              <div className="mt-3 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.025] p-3"><p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-300">Next step</p><p className="mt-1 text-[11px] leading-5 text-slate-400">{item.recommendedNextStep}</p></div>
+              {(item.eventIds.length || item.evidenceIds.length) ? <p className="mt-3 text-[9px] text-slate-600">Evidence references: {item.eventIds.length} event(s) · {item.evidenceIds.length} evidence record(s)</p> : null}
+            </div>) : <div className="lg:col-span-2 rounded-2xl border border-dashed border-white/10 p-8 text-center"><ShieldCheck className="mx-auto h-5 w-5 text-emerald-300" /><p className="mt-3 text-sm font-medium text-slate-300">No evidence-backed AI threat indicators detected.</p><p className="mt-2 text-xs text-slate-600">This means the current registered telemetry did not match the detection rules. Missing telemetry remains unknown.</p></div>}
+          </div>
+        </section>
+
+        <section className="mt-8 rounded-3xl border border-purple-400/10 bg-purple-400/[0.025] p-6 sm:p-7">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div><p className="text-xs font-semibold uppercase tracking-wider text-purple-300">07 · Attack-path intelligence</p><h2 className="mt-1 text-xl font-semibold text-white">AI-connected attack paths</h2><p className="mt-2 max-w-3xl text-xs leading-5 text-slate-500">SentinelX traces only confirmed graph relationships. A path shows exposure context between authorized assets; it does not establish compromise or attacker activity.</p></div>
+            <button onClick={() => void loadAttackPaths()} disabled={pathsLoading} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-white disabled:opacity-50"><RefreshCw className={"h-3.5 w-3.5 " + (pathsLoading ? "animate-spin" : "")} /> Refresh paths</button>
+          </div>
+          <div className="mt-5 space-y-3">
+            {attackPaths.length ? attackPaths.slice(0, 12).map((path) => (
+              <div key={path.id} className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-white">
+                  <span>{path.source.name}</span><ChevronRight className="h-3.5 w-3.5 text-purple-300" />
+                  {path.hops.map((hop, index) => <span key={index} className="inline-flex items-center gap-2"><span className="text-slate-300">{hop.relationship}</span><ChevronRight className="h-3.5 w-3.5 text-slate-600" /><span>{hop.asset.name}</span></span>)}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-purple-400/20 px-2 py-1 text-[9px] text-purple-200">{path.hops.length} hops</span>
+                  <span className="rounded-full border border-emerald-400/20 px-2 py-1 text-[9px] text-emerald-300">confirmed graph</span>
+                  <span className="text-[9px] text-slate-600">Minimum edge confidence: {Math.round(path.confidence * 100)}%</span>
+                </div>
+                <p className="mt-2 text-[10px] leading-5 text-slate-600">{path.rationale}</p>
+              </div>
+            )) : <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center"><Network className="mx-auto h-5 w-5 text-slate-700" /><p className="mt-3 text-sm font-medium text-slate-400">{pathsLoading ? "Tracing confirmed relationships…" : "No confirmed multi-hop attack paths available."}</p><p className="mt-2 text-xs text-slate-600">Unconfirmed relationships are intentionally excluded.</p></div>}
+          </div>
+        </section>
+
+        <section className="mt-8 grid gap-5 lg:grid-cols-2">
           <div className="rounded-3xl border border-cyan-400/10 bg-cyan-400/[0.025] p-6">
             <div className="flex items-center justify-between">
               <div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">05 · Security reasoning</p><h2 className="mt-1 text-xl font-semibold text-white">AI posture analysis</h2></div>
