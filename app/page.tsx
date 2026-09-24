@@ -104,17 +104,34 @@ const navigation = [
   { label: "Activity", href: "#activity", icon: Activity },
 ];
 
-const metrics: Metric[] = [
-  { label: "Protected assets", value: "0", detail: "Connect your first surface", icon: Boxes },
-  { label: "Open findings", value: "0", detail: "No evidence loaded", icon: AlertTriangle },
-  { label: "Security events", value: "0", detail: "Telemetry not connected", icon: Activity },
-  { label: "Attack paths", value: "0", detail: "Graph builds from real relationships", icon: Network },
-];
+type SecurityOverview = {
+  connected: boolean;
+  metrics: {
+    protectedAssets: number;
+    openFindings: number;
+    securityEvents: number;
+    attackPaths: number;
+    aiSystems: number;
+    aiAgents: number;
+  };
+  latestEvents: Array<{
+    id: string;
+    event_type: string;
+    severity: string;
+    source: string;
+    title: string;
+    description: string | null;
+    observed_at: string;
+    asset_id: string | null;
+  }>;
+};
 
 export default function DashboardPage() {
   const [user, setUser] = useState<UserState>({ email: "", displayName: "" });
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
+  const [overview, setOverview] = useState<SecurityOverview | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
 
   useEffect(() => {
     const supabase = createClient();
@@ -134,6 +151,18 @@ export default function DashboardPage() {
           email: currentUser.email ?? "",
           displayName: metadataName,
         });
+      }
+
+      try {
+        const response = await fetch("/api/security/overview", {
+          method: "GET",
+          cache: "no-store",
+        });
+        if (response.ok) {
+          setOverview((await response.json()) as SecurityOverview);
+        }
+      } finally {
+        setOverviewLoading(false);
       }
 
       setLoading(false);
@@ -156,6 +185,33 @@ export default function DashboardPage() {
     () => user.displayName || user.email.split("@")[0] || "Security operator",
     [user.displayName, user.email]
   );
+
+  const liveMetrics: Metric[] = [
+    {
+      label: "Protected assets",
+      value: String(overview?.metrics.protectedAssets ?? 0),
+      detail: overviewLoading ? "Loading verified data" : overview?.metrics.protectedAssets ? "Verified security assets" : "Connect your first surface",
+      icon: Boxes,
+    },
+    {
+      label: "Open findings",
+      value: String(overview?.metrics.openFindings ?? 0),
+      detail: overviewLoading ? "Loading verified data" : overview?.metrics.openFindings ? "Open or acknowledged findings" : "No findings recorded",
+      icon: AlertTriangle,
+    },
+    {
+      label: "Security events",
+      value: String(overview?.metrics.securityEvents ?? 0),
+      detail: overviewLoading ? "Loading verified data" : overview?.metrics.securityEvents ? "Verified telemetry events" : "Telemetry not connected",
+      icon: Activity,
+    },
+    {
+      label: "Attack paths",
+      value: String(overview?.metrics.attackPaths ?? 0),
+      detail: overviewLoading ? "Loading verified data" : overview?.metrics.attackPaths ? "Known asset relationships" : "Graph builds from relationships",
+      icon: Network,
+    },
+  ];
 
   return (
     <main className="min-h-screen bg-[#071018] text-slate-100">
@@ -292,7 +348,7 @@ export default function DashboardPage() {
         </section>
 
         <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {metrics.map(({ label, value, detail, icon: Icon }) => (
+          {liveMetrics.map(({ label, value, detail, icon: Icon }) => (
             <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium text-slate-500">{label}</p>
