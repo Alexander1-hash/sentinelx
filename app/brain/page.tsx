@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Boxes, BrainCircuit, CircleDashed, GitBranch, Loader2, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowLeft, Boxes, BrainCircuit, CircleDashed, GitBranch, Loader2, ShieldCheck, Sparkles, MessageSquare } from "lucide-react";
 
 type Asset = {
   id: string;
@@ -69,7 +69,7 @@ export default function SecurityBrainPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [attackPaths, setAttackPaths] = useState<AttackPath[]>([]);
-  const [attackPathLoading, setAttackPathLoading] = useState(true);
+  const [attackPathLoading, setAttackPathLoading] = useState(true);\n  const [copilotFindingId, setCopilotFindingId] = useState("");\n  const [copilotAnswer, setCopilotAnswer] = useState("");
 
   const [sourceAssetId, setSourceAssetId] = useState("");
   const [targetAssetId, setTargetAssetId] = useState("");
@@ -172,6 +172,28 @@ export default function SecurityBrainPage() {
       setMessage("Unable to run Security Brain analysis.");
     } finally {
       setAnalyzing(false);
+    }
+  }
+
+  async function askCopilot(findingId: string) {
+    setCopilotFindingId(findingId);
+    setCopilotAnswer("");
+    try {
+      const response = await fetch("/api/security/analyst", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ findingId }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error ?? "Security Copilot could not analyze this finding.");
+        return;
+      }
+      setCopilotAnswer(data.answer ?? "No analyst conclusion was returned.");
+    } catch {
+      setMessage("Security Copilot could not connect to the Security Brain.");
+    } finally {
+      setCopilotFindingId("");
     }
   }
 
@@ -426,6 +448,20 @@ export default function SecurityBrainPage() {
                   <p className="mt-2 text-[11px] leading-5 text-slate-500">{finding.summary ?? "Evidence-backed finding requiring investigation."}</p>
                   <p className="mt-3 text-[10px] text-slate-600">Type: {finding.finding_type.replaceAll("_", " ")}</p>
                   {finding.remediation && <p className="mt-2 text-[10px] leading-5 text-slate-600">Next step: {finding.remediation}</p>}
+                  <button
+                    onClick={() => void askCopilot(finding.id)}
+                    disabled={copilotFindingId === finding.id}
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] px-3 py-2 text-[10px] font-semibold text-cyan-200 disabled:opacity-50"
+                  >
+                    {copilotFindingId === finding.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
+                    {copilotFindingId === finding.id ? "Analyzing..." : "Ask Security Copilot"}
+                  </button>
+                  {copilotAnswer && copilotFindingId === "" && (
+                    <div className="mt-3 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.03] p-3">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-200">Copilot analysis</p>
+                      <p className="mt-2 whitespace-pre-wrap text-[10px] leading-5 text-slate-400">{copilotAnswer}</p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
