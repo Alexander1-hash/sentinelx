@@ -79,6 +79,7 @@ export default function SecurityBrainPage() {
     blastRadius: Array<{ asset: { name: string; asset_type: string; criticality: string | null; status: string }; hops: number; confidence: number; chain: string[] }>;
     supportingEvidence: Array<{ id: string; title: string; source: string; summary: string | null; observed_at: string }>;
     unknowns: string[];
+    memory: Array<{ memory_type: string; title: string; summary: string; state: string; occurred_at: string }>;
   } | null>(null);
 
   const [sourceAssetId, setSourceAssetId] = useState("");
@@ -524,6 +525,28 @@ export default function SecurityBrainPage() {
                                       <span className="text-[9px] text-cyan-200">{item.hops} hop{item.hops === 1 ? "" : "s"} · {Math.round(item.confidence * 100)}%</span>
                                     </div>
                                     <p className="mt-1 text-[9px] capitalize text-slate-600">{item.asset.asset_type.replaceAll("_", " ")} · {item.chain.join(" → ")}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {copilotInvestigation.memory.length > 0 && (
+                            <div className="mb-3 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.025] p-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-200">Historical Security Memory</p>
+                                  <p className="mt-1 text-[9px] leading-4 text-slate-600">Recorded context used so this investigation does not start from zero.</p>
+                                </div>
+                                <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-cyan-200">{copilotInvestigation.memory.length} records</span>
+                              </div>
+                              <div className="mt-2 space-y-2">
+                                {copilotInvestigation.memory.slice(0, 5).map((memory) => (
+                                  <div key={memory.title + memory.occurred_at} className="rounded-lg border border-white/10 bg-black/10 p-2">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <p className="text-[10px] font-medium text-slate-200">{memory.title}</p>
+                                      <span className="text-[8px] uppercase tracking-wider text-slate-600">{memory.memory_type.replaceAll("_", " ")}</span>
+                                    </div>
+                                    <p className="mt-1 text-[9px] leading-4 text-slate-500">{memory.summary}</p>
                                   </div>
                                 ))}
                               </div>
