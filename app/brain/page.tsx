@@ -74,6 +74,12 @@ export default function SecurityBrainPage() {
   const [copilotAnswer, setCopilotAnswer] = useState("");
   const [copilotResultFindingId, setCopilotResultFindingId] = useState("");
   const [responsePlanFindingId, setResponsePlanFindingId] = useState("");
+  const [copilotInvestigation, setCopilotInvestigation] = useState<{
+    affectedAsset: { name: string; asset_type: string; criticality: string | null; status: string } | null;
+    blastRadius: Array<{ asset: { name: string; asset_type: string; criticality: string | null; status: string }; hops: number; confidence: number; chain: string[] }>;
+    supportingEvidence: Array<{ id: string; title: string; source: string; summary: string | null; observed_at: string }>;
+    unknowns: string[];
+  } | null>(null);
 
   const [sourceAssetId, setSourceAssetId] = useState("");
   const [targetAssetId, setTargetAssetId] = useState("");
@@ -183,11 +189,12 @@ export default function SecurityBrainPage() {
   async function askCopilot(findingId: string) {
     setCopilotFindingId(findingId);
     setCopilotAnswer("");
+    setCopilotInvestigation(null);
     try {
       const response = await fetch("/api/security/analyst", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ findingId }),
+        body: JSON.stringify({ findingId, mode: "investigate" }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -195,6 +202,7 @@ export default function SecurityBrainPage() {
         return;
       }
       setCopilotAnswer(data.answer ?? "No analyst conclusion was returned.");
+      setCopilotInvestigation(data.investigation ?? null);
       setCopilotResultFindingId(findingId);
     } catch {
       setMessage("Security Copilot could not connect to the Security Brain.");
@@ -477,6 +485,50 @@ export default function SecurityBrainPage() {
                     <div className="mt-3 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.03] p-3">
                       <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-200">Copilot analysis</p>
                       <p className="mt-2 whitespace-pre-wrap text-[10px] leading-5 text-slate-400">{copilotAnswer}</p>
+                      {copilotInvestigation && (
+                        <div className="mt-4 space-y-3 border-t border-cyan-400/10 pt-3">
+                          <div>
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-200">Investigation context</p>
+                            <p className="mt-1 text-[10px] text-slate-500">
+                              Affected asset: {copilotInvestigation.affectedAsset?.name ?? "Not established"}
+                            </p>
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <div className="rounded-xl border border-white/10 p-3">
+                              <p className="text-[9px] uppercase tracking-wider text-slate-600">Confirmed blast radius</p>
+                              <p className="mt-1 text-sm font-semibold text-white">{copilotInvestigation.blastRadius.length} downstream assets</p>
+                            </div>
+                            <div className="rounded-xl border border-white/10 p-3">
+                              <p className="text-[9px] uppercase tracking-wider text-slate-600">Supporting evidence</p>
+                              <p className="mt-1 text-sm font-semibold text-white">{copilotInvestigation.supportingEvidence.length} records</p>
+                            </div>
+                          </div>
+                          {copilotInvestigation.blastRadius.length > 0 && (
+                            <div>
+                              <p className="text-[9px] uppercase tracking-wider text-slate-600">Confirmed downstream assets</p>
+                              <div className="mt-2 space-y-2">
+                                {copilotInvestigation.blastRadius.slice(0, 5).map((item) => (
+                                  <div key={item.asset.name + item.hops} className="rounded-xl border border-white/10 p-3">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <p className="text-[10px] font-medium text-white">{item.asset.name}</p>
+                                      <span className="text-[9px] text-cyan-200">{item.hops} hop{item.hops === 1 ? "" : "s"} · {Math.round(item.confidence * 100)}%</span>
+                                    </div>
+                                    <p className="mt-1 text-[9px] capitalize text-slate-600">{item.asset.asset_type.replaceAll("_", " ")} · {item.chain.join(" → ")}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className="rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3">
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-200">Unknowns & boundary</p>
+                            <ul className="mt-2 space-y-1">
+                              {copilotInvestigation.unknowns.map((unknown) => (
+                                <li key={unknown} className="text-[9px] leading-4 text-slate-600">• {unknown}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
