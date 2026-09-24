@@ -1,0 +1,221 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+type JsonRecord = Record<string, unknown>;
+
+async function getContext() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return { supabase, user: null, organizationId: null };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return {
+    supabase,
+    user,
+    organizationId: profile?.organization_id ?? null,
+  };
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function asObject(value: unknown): JsonRecord {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as JsonRecord
+    : {};
+}
+
+function indicator(label: string, state: "observed" | "potential" | "unknown", detail: string) {
+  return { label, state, detail };
+}
+
+export async function GET() {
+  try {
+    const { supabase, user, organizationId } = await getContext();
+
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!organizationId) {
+      return NextResponse.json({
+        systems: [],
+        agents: [],
+        events: [],
+        indicators: [],
+        summary: {
+          systems: 0,
+          agents: 0,
+          activeAgents: 0,
+          autonomousAgents: 0,
+          highImpactEvents: 0,
+          connectedSystems: 0,
+        },
+      });
+    }
+
+    const [systemsResult, agentsResult, eventsResult] = await Promise.all([
+      supabase
+        .from("ai_security_systems")
+        .select("id,asset_id,name,provider,model,system_type,environment,data_classification,status,capabilities,permissions,metadata,created_at,updated_at")
+        .eq("organization_id", organizationId)
+        .order("updated_at", { ascending: false })
+        .limit(500),
+      supabase
+        .from("ai_security_agents")
+        .select("id,system_id,name,purpose,autonomy_level,tools,permissions,data_access,status,created_at,updated_at")
+        .eq("organization_id", organizationId)
+        .order("updated_at", { ascending: false })
+        .limit(500),
+      supabase
+        .from("ai_security_events")
+        .select("id,system_id,agent_id,event_type,severity,title,description,observed_at,evidence")
+        .eq("organization_id", organizationId)
+        .order("observed_at", { ascending: false })
+        .limit(100),
+    ]);
+
+    const error = systemsResult.error ?? agentsResult.error ?? eventsResult.error;
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const systems = systemsResult.data ?? [];
+    const agents = agentsResult.data ?? [];
+    const events = eventsResult.data ?? [];
+
+    const indicators = [
+      ...agents
+        .filter((agent) => agent.autonomy_level === "autonomous")
+        .map((agent) =>
+          indicator(
+            "Autonomous agent",
+            "observed",
+            agent.name + " is registered with autonomous execution capability."
+          )
+        ),
+      ...agents
+        .filter((agent) => asArray(agent.tools).length > 0)
+        .map((agent) =>
+          indicator(
+            "Tool access",
+            "observed",
+            agent.name + " has " + asArray(agent.tools).length + " registered tool capability" + (asArray(agent.tools).length === 1 ? "" : "ies") + "."
+          )
+        ),
+      ...agents
+        .filter((agent) => asArray(agent.data_access).length > 0)
+        .map((agent) =>
+          indicator(
+            "Data access",
+            "observed",
+            agent.name + " has registered data-access declarations."
+          )
+        ),
+      ...systems
+        .filter((system) => system.data_classification === "confidential" || system.data_classification === "restricted")
+        .map((system) =>
+          indicator(
+            "Sensitive AI data",
+            "observed",
+            system.name + " is registered with " + system.data_classification + " data classification."
+          )
+        ),
+      ...events
+        .filter((event) => event.severity === "high" || event.severity === "critical")
+        .map((event) =>
+          indicator(
+            event.event_type,
+            "observed",
+            event.title + " was recorded as " + event.severity + " severity."
+          )
+        ),
+    ].slice(0, 40);
+
+    return NextResponse.json({
+      systems,
+      agents,
+      events,
+      indicators,
+      summary: {
+        systems: systems.length,
+        agents: agents.length,
+        activeAgents: agents.filter((agent) => agent.status === "active").length,
+        autonomousAgents: agents.filter((agent) => agent.autonomy_level === "autonomous").length,
+        highImpactEvents: events.filter((event) => event.severity === "high" || event.severity === "critical").length,
+        connectedSystems: systems.filter((system) => Boolean(system.asset_id)).length,
+      },
+      boundary: "Inventory and indicators are derived only from registered AI security records and observed AI security events. Missing telemetry is unknown, not safe.",
+    });
+  } catch {
+    return NextResponse.json({ error: "Unable to load AI Security Center." }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const { supabase, user, organizationId } = await getContext();
+
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!organizationId) return NextResponse.json({ error: "No organization is connected." }, { status: 400 });
+
+    const body = await request.json();
+    const kind = body?.kind;
+
+    if (kind === "system") {
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      if (!name) return NextResponse.json({ error: "AI system name is required." }, { status: 400 });
+
+      const { data, error } = await supabase
+        .from("ai_security_systems")
+        .insert({
+          organization_id: organizationId,
+          name,
+          provider: typeof body.provider === "string" ? body.provider.trim() || null : null,
+          model: typeof body.model === "string" ? body.model.trim() || null : null,
+          system_type: typeof body.systemType === "string" ? body.systemType : "application",
+          environment: typeof body.environment === "string" ? body.environment : "production",
+          data_classification: typeof body.dataClassification === "string" ? body.dataClassification : "unknown",
+          status: "active",
+          capabilities: Array.isArray(body.capabilities) ? body.capabilities : [],
+          permissions: asObject(body.permissions),
+          metadata: { registration_source: "sentinelx_ai_security_center" },
+        })
+        .select("id,name,provider,model,system_type,environment,data_classification,status,capabilities,permissions,metadata,created_at,updated_at")
+        .single();
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ system: data }, { status: 201 });
+    }
+
+    if (kind === "agent") {
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      if (!name) return NextResponse.json({ error: "AI agent name is required." }, { status: 400 });
+
+      const { data, error } = await supabase
+        .from("ai_security_agents")
+        .insert({
+          organization_id: organizationId,
+          system_id: typeof body.systemId === "string" ? body.systemId : null,
+          name,
+          purpose: typeof body.purpose === "string" ? body.purpose.trim() || null : null,
+          autonomy_level: typeof body.autonomyLevel === "string" ? body.autonomyLevel : "assisted",
+          tools: Array.isArray(body.tools) ? body.tools : [],
+          permissions: asObject(body.permissions),
+          data_access: Array.isArray(body.dataAccess) ? body.dataAccess : [],
+          status: "active",
+        })
+        .select("id,system_id,name,purpose,autonomy_level,tools,permissions,data_access,status,created_at,updated_at")
+        .single();
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ agent: data }, { status: 201 });
+    }
+
+    return NextResponse.json({ error: "Unsupported AI security registration type." }, { status: 400 });
+  } catch {
+    return NextResponse.json({ error: "AI security registration failed." }, { status: 500 });
+  }
+}
