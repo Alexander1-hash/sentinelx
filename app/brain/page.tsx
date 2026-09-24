@@ -39,6 +39,26 @@ type Relationship = {
   created_at: string;
 };
 
+type AttackPathHop = {
+  asset: {
+    id: string;
+    name: string;
+    asset_type: string;
+    criticality: string;
+  };
+  relationship: string;
+  confidence: number | null;
+};
+
+type AttackPath = {
+  id: string;
+  source: AttackPathHop["asset"];
+  target: AttackPathHop["asset"];
+  hops: AttackPathHop[];
+  confidence: number;
+  rationale: string;
+};
+
 export default function SecurityBrainPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
@@ -48,6 +68,8 @@ export default function SecurityBrainPage() {
   const [discovering, setDiscovering] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [attackPaths, setAttackPaths] = useState<AttackPath[]>([]);
+  const [attackPathLoading, setAttackPathLoading] = useState(true);
 
   const [sourceAssetId, setSourceAssetId] = useState("");
   const [targetAssetId, setTargetAssetId] = useState("");
@@ -57,15 +79,17 @@ export default function SecurityBrainPage() {
   async function loadGraph() {
     setLoading(true);
     try {
-      const [assetsResponse, relationshipsResponse, findingsResponse] = await Promise.all([
+      const [assetsResponse, relationshipsResponse, findingsResponse, attackPathsResponse] = await Promise.all([
         fetch("/api/security/assets", { cache: "no-store" }),
         fetch("/api/security/relationships", { cache: "no-store" }),
         fetch("/api/security/analysis", { cache: "no-store" }),
+        fetch("/api/security/attack-paths", { cache: "no-store" }),
       ]);
 
       const assetsData = await assetsResponse.json();
       const relationshipsData = await relationshipsResponse.json();
       const findingsData = await findingsResponse.json();
+      const attackPathsData = await attackPathsResponse.json();
 
       if (!assetsResponse.ok) {
         setMessage(assetsData.error ?? "Unable to load assets.");
@@ -80,6 +104,10 @@ export default function SecurityBrainPage() {
       setAssets(assetsData.assets ?? []);
       setRelationships(relationshipsData.relationships ?? []);
       setFindings(findingsData.findings ?? []);
+      setAttackPaths(attackPathsData.paths ?? []);
+      if (!attackPathsResponse.ok) {
+        setMessage(attackPathsData.error ?? "Attack path intelligence is temporarily unavailable.");
+      }
     } catch {
       setMessage("Security Graph could not be loaded.");
     } finally {
@@ -300,6 +328,84 @@ export default function SecurityBrainPage() {
             <p className="mt-1 text-xs text-slate-600">No confirmed edges</p>
           </div>
         </div>
+
+        <section className="mt-6 rounded-3xl border border-orange-400/10 bg-orange-400/[0.025] p-5 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-orange-200">Attack path intelligence</p>
+              <h2 className="mt-1 text-lg font-semibold text-white">Confirmed paths through the security graph</h2>
+              <p className="mt-2 max-w-2xl text-[11px] leading-5 text-slate-500">
+                SentinelX traces only confirmed relationships. A path shows exposure context and reachability; it does not prove that any system has been compromised.
+              </p>
+            </div>
+            <span className="w-fit rounded-full bg-white/5 px-2 py-1 text-[9px] uppercase tracking-wider text-slate-500">
+              {attackPaths.length} path{attackPaths.length === 1 ? "" : "s"} · confirmed graph only
+            </span>
+          </div>
+
+          {attackPathLoading ? (
+            <div className="mt-5 flex items-center gap-2 text-xs text-slate-500">
+              <Loader2 className="h-4 w-4 animate-spin" /> Mapping confirmed paths...
+            </div>
+          ) : attackPaths.length > 0 ? (
+            <div className="mt-5 space-y-3">
+              {attackPaths.slice(0, 12).map((path) => (
+                <div key={path.id} className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-white">
+                        <span>{path.source.name}</span>
+                        <span className="text-orange-300">→</span>
+                        <span>{path.target.name}</span>
+                      </div>
+                      <p className="mt-1 text-[10px] capitalize text-slate-600">
+                        {path.source.asset_type.replaceAll("_", " ")} → {path.target.asset_type.replaceAll("_", " ")}
+                        {" · "}target criticality: {path.target.criticality}
+                      </p>
+                    </div>
+                    <span className="w-fit rounded-full bg-orange-400/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-orange-200">
+                      {Math.round(path.confidence * 100)}% path confidence
+                    </span>
+                  </div>
+
+                  <div className="mt-4 overflow-x-auto pb-1">
+                    <div className="flex min-w-max items-center gap-2">
+                      <span className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.03] px-2.5 py-2 text-[10px] text-slate-300">
+                        {path.source.name}
+                      </span>
+                      {path.hops.map((hop, index) => (
+                        <div key={path.id + "-" + index} className="flex items-center gap-2">
+                          <span className="text-[9px] uppercase tracking-wider text-orange-300">
+                            {hop.relationship.replaceAll("_", " ")}
+                          </span>
+                          <span className="rounded-lg border border-white/10 bg-white/[0.025] px-2.5 py-2 text-[10px] text-slate-300">
+                            {hop.asset.name}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-[10px] leading-5 text-slate-600">{path.rationale}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-2xl border border-dashed border-white/10 p-5">
+              <p className="text-sm font-medium text-slate-300">No confirmed multi-hop attack paths</p>
+              <p className="mt-2 text-xs leading-5 text-slate-600">
+                This means SentinelX currently has no confirmed graph path of two or more hops reaching a sensitive asset type. It is not a claim that the environment is safe.
+              </p>
+            </div>
+          )}
+
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Evidence boundary</p>
+            <p className="mt-1 text-[10px] leading-5 text-slate-600">
+              Paths are derived from confirmed graph edges only. Proposed relationships, missing telemetry, and inferred compromise are excluded.
+            </p>
+          </div>
+        </section>
 
         {findings.length > 0 && (
           <section className="mt-6 rounded-3xl border border-rose-400/10 bg-rose-400/[0.025] p-5 sm:p-6">
