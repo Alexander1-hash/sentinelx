@@ -65,9 +65,7 @@ export default function SecurityBrainPage() {
 
       const assetsData = await assetsResponse.json();
       const relationshipsData = await relationshipsResponse.json();
-      const findingsData = await (async () => {
-        try { return await fetch("/api/security/analysis", { cache: "no-store" }).then((response) => response.json()); } catch { return { findings: [] }; }
-      })();
+      const findingsData = await findingsResponse.json();
 
       if (!assetsResponse.ok) {
         setMessage(assetsData.error ?? "Unable to load assets.");
