@@ -69,7 +69,9 @@ export default function SecurityBrainPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [attackPaths, setAttackPaths] = useState<AttackPath[]>([]);
-  const [attackPathLoading, setAttackPathLoading] = useState(true);\n  const [copilotFindingId, setCopilotFindingId] = useState("");\n  const [copilotAnswer, setCopilotAnswer] = useState("");
+  const [attackPathLoading, setAttackPathLoading] = useState(true);
+  const [copilotFindingId, setCopilotFindingId] = useState("");
+  const [copilotAnswer, setCopilotAnswer] = useState("");
 
   const [sourceAssetId, setSourceAssetId] = useState("");
   const [targetAssetId, setTargetAssetId] = useState("");
