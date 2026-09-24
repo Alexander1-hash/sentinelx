@@ -25,6 +25,24 @@ type AiSecurityEvent = {
   evidence: Record<string, unknown>;
 };
 
+type AssetRecord = {
+  id: string;
+  name: string;
+  asset_type: string;
+};
+
+type AiAgentRecord = {
+  id: string;
+  system_id: string | null;
+  name: string;
+};
+
+type AiSystemRecord = {
+  id: string;
+  asset_id: string | null;
+  name: string;
+};
+
 type EvidenceRecord = {
   id: string;
   asset_id: string | null;
@@ -58,7 +76,7 @@ async function getContext() {
 }
 
 async function collectAnalysisContext(supabase: Awaited<ReturnType<typeof createClient>>, organizationId: string) {
-  const [eventsResult, aiEventsResult, evidenceResult, relationshipsResult, findingsResult] = await Promise.all([
+  const [eventsResult, aiEventsResult, evidenceResult, relationshipsResult, findingsResult, assetsResult, agentsResult, systemsResult] = await Promise.all([
     supabase
       .from("security_events")
       .select("id,asset_id,event_type,severity,source,title,description,observed_at,evidence")
@@ -89,9 +107,24 @@ async function collectAnalysisContext(supabase: Awaited<ReturnType<typeof create
       .eq("organization_id", organizationId)
       .in("status", ["open", "acknowledged"])
       .limit(500),
+    supabase
+      .from("security_assets")
+      .select("id,name,asset_type")
+      .eq("organization_id", organizationId)
+      .limit(500),
+    supabase
+      .from("ai_security_agents")
+      .select("id,system_id,name")
+      .eq("organization_id", organizationId)
+      .limit(500),
+    supabase
+      .from("ai_security_systems")
+      .select("id,asset_id,name")
+      .eq("organization_id", organizationId)
+      .limit(500),
   ]);
 
-  const error = eventsResult.error ?? aiEventsResult.error ?? evidenceResult.error ?? relationshipsResult.error ?? findingsResult.error;
+  const error = eventsResult.error ?? aiEventsResult.error ?? evidenceResult.error ?? relationshipsResult.error ?? findingsResult.error ?? assetsResult.error ?? agentsResult.error ?? systemsResult.error;
   if (error) throw new Error(error.message);
 
   return {
@@ -100,6 +133,9 @@ async function collectAnalysisContext(supabase: Awaited<ReturnType<typeof create
     evidence: (evidenceResult.data ?? []) as EvidenceRecord[],
     relationships: relationshipsResult.data ?? [],
     openFindings: findingsResult.data ?? [],
+    assets: (assetsResult.data ?? []) as AssetRecord[],
+    agents: (agentsResult.data ?? []) as AiAgentRecord[],
+    systems: (systemsResult.data ?? []) as AiSystemRecord[],
   };
 }
 
@@ -144,15 +180,107 @@ export async function POST() {
     const severeAiEvents = context.aiEvents.filter((event) => severeLevels.has(event.severity));
 
     const existingKeys = new Set(
-      context.openFindings.map((finding) => {
+      context.openFindings.flatMap((finding) => {
         const evidence = finding.evidence as Record<string, unknown> | null;
-        return typeof evidence?.source_event_id === "string"
-          ? evidence.source_event_id
-          : "";
-      }).filter(Boolean)
+        const keys: string[] = [];
+        if (typeof evidence?.source_event_id === "string") keys.push(evidence.source_event_id);
+        if (typeof evidence?.correlation_key === "string") keys.push(evidence.correlation_key);
+        return keys;
+      })
     );
 
+    const assetMap = new Map(context.assets.map((asset) => [asset.id, asset]));
+    const agentMap = new Map(context.agents.map((agent) => [agent.id, agent]));
+    const systemMap = new Map(context.systems.map((system) => [system.id, system]));
+
+    const confirmedRelationships = context.relationships as Array<{
+      id: string;
+      source_asset_id: string;
+      target_asset_id: string;
+      relationship_type: string;
+      confidence: number | null;
+      evidence: Record<string, unknown>;
+      evidence_source: string;
+    }>;
+
+    const correlatedCandidates = context.aiEvents
+      .filter((event) => severeLevels.has(event.severity) && event.agent_id)
+      .flatMap((event) => {
+        const agent = event.agent_id ? agentMap.get(event.agent_id) : null;
+        const system = agent?.system_id ? systemMap.get(agent.system_id) : null;
+        const systemAssetId = system?.asset_id ?? null;
+        if (!agent || !systemAssetId) return [];
+
+        const agentCalls = confirmedRelationships.filter(
+          (relationship) =>
+            relationship.source_asset_id === systemAssetId &&
+            relationship.relationship_type === "calls"
+        );
+
+        const paths = agentCalls.flatMap((agentCall) =>
+          confirmedRelationships
+            .filter(
+              (relationship) =>
+                relationship.source_asset_id === agentCall.target_asset_id &&
+                (relationship.relationship_type === "reads_from" || relationship.relationship_type === "writes_to")
+            )
+            .map((dataEdge) => ({ agentCall, dataEdge }))
+        );
+
+        if (!paths.length) return [];
+
+        const dataAssets = paths
+          .map(({ dataEdge }) => assetMap.get(dataEdge.target_asset_id))
+          .filter((asset): asset is AssetRecord => Boolean(asset));
+
+        const sensitiveEvidence = context.evidence.filter((item) => {
+          const severity = item.data?.severity;
+          const classification = item.data?.data_classification;
+          return dataAssets.some((asset) => asset.id === item.asset_id) &&
+            (severity === "high" || severity === "critical" || classification === "confidential" || classification === "restricted");
+        });
+
+        const pathKey = paths
+          .map(({ agentCall, dataEdge }) => agentCall.target_asset_id + ":" + dataEdge.target_asset_id + ":" + dataEdge.relationship_type)
+          .sort()
+          .join("|");
+        const correlationKey = "ai-path:" + event.id + ":" + pathKey;
+        const firstPath = paths[0];
+        const apiAsset = assetMap.get(firstPath.agentCall.target_asset_id);
+        const dataAsset = assetMap.get(firstPath.dataEdge.target_asset_id);
+
+        return [{
+          correlationKey,
+          sourceEventId: event.id,
+          assetId: systemAssetId,
+          title: agent.name + " activity reaches a connected data path",
+          findingType: "ai_attack_path_correlation",
+          severity: event.severity,
+          summary: event.title + " was observed on " + agent.name + ", and the confirmed Security Graph shows a path through " + (apiAsset?.name ?? "a connected API") + " to " + (dataAsset?.name ?? "a connected data asset") + "." + (sensitiveEvidence.length ? " Sensitive or high-impact evidence is also associated with the downstream data asset." : ""),
+          remediation: "Review the agent event, validate the confirmed path, inspect the downstream data access, and restrict or revoke unauthorized capability only after authorized review.",
+          evidence: {
+            source: "security_brain_correlation",
+            correlation_key: correlationKey,
+            source_event_id: event.id,
+            agent_id: agent.id,
+            system_id: system?.id ?? null,
+            confirmed_path: paths.slice(0, 10).map(({ agentCall, dataEdge }) => ({
+              agent_asset_id: systemAssetId,
+              api_asset_id: agentCall.target_asset_id,
+              data_asset_id: dataEdge.target_asset_id,
+              api_relationship: agentCall.relationship_type,
+              data_relationship: dataEdge.relationship_type,
+              confidence: Math.min(agentCall.confidence ?? 0, dataEdge.confidence ?? 0),
+            })),
+            sensitive_evidence_ids: sensitiveEvidence.map((item) => item.id),
+            analysis_boundary: "correlated_observed_event_with_confirmed_graph",
+          },
+        }];
+      })
+      .filter((candidate) => !existingKeys.has(candidate.correlationKey));
+
     const candidates = [
+      ...correlatedCandidates,
       ...severeEvents.map((event) => ({
         sourceEventId: event.id,
         assetId: event.asset_id,
