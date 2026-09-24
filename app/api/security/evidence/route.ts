@@ -149,19 +149,19 @@ export async function POST(request: Request) {
         confidence: typeof item.confidence === "number" ? item.confidence : 0.5,
         reason: typeof item.reason === "string" ? item.reason : "Observed relationship supplied by an authorized evidence source.",
       }))
-      .filter((item) =>
+      .filter((item: ObservedRelationship) =>
         item.sourceAssetId &&
         item.targetAssetId &&
         item.sourceAssetId !== item.targetAssetId &&
         relationshipTypes.includes(item.relationshipType as (typeof relationshipTypes)[number]) &&
-        item.confidence >= 0 &&
-        item.confidence <= 1
+        (item.confidence ?? 0.5) >= 0 &&
+        (item.confidence ?? 0.5) <= 1
       );
 
     let discoveredCount = 0;
 
     if (validRelationships.length) {
-      const assetIds = [...new Set(validRelationships.flatMap((item) => [item.sourceAssetId, item.targetAssetId]))];
+      const assetIds = [...new Set(validRelationships.flatMap((item: ObservedRelationship) => [item.sourceAssetId, item.targetAssetId]))];
 
       const { data: assets } = await supabase
         .from("security_assets")
@@ -181,7 +181,7 @@ export async function POST(request: Request) {
             source_asset_id: relationship.sourceAssetId,
             target_asset_id: relationship.targetAssetId,
             relationship_type: relationship.relationshipType,
-            confidence: relationship.confidence,
+            confidence: relationship.confidence ?? 0.5,
             status: "proposed",
             evidence_source: source,
             discovered_at: new Date().toISOString(),
