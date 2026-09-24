@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   Sparkles,
   UserRound,
+  ShieldAlert,
   Wifi,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -102,6 +103,7 @@ const navigation = [
   { label: "Command Center", href: "#command-center", icon: Radar },
   { label: "Assets", href: "/assets", icon: Boxes },
   { label: "Security Brain", href: "/brain", icon: BrainCircuit },
+  { label: "Actions", href: "/actions", icon: ShieldAlert },
   { label: "Integrations", href: "/integrations", icon: Link2 },
   { label: "Activity", href: "#activity", icon: Activity },
 ];
