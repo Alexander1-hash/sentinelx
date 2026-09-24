@@ -116,6 +116,14 @@ export default function AiSecurityCenterPage() {
   const [findings, setFindings] = useState<SecurityFinding[]>([]);
   const [findingsLoading, setFindingsLoading] = useState(false);
   const [creatingFindings, setCreatingFindings] = useState(false);
+  const [expandedFindingId, setExpandedFindingId] = useState<string | null>(null);
+  const [findingIntel, setFindingIntel] = useState<Record<string, {
+    affectedAsset: { name: string; asset_type: string; criticality: string; environment: string } | null;
+    blastRadius: Array<{ asset: { name: string; asset_type: string; criticality: string; environment: string }; hops: number; confidence: number; chain: string[] }>;
+    supportingEvidence: Array<{ id: string; title: string; evidence_type: string; source: string; summary: string | null }>;
+    unknowns: string[];
+  }>>({});
+  const [intelLoadingId, setIntelLoadingId] = useState<string | null>(null);
 
   async function load() {
     const response = await fetch("/api/security/ai", { cache: "no-store" });
@@ -370,6 +378,68 @@ export default function AiSecurityCenterPage() {
                     <p className="mt-1 text-[10px] leading-5 text-slate-400">{finding.remediation || "Review supporting evidence before selecting an authorized response."}</p>
                   </div>
                 </div>
+                <button
+                  onClick={() => void loadFindingIntelligence(finding.id)}
+                  disabled={intelLoadingId === finding.id}
+                  className="mt-3 inline-flex items-center gap-2 rounded-xl border border-purple-400/15 bg-purple-400/[0.04] px-3 py-2 text-[10px] font-semibold text-purple-200 disabled:opacity-50"
+                >
+                  {intelLoadingId === finding.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Network className="h-3 w-3" />}
+                  {intelLoadingId === finding.id ? "Mapping blast radius…" : expandedFindingId === finding.id ? "Hide finding intelligence" : "Map blast radius & evidence"}
+                </button>
+                {expandedFindingId === finding.id && findingIntel[finding.id] && (
+                  <div className="mt-3 space-y-3 rounded-2xl border border-purple-400/10 bg-purple-400/[0.025] p-4">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="rounded-xl border border-white/10 p-3">
+                        <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Affected asset</p>
+                        <p className="mt-1 text-xs font-medium text-white">{findingIntel[finding.id].affectedAsset?.name ?? "Not established"}</p>
+                        {findingIntel[finding.id].affectedAsset && <p className="mt-1 text-[9px] capitalize text-slate-600">{findingIntel[finding.id].affectedAsset.asset_type.replaceAll("_", " ")} · {findingIntel[finding.id].affectedAsset.criticality}</p>}
+                      </div>
+                      <div className="rounded-xl border border-purple-400/10 p-3">
+                        <p className="text-[9px] font-semibold uppercase tracking-wider text-purple-300">Confirmed reachability</p>
+                        <p className="mt-1 text-xs font-medium text-white">{findingIntel[finding.id].blastRadius.length} downstream asset{findingIntel[finding.id].blastRadius.length === 1 ? "" : "s"}</p>
+                      </div>
+                    </div>
+
+                    {findingIntel[finding.id].blastRadius.length > 0 && (
+                      <div>
+                        <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Blast radius context</p>
+                        <div className="mt-2 space-y-2">
+                          {findingIntel[finding.id].blastRadius.slice(0, 8).map((item) => (
+                            <div key={item.asset.name + item.hops} className="rounded-xl border border-white/10 p-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-[10px] font-medium text-white">{item.asset.name}</p>
+                                <span className="text-[9px] text-purple-200">{item.hops} hop{item.hops === 1 ? "" : "s"} · {Math.round(item.confidence * 100)}%</span>
+                              </div>
+                              <p className="mt-1 text-[9px] capitalize text-slate-600">{item.asset.asset_type.replaceAll("_", " ")} · {item.asset.criticality} · {item.chain.join(" → ")}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Supporting evidence</p>
+                      {findingIntel[finding.id].supportingEvidence.length ? (
+                        <div className="mt-2 space-y-2">
+                          {findingIntel[finding.id].supportingEvidence.slice(0, 6).map((item) => (
+                            <div key={item.id} className="rounded-xl border border-white/10 p-3">
+                              <p className="text-[10px] font-medium text-white">{item.title}</p>
+                              <p className="mt-1 text-[9px] text-slate-600">{item.evidence_type} · {item.source}</p>
+                              {item.summary && <p className="mt-1 text-[9px] leading-4 text-slate-500">{item.summary}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      ) : <p className="mt-2 text-[9px] text-slate-600">No directly matching evidence record was found.</p>}
+                    </div>
+
+                    <div className="rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-200">Unknowns & boundary</p>
+                      <ul className="mt-2 space-y-1">
+                        {findingIntel[finding.id].unknowns.map((unknown) => <li key={unknown} className="text-[9px] leading-4 text-slate-600">• {unknown}</li>)}
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
             )) : (
               <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
