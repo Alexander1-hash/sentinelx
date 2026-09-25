@@ -430,6 +430,53 @@ export default function SecurityActionsPage() {
                   )}
 
                   {action.status === "pending" && (
+                    <div className="mt-4 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-200">Pre-authorization checklist</p>
+                        <span className="text-[8px] uppercase tracking-wider text-slate-600">Review before approval</span>
+                      </div>
+                      <div className="mt-3 space-y-2">
+                        <ApprovalCheck
+                          ok={Boolean(action.target_context?.resourceName)}
+                          label={action.target_context?.resourceName ? "Target identified" : "Target identity needs review"}
+                          detail={action.target_context?.resourceType
+                            ? action.target_context.resourceType.replaceAll("_", " ")
+                            : "No verified SentinelX resource"}
+                        />
+                        <ApprovalCheck
+                          ok={Boolean(action.finding_id)}
+                          label={action.finding_id ? "Finding linked" : "No finding linked"}
+                          detail={action.finding_id ? "Approval will revalidate the finding and target." : "Operator-supplied action context."}
+                        />
+                        <ApprovalCheck
+                          ok={action.target_context?.source !== "operator supplied"}
+                          label={action.target_context?.source !== "operator supplied" ? "Organization resource resolved" : "Resource ownership not resolved"}
+                          detail={action.target_context?.source ?? "Operator supplied"}
+                        />
+                        <ApprovalCheck
+                          ok={action.action_type === "review_finding" || readinessLoading || readiness[action.action_type]?.executorReady === true}
+                          label={readinessLoading
+                            ? "Checking executor readiness..."
+                            : readiness[action.action_type]?.executorReady
+                              ? "Executor readiness available"
+                              : action.action_type === "review_finding"
+                                ? "No external executor required"
+                                : "Provider executor not configured"}
+                          detail={readiness[action.action_type]?.boundary ?? "Executor capability is separate from authorization."}
+                        />
+                        <ApprovalCheck
+                          ok={true}
+                          label="Approval-time revalidation enabled"
+                          detail="SentinelX will re-check the target and organization ownership when you authorize."
+                        />
+                      </div>
+                      <p className="mt-3 text-[8px] leading-4 text-slate-600">
+                        Unknowns remain unknown. Authorization does not prove compromise, remediation, or external execution.
+                      </p>
+                    </div>
+                  )}
+
+                  {action.status === "pending" && (
                     <div className="mt-4 grid grid-cols-2 gap-2">
                       <button
                         disabled={busyId === action.id}
@@ -468,6 +515,30 @@ export default function SecurityActionsPage() {
         </div>
       </footer>
     </main>
+  );
+}
+
+function ApprovalCheck({
+  ok,
+  label,
+  detail,
+}: {
+  ok: boolean;
+  label: string;
+  detail: string;
+}) {
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-white/10 bg-black/10 p-2">
+      {ok ? (
+        <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-emerald-300" />
+      ) : (
+        <ShieldAlert className="mt-0.5 h-3 w-3 shrink-0 text-amber-300" />
+      )}
+      <div className="min-w-0">
+        <p className="text-[9px] font-medium text-slate-300">{label}</p>
+        <p className="mt-0.5 text-[8px] leading-4 text-slate-600">{detail}</p>
+      </div>
+    </div>
   );
 }
 
