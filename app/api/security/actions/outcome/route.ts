@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getExecutorAdapter, validateExecutionTarget } from "@/lib/security/executors";
+import { getExecutorAdapter, getExecutorRequirement, validateExecutionTarget } from "@/lib/security/executors";
 
 const OUTCOME_STATUSES = ["completed", "failed"] as const;
 type OutcomeStatus = (typeof OUTCOME_STATUSES)[number];
@@ -126,6 +126,34 @@ export async function POST(request: Request) {
         { error: "The requested executor is not enabled for this action type." },
         { status: 400 },
       );
+    }
+
+    const requirement = getExecutorRequirement(action.action_type);
+    const target = targetValidation.target;
+
+    if (target.integrationId) {
+      const { data: integration, error: integrationError } = await supabase
+        .from("security_integrations")
+        .select("id,integration_type,provider,status")
+        .eq("id", target.integrationId)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (integrationError) {
+        return NextResponse.json({ error: integrationError.message }, { status: 500 });
+      }
+
+      if (!integration) {
+        return NextResponse.json({ error: "The authorized integration target was not found in this organization." }, { status: 409 });
+      }
+
+      if (integration.status !== "connected") {
+        return NextResponse.json({ error: "The authorized integration target is not currently connected." }, { status: 409 });
+      }
+
+      if (requirement && !requirement.requiredIntegrationTypes.includes(integration.integration_type)) {
+        return NextResponse.json({ error: "The authorized integration type is not permitted for this action." }, { status: 409 });
+      }
     }
 
     const { data, error } = await supabase.rpc(
