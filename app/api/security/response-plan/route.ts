@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { buildSecurityPatterns, type SecurityPatternMemory } from "@/lib/security/patterns";
 
 type Finding = {
   id: string;
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
     if (findingError) return NextResponse.json({ error: findingError.message }, { status: 500 });
     if (!finding) return NextResponse.json({ error: "Finding was not found or is no longer active." }, { status: 404 });
 
-    const [evidenceResult, relationshipsResult, assetsResult] = await Promise.all([
+    const [evidenceResult, relationshipsResult, assetsResult, memoryResult] = await Promise.all([
       supabase.from("security_evidence")
         .select("id,title,source,summary,evidence_type,observed_at")
         .eq("organization_id", organizationId)
@@ -91,14 +92,20 @@ export async function POST(request: Request) {
       supabase.from("security_assets")
         .select("id,name,asset_type,criticality,status")
         .eq("organization_id", organizationId).limit(100),
+      supabase.from("security_memory")
+        .select("id,memory_type,subject_id,title,summary,state,data,occurred_at")
+        .eq("organization_id", organizationId)
+        .order("occurred_at", { ascending: false })
+        .limit(300),
     ]);
 
-    const error = evidenceResult.error ?? relationshipsResult.error ?? assetsResult.error;
+    const error = evidenceResult.error ?? relationshipsResult.error ?? assetsResult.error ?? memoryResult.error;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const evidence = (evidenceResult.data ?? []) as Evidence[];
     const relationships = (relationshipsResult.data ?? []) as Relationship[];
     const assets = (assetsResult.data ?? []) as Asset[];
+    const memories = (memoryResult.data ?? []) as SecurityPatternMemory[];
     const typedFinding = finding as Finding;
     const targetAsset = assets.find((asset) => asset.id === typedFinding.asset_id) ?? null;
 
@@ -116,6 +123,27 @@ export async function POST(request: Request) {
         .join(" ").toLowerCase().split(/\s+/).some((term) => term.length > 3 && text.includes(term));
     }).slice(0, 10);
 
+    const patterns = buildSecurityPatterns(memories);
+    const relevantPatterns = patterns.filter((pattern) =>
+      pattern.memoryIds.some((memoryId) => {
+        const memory = memories.find((item) => item.id === memoryId);
+        if (!memory) return false;
+        const findingId =
+          typeof memory.data.finding_id === "string"
+            ? memory.data.finding_id
+            : memory.memory_type === "finding_state"
+              ? memory.subject_id
+              : null;
+        const assetId =
+          typeof memory.data.asset_id === "string"
+            ? memory.data.asset_id
+            : typeof memory.data.affected_asset_id === "string"
+              ? memory.data.affected_asset_id
+              : null;
+        return findingId === typedFinding.id || assetId === typedFinding.asset_id;
+      })
+    ).slice(0, 8);
+
     const recommendedAction = chooseAction(typedFinding);
     const plan = {
       objective: `Validate and safely respond to “${typedFinding.title}” without assuming compromise.`,
@@ -125,6 +153,18 @@ export async function POST(request: Request) {
       evidence: relevantEvidence.map((item) => ({ id: item.id, title: item.title, source: item.source, observedAt: item.observed_at })),
       graphContext: relatedAssets.map((asset) => ({ id: asset.id, name: asset.name, type: asset.asset_type, criticality: asset.criticality })),
       confirmedRelationships: relationships.filter((edge) => relatedAssetIds.has(edge.source_asset_id) && relatedAssetIds.has(edge.target_asset_id)),
+      historicalPatternContext: relevantPatterns.map((pattern) => ({
+        id: pattern.id,
+        pattern: pattern.pattern,
+        title: pattern.title,
+        detail: pattern.detail,
+        confidence: pattern.confidence,
+        firstObserved: pattern.firstObserved,
+        lastObserved: pattern.lastObserved,
+        memoryIds: pattern.memoryIds,
+        sequence: pattern.sequence ?? null,
+        boundary: pattern.boundary,
+      })),
       validationSteps: [
         "Verify the finding against the original telemetry or evidence source.",
         "Inspect the target asset and its confirmed graph relationships.",
