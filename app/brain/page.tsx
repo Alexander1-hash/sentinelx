@@ -92,7 +92,7 @@ export default function SecurityBrainPage() {
   async function loadGraph() {
     setLoading(true);
     try {
-      const [assetsResponse, relationshipsResponse, findingsResponse, attackPathsResponse] = await Promise.all([
+      const [assetsResponse, relationshipsResponse, findingsResponse, attackPathsResponse, patternsResponse] = await Promise.all([
         fetch("/api/security/assets", { cache: "no-store" }),
         fetch("/api/security/relationships", { cache: "no-store" }),
         fetch("/api/security/analysis", { cache: "no-store" }),
@@ -104,7 +104,6 @@ export default function SecurityBrainPage() {
       const relationshipsData = await relationshipsResponse.json();
       const findingsData = await findingsResponse.json();
       const attackPathsData = await attackPathsResponse.json();
-      const patternsResponse = await fetch("/api/security/patterns", { cache: "no-store" });
       const patternsData = await patternsResponse.json();
 
       if (!assetsResponse.ok) {
