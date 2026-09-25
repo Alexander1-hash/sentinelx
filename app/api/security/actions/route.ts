@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { buildSecurityPatterns, type SecurityPatternMemory } from "@/lib/security/patterns";
 
 const ACTION_TYPES = [
   "investigate_asset",
@@ -95,6 +96,46 @@ export async function POST(request: Request) {
     const target = body.target ?? {};
     const reason = body.reason?.trim() || "Operator-requested security action.";
 
+    let historicalPatternContext: Array<Record<string, unknown>> = [];
+    if (body.findingId) {
+      const { data: memories } = await supabase
+        .from("security_memory")
+        .select("id,memory_type,subject_id,title,summary,state,data,occurred_at")
+        .eq("organization_id", organizationId)
+        .order("occurred_at", { ascending: false })
+        .limit(300);
+
+      const typedMemories = (memories ?? []) as SecurityPatternMemory[];
+      const patterns = buildSecurityPatterns(typedMemories);
+      historicalPatternContext = patterns
+        .filter((pattern) =>
+          pattern.memoryIds.some((memoryId) => {
+            const memory = typedMemories.find((item) => item.id === memoryId);
+            if (!memory) return false;
+            const findingId =
+              typeof memory.data.finding_id === "string"
+                ? memory.data.finding_id
+                : memory.memory_type === "finding_state"
+                  ? memory.subject_id
+                  : null;
+            return findingId === body.findingId;
+          })
+        )
+        .slice(0, 8)
+        .map((pattern) => ({
+          id: pattern.id,
+          pattern: pattern.pattern,
+          title: pattern.title,
+          detail: pattern.detail,
+          confidence: pattern.confidence,
+          firstObserved: pattern.firstObserved,
+          lastObserved: pattern.lastObserved,
+          memoryIds: pattern.memoryIds,
+          sequence: pattern.sequence ?? null,
+          boundary: pattern.boundary,
+        }));
+    }
+
     const authorization = {
       required: MUTATING_ACTIONS.has(actionType),
       state: "pending_operator_authorization",
@@ -117,6 +158,7 @@ export async function POST(request: Request) {
         result: {
           state: "recommendation_created",
           message: "Action is queued for explicit operator review.",
+          historical_pattern_context: historicalPatternContext,
         },
       })
       .select("id,finding_id,action_type,status,target,authorization,result,created_at,executed_at")
@@ -222,6 +264,9 @@ export async function PATCH(request: Request) {
         action_type: data.action_type,
         status: data.status,
         authorization: data.authorization,
+        historical_pattern_context: Array.isArray((data.result as Record<string, unknown> | null)?.historical_pattern_context)
+          ? (data.result as Record<string, unknown>).historical_pattern_context
+          : [],
       },
     });
 
