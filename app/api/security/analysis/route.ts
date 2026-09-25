@@ -385,10 +385,19 @@ export async function POST() {
       })),
     ].filter((candidate) => !existingKeys.has(candidate.sourceEventId));
 
+    const uniqueCandidates = Array.from(
+      new Map(
+        candidates.map((candidate) => [
+          `${candidate.findingType}:${candidate.sourceEventId}:${candidate.assetId ?? "none"}`,
+          candidate,
+        ])
+      ).values()
+    );
+
     let findingsCreated = 0;
 
-    for (const candidate of candidates) {
-      const { error } = await supabase
+    for (const candidate of uniqueCandidates) {
+      const { data: createdFinding, error } = await supabase
         .from("security_findings")
         .insert({
           organization_id: organizationId,
@@ -401,22 +410,25 @@ export async function POST() {
           evidence: candidate.evidence,
           remediation: candidate.remediation,
           detected_at: new Date().toISOString(),
-        });
+        })
+        .select("id")
+        .single();
 
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error || !createdFinding?.id) {
+        return NextResponse.json({ error: error?.message ?? "Finding could not be created." }, { status: 500 });
       }
 
       findingsCreated += 1;
 
-      await supabase.from("security_memory").insert({
+      const { error: memoryError } = await supabase.from("security_memory").insert({
         organization_id: organizationId,
         memory_type: "finding_state",
-        subject_id: null,
+        subject_id: createdFinding.id,
         title: `New finding: ${candidate.title}`,
         summary: candidate.summary,
         state: "open",
         data: {
+          finding_id: createdFinding.id,
           finding_type: candidate.findingType,
           severity: candidate.severity,
           source_event_id: candidate.sourceEventId,
@@ -425,6 +437,10 @@ export async function POST() {
           memory_reason: "finding_created_from_evidence",
         },
       });
+
+      if (memoryError) {
+        return NextResponse.json({ error: memoryError.message }, { status: 500 });
+      }
     }
 
     const highImpactEvidence = context.evidence.filter((item) => item.data?.severity === "high" || item.data?.severity === "critical").length;
