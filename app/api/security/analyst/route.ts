@@ -130,8 +130,7 @@ async function runGroundedAI(question: string, context: {
   const fallback = (data.output ?? [])
     .flatMap((item) => item.content ?? [])
     .map((item) => item.text ?? "")
-    .join("
-")
+    .join("\n")
     .trim();
 
   return fallback || null;
