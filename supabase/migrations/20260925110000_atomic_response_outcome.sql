@@ -64,15 +64,16 @@ begin
     raise exception using errcode = '55000', message = 'Only explicitly approved actions can receive an execution outcome.';
   end if;
 
-  v_outcome := jsonb_build_object(
-    'state', p_status,
-    'executor_type', trim(p_executor_type),
-    'execution_reference', trim(p_execution_reference),
-    'evidence', p_evidence,
-    'supplied_at', now(),
-    'supplied_by', v_user_id,
-    'boundary', 'This outcome is recorded from an explicit executor result. SentinelX does not infer execution from approval alone.'
-  ) || coalesce(p_result, '{}'::jsonb);
+  v_outcome := coalesce(p_result, '{}'::jsonb)
+    || jsonb_build_object(
+      'state', p_status,
+      'executor_type', trim(p_executor_type),
+      'execution_reference', trim(p_execution_reference),
+      'evidence', p_evidence,
+      'supplied_at', now(),
+      'supplied_by', v_user_id,
+      'boundary', 'This outcome is recorded from an explicit executor result. SentinelX does not infer execution from approval alone.'
+    );
 
   update public.security_actions
   set
