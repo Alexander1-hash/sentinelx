@@ -179,6 +179,38 @@ export default function SecurityActionsPage() {
                         <span>Severity: {String((action.result.response_plan as Record<string, unknown>).severity ?? "unknown")}</span>
                         <span>Action: {ACTION_LABELS[action.action_type] ?? action.action_type.replaceAll("_", " ")}</span>
                       </div>
+
+                      {Array.isArray((action.result.response_plan as Record<string, unknown>).historicalResponseCycleContext) && (
+                        <div className="mt-3 rounded-lg border border-white/10 bg-black/10 p-3">
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-orange-200">Previous response history</p>
+                          <p className="mt-1 text-[9px] leading-4 text-slate-600">
+                            Prior operator decisions and explicit executor outcomes are context only; they do not establish the current security state.
+                          </p>
+                          <div className="mt-2 space-y-2">
+                            {((action.result.response_plan as Record<string, unknown>).historicalResponseCycleContext as Array<Record<string, unknown>>).slice(0, 4).map((cycle, index) => (
+                              <div key={String(cycle.memoryId ?? index)} className="rounded-lg border border-white/10 p-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="text-[9px] font-medium text-slate-300">{String(cycle.title ?? "Recorded response event")}</span>
+                                  <span className="text-[8px] uppercase tracking-wider text-slate-600">{String(cycle.state ?? "recorded")}</span>
+                                </div>
+                                <p className="mt-1 text-[8px] leading-4 text-slate-600">
+                                  {String(cycle.actionType ?? action.action_type).replaceAll("_", " ")}
+                                  {cycle.executorType ? ` · executor: ${String(cycle.executorType)}` : ""}
+                                  {cycle.evidenceCount !== undefined ? ` · ${String(cycle.evidenceCount)} evidence` : ""}
+                                </p>
+                                {cycle.executionReference && (
+                                  <p className="mt-1 break-words text-[8px] text-slate-700">Reference: {String(cycle.executionReference)}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {Array.isArray((action.result.response_plan as Record<string, unknown>).historicalResponseCycleContext) &&
+                        ((action.result.response_plan as Record<string, unknown>).historicalResponseCycleContext as unknown[]).length === 0 && (
+                          <p className="mt-3 text-[9px] text-slate-600">No linked historical response outcome was found for this finding or asset.</p>
+                        )}
                     </div>
                   ) : null}
 
