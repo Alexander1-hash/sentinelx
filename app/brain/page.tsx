@@ -70,6 +70,8 @@ export default function SecurityBrainPage() {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [attackPaths, setAttackPaths] = useState<AttackPath[]>([]);
   const [attackPathLoading, setAttackPathLoading] = useState(true);
+  const [patterns, setPatterns] = useState<Array<{ id: string; pattern: string; title: string; detail: string; confidence: string; memoryIds: string[]; firstObserved: string; lastObserved: string; boundary: string }>>([]);
+  const [patternLoading, setPatternLoading] = useState(true);
   const [copilotFindingId, setCopilotFindingId] = useState("");
   const [copilotAnswer, setCopilotAnswer] = useState("");
   const [copilotResultFindingId, setCopilotResultFindingId] = useState("");
@@ -95,12 +97,15 @@ export default function SecurityBrainPage() {
         fetch("/api/security/relationships", { cache: "no-store" }),
         fetch("/api/security/analysis", { cache: "no-store" }),
         fetch("/api/security/attack-paths", { cache: "no-store" }),
+        fetch("/api/security/patterns", { cache: "no-store" }),
       ]);
 
       const assetsData = await assetsResponse.json();
       const relationshipsData = await relationshipsResponse.json();
       const findingsData = await findingsResponse.json();
       const attackPathsData = await attackPathsResponse.json();
+      const patternsResponse = await fetch("/api/security/patterns", { cache: "no-store" });
+      const patternsData = await patternsResponse.json();
 
       if (!assetsResponse.ok) {
         setMessage(assetsData.error ?? "Unable to load assets.");
@@ -117,6 +122,8 @@ export default function SecurityBrainPage() {
       setFindings(findingsData.findings ?? []);
       setAttackPaths(attackPathsData.paths ?? []);
       setAttackPathLoading(false);
+      setPatterns(patternsData.patterns ?? []);
+      setPatternLoading(false);
       if (!attackPathsResponse.ok) {
         setMessage(attackPathsData.error ?? "Attack path intelligence is temporarily unavailable.");
       }
@@ -379,6 +386,50 @@ export default function SecurityBrainPage() {
             <p className="mt-1 text-xs text-slate-600">No confirmed edges</p>
           </div>
         </div>
+
+        <section className="mt-6 rounded-3xl border border-violet-400/10 bg-violet-400/[0.025] p-5 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-violet-200">Security Pattern Intelligence</p>
+              <h2 className="mt-1 text-lg font-semibold text-white">Patterns across time</h2>
+              <p className="mt-2 max-w-2xl text-[11px] leading-5 text-slate-500">
+                SentinelX looks for recurring findings, repeated evidence changes, returned conditions, recurring AI indicators, and response-cycle gaps in recorded security memory.
+              </p>
+            </div>
+            <Link href="/history" className="w-fit rounded-full bg-white/5 px-3 py-1.5 text-[9px] uppercase tracking-wider text-slate-400 hover:text-white">
+              View Security History
+            </Link>
+          </div>
+          {patternLoading ? (
+            <div className="mt-5 flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Reading historical patterns...</div>
+          ) : patterns.length ? (
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {patterns.slice(0, 8).map((pattern) => (
+                <div key={pattern.id} className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <span className="rounded-full bg-violet-400/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-violet-200">{pattern.pattern.replaceAll("_", " ")}</span>
+                      <h3 className="mt-2 text-sm font-semibold text-white">{pattern.title}</h3>
+                    </div>
+                    <span className="rounded-full bg-white/5 px-2 py-1 text-[9px] uppercase tracking-wider text-slate-500">{pattern.confidence}</span>
+                  </div>
+                  <p className="mt-2 text-[10px] leading-5 text-slate-500">{pattern.detail}</p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-[9px] text-slate-600">
+                    <span>{pattern.memoryIds.length} memory records</span>
+                    <span>·</span>
+                    <span>Last observed {new Date(pattern.lastObserved).toLocaleString()}</span>
+                  </div>
+                  <p className="mt-3 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3 text-[9px] leading-4 text-slate-600">{pattern.boundary}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-2xl border border-dashed border-white/10 p-5">
+              <p className="text-sm font-medium text-slate-300">No recurring security patterns recorded</p>
+              <p className="mt-2 text-xs leading-5 text-slate-600">This means the current security memory does not contain enough repeated history to surface a deterministic pattern. It is not a claim that the environment is safe.</p>
+            </div>
+          )}
+        </section>
 
         <section className="mt-6 rounded-3xl border border-orange-400/10 bg-orange-400/[0.025] p-5 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
