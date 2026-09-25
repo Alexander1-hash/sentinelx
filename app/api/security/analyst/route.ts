@@ -331,15 +331,77 @@ export async function POST(request: Request) {
       }
     }
 
+    const relevantMemory = selectedFinding
+      ? memory
+          .filter((item) => {
+            if (item.subject_id === selectedFinding?.id) return true;
+            if (item.memory_type === "finding_state") {
+              const findingId = typeof item.data?.finding_id === "string" ? item.data.finding_id : null;
+              return findingId === selectedFinding?.id;
+            }
+            const assetId = typeof item.data?.asset_id === "string"
+              ? item.data.asset_id
+              : typeof item.data?.affected_asset_id === "string"
+                ? item.data.affected_asset_id
+                : null;
+            return Boolean(selectedFinding?.asset_id && assetId === selectedFinding.asset_id);
+          })
+          .slice(0, 30)
+      : memory.slice(0, 30);
+
+    const historicalContext = selectedFinding
+      ? {
+          priorFindingStates: relevantMemory
+            .filter((item) => item.memory_type === "finding_state")
+            .slice(0, 10)
+            .map((item) => ({
+              occurred_at: item.occurred_at,
+              state: item.state,
+              title: item.title,
+              summary: item.summary,
+              current_state: item.data?.current_state ?? item.data?.current_security_state ?? null,
+              previous_state: item.data?.previous_state ?? item.data?.previous_security_state ?? null,
+            })),
+          priorInvestigations: relevantMemory
+            .filter((item) => item.memory_type === "investigation")
+            .slice(0, 10)
+            .map((item) => ({
+              occurred_at: item.occurred_at,
+              title: item.title,
+              summary: item.summary,
+              blast_radius_count: item.data?.blast_radius_count ?? null,
+              supporting_evidence_count: item.data?.supporting_evidence_count ?? null,
+            })),
+          evidenceTransitions: relevantMemory
+            .filter((item) => item.memory_type === "evidence_change")
+            .slice(0, 15)
+            .map((item) => ({
+              occurred_at: item.occurred_at,
+              title: item.title,
+              summary: item.summary,
+              change_type: item.data?.change_type ?? null,
+              previous_state: item.data?.previous_security_state ?? item.data?.previous_state ?? null,
+              current_state: item.data?.current_security_state ?? item.data?.current_state ?? null,
+            })),
+          operatorDecisions: relevantMemory
+            .filter((item) => item.memory_type === "operator_decision" || item.memory_type === "response_outcome")
+            .slice(0, 10)
+            .map((item) => ({
+              occurred_at: item.occurred_at,
+              title: item.title,
+              summary: item.summary,
+              state: item.state,
+            })),
+        }
+      : null;
+
     const aiAnswer = await runGroundedAI(question, {
       findings: rankedFindings,
       evidence: evidenceForAI,
       relationships,
       assets,
       investigation,
-      memory: selectedFinding
-        ? memory.filter((item) => item.subject_id === selectedFinding?.id || item.memory_type === "finding_state").slice(0, 20)
-        : memory.slice(0, 20),
+      memory: relevantMemory,
     });
 
     const citedEvidence = evidenceForAI.slice(0, 10).map((item) => ({
@@ -365,9 +427,10 @@ export async function POST(request: Request) {
       evidenceReviewed: evidenceForAI.length,
       confirmedRelationshipsReviewed: relationships.length,
       assetsReviewed: assets.length,
-      memoryReviewed: selectedFinding
-        ? memory.filter((item) => item.subject_id === selectedFinding?.id || item.memory_type === "finding_state").slice(0, 20).length
-        : Math.min(memory.length, 20),
+      memoryReviewed: relevantMemory.length,
+      historicalContext,
+      temporalBoundary:
+        "Historical memory can explain what SentinelX previously recorded and how state changed over time. It does not prove that a historical condition still exists. Current evidence and telemetry remain authoritative; missing telemetry is not resolution.",
       evidence: citedEvidence,
       suggestedNextStep: selectedFinding
         ? "Validate the finding evidence, inspect its confirmed graph context, and create a Security Action only when an authorized response is appropriate."
