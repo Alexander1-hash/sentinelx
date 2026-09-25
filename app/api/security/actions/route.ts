@@ -351,7 +351,7 @@ export async function PATCH(request: Request) {
 
     const { data: existing, error: lookupError } = await supabase
       .from("security_actions")
-      .select("id,action_type,status,authorization,result")
+      .select("id,finding_id,action_type,status,target,authorization,result")
       .eq("id", body.id)
       .eq("organization_id", organizationId)
       .maybeSingle();
@@ -368,10 +368,95 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Only pending actions can be approved or cancelled." }, { status: 409 });
     }
 
+    // Revalidate the reviewed target at approval time. A pending action may have
+    // been created earlier, so the current organization-owned records must still
+    // agree with the target the operator is approving.
+    if (body.status === "approved") {
+      const target = (existing.target ?? {}) as Record<string, unknown>;
+
+      if (existing.finding_id) {
+        const { data: finding, error: findingError } = await supabase
+          .from("security_findings")
+          .select("id,asset_id,title")
+          .eq("id", existing.finding_id)
+          .eq("organization_id", organizationId)
+          .maybeSingle();
+
+        if (findingError) {
+          return NextResponse.json({ error: findingError.message }, { status: 500 });
+        }
+
+        if (!finding) {
+          return NextResponse.json({
+            error: "Approval blocked: the linked finding is no longer available in this organization.",
+          }, { status: 409 });
+        }
+
+        if (existing.action_type === "review_finding") {
+          if (target.resourceType !== "finding" || target.resourceId !== finding.id) {
+            return NextResponse.json({
+              error: "Approval blocked: the finding target changed since this action was created.",
+            }, { status: 409 });
+          }
+        }
+
+        if (["investigate_asset", "contain_asset", "revoke_access", "isolate_endpoint"].includes(existing.action_type)) {
+          if (!finding.asset_id) {
+            return NextResponse.json({
+              error: "Approval blocked: the finding no longer has a deterministic affected asset.",
+            }, { status: 409 });
+          }
+
+          const targetAssetId =
+            typeof target.assetId === "string"
+              ? target.assetId
+              : target.resourceType === "asset" && typeof target.resourceId === "string"
+                ? target.resourceId
+                : null;
+
+          if (targetAssetId !== finding.asset_id) {
+            return NextResponse.json({
+              error: "Approval blocked: the affected asset changed since this action was created.",
+            }, { status: 409 });
+          }
+        }
+      }
+
+      const targetAssetId =
+        typeof target.assetId === "string"
+          ? target.assetId
+          : target.resourceType === "asset" && typeof target.resourceId === "string"
+            ? target.resourceId
+            : null;
+
+      if (targetAssetId) {
+        const { data: asset, error: assetError } = await supabase
+          .from("security_assets")
+          .select("id,status")
+          .eq("id", targetAssetId)
+          .eq("organization_id", organizationId)
+          .maybeSingle();
+
+        if (assetError) {
+          return NextResponse.json({ error: assetError.message }, { status: 500 });
+        }
+
+        if (!asset) {
+          return NextResponse.json({
+            error: "Approval blocked: the target asset is no longer available in this organization.",
+          }, { status: 409 });
+        }
+      }
+    }
+
     const authorization = {
       ...(existing.authorization ?? {}),
       state: body.status === "approved" ? "operator_authorized" : "operator_cancelled",
       authorized_at: new Date().toISOString(),
+      revalidated_at: new Date().toISOString(),
+      revalidation: body.status === "approved"
+        ? "Target and organization ownership revalidated immediately before authorization."
+        : "No target revalidation was required for cancellation.",
       authorized_by: user.id,
     };
 
