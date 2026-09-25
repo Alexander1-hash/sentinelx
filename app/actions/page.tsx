@@ -41,6 +41,7 @@ export default function SecurityActionsPage() {
     connectedIntegrations?: Array<{ displayName: string; provider: string; integrationType: string }>;
     executorReady?: boolean;
     boundary?: string;
+    preview?: { steps?: string[]; requiredIntegrationTypes?: string[] };
   }>>({});
   const [readinessLoading, setReadinessLoading] = useState(true);
 
@@ -80,6 +81,7 @@ export default function SecurityActionsPage() {
             connectedIntegrations: [],
             executorReady: item.executorReady,
             boundary: item.boundary,
+            preview: item.preview,
           };
         }
         setReadiness(map);
@@ -310,6 +312,19 @@ export default function SecurityActionsPage() {
                       <p className="mt-2 text-[8px] leading-4 text-slate-600">
                         {readiness[action.action_type]?.boundary ?? "Executor readiness is separate from authorization and telemetry connectivity."}
                       </p>
+                      {readiness[action.action_type]?.preview?.steps?.length ? (
+                        <div className="mt-3 rounded-lg border border-white/10 bg-black/10 p-3">
+                          <p className="text-[8px] font-semibold uppercase tracking-wider text-slate-500">Execution preview</p>
+                          <ol className="mt-2 space-y-1.5">
+                            {readiness[action.action_type]?.preview?.steps?.map((step, index) => (
+                              <li key={step} className="text-[8px] leading-4 text-slate-600">
+                                {index + 1}. {step}
+                              </li>
+                            ))}
+                          </ol>
+                          <p className="mt-2 text-[8px] leading-4 text-slate-700">Preview only. No provider API is called from this plan.</p>
+                        </div>
+                      ) : null}
                     </div>
                   )}
 
