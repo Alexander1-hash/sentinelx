@@ -107,12 +107,13 @@ export default function SecurityHistoryPage() {
           SentinelX connects findings, investigations, operator decisions, response outcomes, and evidence transitions so an investigation can start with context instead of starting from zero.
         </p>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-5">
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
           {[
             ["Events", summary.total],
             ["Findings", summary.findings],
             ["Investigations", summary.investigations],
             ["Decisions", summary.decisions],
+            ["Response outcomes", summary.outcomes],
             ["Evidence changes", summary.evidenceChanges],
           ].map(([label, value]) => (
             <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
