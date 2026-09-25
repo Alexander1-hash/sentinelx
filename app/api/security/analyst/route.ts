@@ -105,7 +105,7 @@ async function runGroundedAI(question: string, context: {
               confirmedRelationships: context.relationships.slice(0, 80),
               assets: context.assets.slice(0, 80),
               investigation: context.investigation ?? null,
-              securityMemory: context.memory ?? [],
+              securityMemory: context.memory ?? [],\n              securityPatterns: context.patterns ?? [],
             }),
           }],
         },
@@ -349,7 +349,7 @@ export async function POST(request: Request) {
           .slice(0, 30)
       : memory.slice(0, 30);
 
-    const historicalContext = selectedFinding
+    const patternSource = relevantMemory;\n    const patternGroups = new Map<string, typeof patternSource>();\n    for (const item of patternSource) {\n      const findingId = typeof item.data?.finding_id === "string" ? item.data.finding_id : item.subject_id;\n      const assetId = typeof item.data?.asset_id === "string" ? item.data.asset_id : typeof item.data?.affected_asset_id === "string" ? item.data.affected_asset_id : null;\n      const key = findingId ? `finding:${findingId}` : assetId ? `asset:${assetId}` : null;\n      if (!key) continue;\n      const list = patternGroups.get(key) ?? []; list.push(item); patternGroups.set(key, list);\n    }\n    const derivedPatterns = Array.from(patternGroups.entries())\n      .filter(([, items]) => items.length >= 2)\n      .map(([key, items]) => ({\n        pattern: key.startsWith("finding:") ? "recurrence" : "asset_history",\n        title: key.startsWith("finding:") ? "Recurring finding history" : "Repeated asset history",\n        detail: `${items.length} related memory records are associated with this investigation context.`,\n        confidence: "high",\n        firstObserved: items[items.length - 1].occurred_at,\n        lastObserved: items[0].occurred_at,\n      }))\n      .slice(0, 10);\n\n    const historicalContext = selectedFinding
       ? {
           priorFindingStates: relevantMemory
             .filter((item) => item.memory_type === "finding_state")
@@ -427,7 +427,7 @@ export async function POST(request: Request) {
       evidenceReviewed: evidenceForAI.length,
       confirmedRelationshipsReviewed: relationships.length,
       assetsReviewed: assets.length,
-      memoryReviewed: relevantMemory.length,
+      memoryReviewed: relevantMemory.length,\n      patternsReviewed: derivedPatterns.length,\n      securityPatterns: derivedPatterns,
       historicalContext,
       temporalBoundary:
         "Historical memory can explain what SentinelX previously recorded and how state changed over time. It does not prove that a historical condition still exists. Current evidence and telemetry remain authoritative; missing telemetry is not resolution.",
