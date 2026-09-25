@@ -12,6 +12,13 @@ type Action = {
   target: Record<string, unknown>;
   authorization: Record<string, unknown>;
   result: Record<string, unknown>;
+  target_context?: {
+    resourceName?: string;
+    resourceType?: string;
+    source?: string;
+    evidence?: string;
+    boundary?: string;
+  };
   created_at: string;
   executed_at: string | null;
 };
@@ -241,12 +248,33 @@ export default function SecurityActionsPage() {
                     <StatusBadge status={action.status} />
                   </div>
 
-                  <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                    <p className="text-[9px] uppercase tracking-wider text-slate-600">Target context</p>
-                    <p className="mt-1 break-words text-[11px] text-slate-400">
+                  <div className="mt-4 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.025] p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-200">Target intelligence</p>
+                      <span className="text-[8px] uppercase tracking-wider text-slate-600">
+                        {action.target_context?.source ?? "operator supplied"}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-[11px] font-medium text-white">
+                      {action.target_context?.resourceName ?? "Target identity not resolved"}
+                    </p>
+                    <p className="mt-1 text-[9px] text-slate-500">
+                      {action.target_context?.resourceType
+                        ? action.target_context.resourceType.replaceAll("_", " ")
+                        : "Resource type not verified"}
+                    </p>
+                    {action.target_context?.evidence && (
+                      <p className="mt-2 text-[9px] leading-4 text-slate-500">
+                        Why this target: {action.target_context.evidence}
+                      </p>
+                    )}
+                    <p className="mt-2 break-words text-[8px] leading-4 text-slate-700">
                       {Object.keys(action.target).length
                         ? JSON.stringify(action.target)
-                        : "No target context supplied."}
+                        : "No stable target identifier supplied."}
+                    </p>
+                    <p className="mt-2 text-[8px] leading-4 text-amber-200/70">
+                      {action.target_context?.boundary ?? "Target identity must be verified before any external execution."}
                     </p>
                   </div>
 
