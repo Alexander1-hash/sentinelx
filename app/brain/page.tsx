@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Boxes, BrainCircuit, CircleDashed, GitBranch, Loader2, ShieldCheck, Sparkles, MessageSquare } from "lucide-react";
+import { ArrowLeft, Boxes, BrainCircuit, CircleDashed, GitBranch, History, Loader2, ShieldCheck, Sparkles, MessageSquare } from "lucide-react";
 
 type Asset = {
   id: string;
@@ -340,6 +340,9 @@ export default function SecurityBrainPage() {
               {discovering ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               {discovering ? "Discovering..." : "Run discovery"}
             </button>
+            <Link href="/history" className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-slate-400 hover:text-white">
+              <History className="h-3.5 w-3.5" /> Security History
+            </Link>
             <Link href="/" className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-white">
               <ArrowLeft className="h-3.5 w-3.5" /> Command Center
             </Link>
