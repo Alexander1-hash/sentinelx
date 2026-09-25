@@ -19,6 +19,51 @@ export type ExecutorRequirement = {
   boundary: string;
 };
 
+export type ExecutorAdapter = {
+  id: string;
+  displayName: string;
+  executorType: string;
+  supportedActions: SecurityActionType[];
+  mode: "manual" | "provider";
+  enabled: boolean;
+  boundary: string;
+};
+
+export const MANUAL_OPERATOR_EXECUTOR: ExecutorAdapter = {
+  id: "manual_operator",
+  displayName: "Manual Operator",
+  executorType: "manual_operator",
+  supportedActions: [
+    "investigate_asset",
+    "review_finding",
+    "contain_asset",
+    "disable_integration",
+    "revoke_access",
+    "isolate_endpoint",
+    "block_indicator",
+  ],
+  mode: "manual",
+  enabled: true,
+  boundary:
+    "Manual Operator records an operator-performed result. SentinelX does not call or control the external provider.",
+};
+
+export function getExecutorAdapters(): ExecutorAdapter[] {
+  return [MANUAL_OPERATOR_EXECUTOR];
+}
+
+export function getExecutorAdapter(
+  executorType: string,
+  actionType: string,
+): ExecutorAdapter | null {
+  return getExecutorAdapters().find(
+    (adapter) =>
+      adapter.executorType === executorType &&
+      adapter.enabled &&
+      adapter.supportedActions.includes(actionType as SecurityActionType),
+  ) ?? null;
+}
+
 /**
  * SentinelX deliberately separates:
  * 1. operator authorization,
