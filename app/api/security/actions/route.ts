@@ -67,7 +67,106 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ actions: data ?? [] });
+    const actions = data ?? [];
+    const assetIds = [...new Set(actions
+      .map((action) => {
+        const target = action.target as Record<string, unknown>;
+        const value = target.assetId ?? (target.resourceType === "asset" ? target.resourceId : null);
+        return typeof value === "string" ? value : null;
+      })
+      .filter((value): value is string => Boolean(value)))];
+
+    const findingIds = [...new Set(actions
+      .map((action) => {
+        const target = action.target as Record<string, unknown>;
+        const value = target.resourceType === "finding" ? target.resourceId : action.finding_id;
+        return typeof value === "string" ? value : null;
+      })
+      .filter((value): value is string => Boolean(value)))];
+
+    const integrationIds = [...new Set(actions
+      .map((action) => {
+        const target = action.target as Record<string, unknown>;
+        const value = target.integrationId ?? (target.resourceType === "integration" ? target.resourceId : null);
+        return typeof value === "string" ? value : null;
+      })
+      .filter((value): value is string => Boolean(value)))];
+
+    const [assetsResult, findingsResult, integrationsResult] = await Promise.all([
+      assetIds.length
+        ? supabase.from("security_assets").select("id,name,asset_type").in("id", assetIds)
+        : Promise.resolve({ data: [], error: null }),
+      findingIds.length
+        ? supabase.from("security_findings").select("id,title,finding_type").in("id", findingIds)
+        : Promise.resolve({ data: [], error: null }),
+      integrationIds.length
+        ? supabase.from("security_integrations").select("id,display_name,provider,integration_type").in("id", integrationIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (assetsResult.error || findingsResult.error || integrationsResult.error) {
+      return NextResponse.json({ error: "Security action target context could not be resolved." }, { status: 500 });
+    }
+
+    const assets = new Map((assetsResult.data ?? []).map((item) => [item.id, item]));
+    const findings = new Map((findingsResult.data ?? []).map((item) => [item.id, item]));
+    const integrations = new Map((integrationsResult.data ?? []).map((item) => [item.id, item]));
+
+    const enrichedActions = actions.map((action) => {
+      const target = action.target as Record<string, unknown>;
+      const assetId = typeof target.assetId === "string"
+        ? target.assetId
+        : target.resourceType === "asset" && typeof target.resourceId === "string"
+          ? target.resourceId
+          : null;
+      const findingId = target.resourceType === "finding" && typeof target.resourceId === "string"
+        ? target.resourceId
+        : action.finding_id;
+      const integrationId = typeof target.integrationId === "string"
+        ? target.integrationId
+        : target.resourceType === "integration" && typeof target.resourceId === "string"
+          ? target.resourceId
+          : null;
+
+      const asset = assetId ? assets.get(assetId) : null;
+      const finding = findingId ? findings.get(findingId) : null;
+      const integration = integrationId ? integrations.get(integrationId) : null;
+
+      const targetContext = asset
+        ? {
+            resourceName: asset.name,
+            resourceType: asset.asset_type,
+            source: target.assetId ? "Security Brain asset" : "verified asset resource",
+            evidence: finding
+              ? `The action is linked to finding “${finding.title}” and targets its recorded affected asset.`
+              : "The target is a recorded organization-owned Security Brain asset.",
+            boundary: "Target identity is resolved from SentinelX records. This does not prove the external provider will execute the action.",
+          }
+        : finding
+          ? {
+              resourceName: finding.title,
+              resourceType: "finding",
+              source: "Security finding",
+              evidence: `The action targets the organization-owned finding “${finding.title}”.`,
+              boundary: "Finding identity is verified in SentinelX. A finding is not proof that an external action has occurred.",
+            }
+          : integration
+            ? {
+                resourceName: integration.display_name,
+                resourceType: integration.integration_type,
+                source: "Security integration",
+                evidence: `The action references the organization-owned ${integration.provider} integration.`,
+                boundary: "Integration identity is verified separately from provider execution capability.",
+              }
+            : {
+                source: "operator supplied",
+                boundary: "Target identity is not resolved to a known SentinelX resource. External execution must remain blocked.",
+              };
+
+      return { ...action, target_context: targetContext };
+    });
+
+    return NextResponse.json({ actions: enrichedActions });
   } catch {
     return NextResponse.json({ error: "Security actions could not be loaded." }, { status: 500 });
   }
