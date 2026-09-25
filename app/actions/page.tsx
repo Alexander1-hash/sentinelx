@@ -31,6 +31,11 @@ export default function SecurityActionsPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
+  const [outcomeActionId, setOutcomeActionId] = useState("");
+  const [outcomeStatus, setOutcomeStatus] = useState<"completed" | "failed">("completed");
+  const [executorType, setExecutorType] = useState("");
+  const [executionReference, setExecutionReference] = useState("");
+  const [outcomeEvidence, setOutcomeEvidence] = useState("");
 
   async function loadActions() {
     setLoading(true);
@@ -54,6 +59,50 @@ export default function SecurityActionsPage() {
   useEffect(() => {
     void loadActions();
   }, []);
+
+  async function recordOutcome(id: string) {
+    setBusyId(id);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/security/actions/outcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          actionId: id,
+          status: outcomeStatus,
+          executorType,
+          executionReference,
+          evidence: [
+            {
+              type: "executor_result",
+              source: executorType,
+              summary: outcomeEvidence,
+              reference: executionReference,
+            },
+          ],
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error ?? "Unable to record the execution outcome.");
+        return;
+      }
+
+      setMessage(data.message ?? "Verified response outcome recorded.");
+      setOutcomeActionId("");
+      setExecutorType("");
+      setExecutionReference("");
+      setOutcomeEvidence("");
+      await loadActions();
+    } catch {
+      setMessage("Unable to record the execution outcome.");
+    } finally {
+      setBusyId("");
+    }
+  }
 
   async function review(id: string, status: "approved" | "cancelled") {
     setBusyId(id);
@@ -217,6 +266,79 @@ export default function SecurityActionsPage() {
                   <p className="mt-3 text-[10px] leading-5 text-slate-600">
                     {String(action.result.message ?? "Awaiting operator decision.")}
                   </p>
+
+                  {action.status === "approved" && (
+                    <div className="mt-4 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.025] p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-200">Record executor outcome</p>
+                          <p className="mt-1 text-[9px] leading-4 text-slate-600">
+                            Record only an explicit result from the connected or manually operated executor. This does not trigger the external action.
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-cyan-200">Approved</span>
+                      </div>
+
+                      {outcomeActionId === action.id ? (
+                        <div className="mt-3 space-y-2">
+                          <select
+                            value={outcomeStatus}
+                            onChange={(event) => setOutcomeStatus(event.target.value as "completed" | "failed")}
+                            className="w-full rounded-lg border border-white/10 bg-[#071018] px-3 py-2 text-[10px] text-white"
+                          >
+                            <option value="completed">Completed</option>
+                            <option value="failed">Failed</option>
+                          </select>
+                          <input
+                            value={executorType}
+                            onChange={(event) => setExecutorType(event.target.value)}
+                            placeholder="Executor type (e.g. manual_operator)"
+                            className="w-full rounded-lg border border-white/10 bg-[#071018] px-3 py-2 text-[10px] text-white placeholder:text-slate-700"
+                          />
+                          <input
+                            value={executionReference}
+                            onChange={(event) => setExecutionReference(event.target.value)}
+                            placeholder="Execution reference / ticket / run ID"
+                            className="w-full rounded-lg border border-white/10 bg-[#071018] px-3 py-2 text-[10px] text-white placeholder:text-slate-700"
+                          />
+                          <textarea
+                            value={outcomeEvidence}
+                            onChange={(event) => setOutcomeEvidence(event.target.value)}
+                            placeholder="What explicit evidence did the executor return?"
+                            rows={3}
+                            className="w-full resize-none rounded-lg border border-white/10 bg-[#071018] px-3 py-2 text-[10px] text-white placeholder:text-slate-700"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              disabled={busyId === action.id || !executorType.trim() || !executionReference.trim() || !outcomeEvidence.trim()}
+                              onClick={() => void recordOutcome(action.id)}
+                              className="rounded-lg bg-cyan-300 px-3 py-2 text-[10px] font-semibold text-slate-950 disabled:opacity-50"
+                            >
+                              {busyId === action.id ? "Recording..." : "Record outcome"}
+                            </button>
+                            <button
+                              disabled={busyId === action.id}
+                              onClick={() => setOutcomeActionId("")}
+                              className="rounded-lg border border-white/10 px-3 py-2 text-[10px] text-slate-400"
+                            >
+                              Close
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          disabled={busyId === action.id}
+                          onClick={() => {
+                            setOutcomeActionId(action.id);
+                            setOutcomeStatus("completed");
+                          }}
+                          className="mt-3 w-full rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-[10px] font-semibold text-cyan-200 disabled:opacity-50"
+                        >
+                          Record explicit outcome
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {action.status === "pending" && (
                     <div className="mt-4 grid grid-cols-2 gap-2">
