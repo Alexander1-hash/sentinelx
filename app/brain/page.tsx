@@ -70,7 +70,7 @@ export default function SecurityBrainPage() {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [attackPaths, setAttackPaths] = useState<AttackPath[]>([]);
   const [attackPathLoading, setAttackPathLoading] = useState(true);
-  const [patterns, setPatterns] = useState<Array<{ id: string; pattern: string; title: string; detail: string; confidence: string; memoryIds: string[]; firstObserved: string; lastObserved: string; boundary: string }>>([]);
+  const [patterns, setPatterns] = useState<Array<{ id: string; pattern: string; title: string; detail: string; confidence: string; memoryIds: string[]; firstObserved: string; lastObserved: string; boundary: string; sequence?: string[] }>>([]);
   const [patternLoading, setPatternLoading] = useState(true);
   const [copilotFindingId, setCopilotFindingId] = useState("");
   const [copilotAnswer, setCopilotAnswer] = useState("");
@@ -402,25 +402,69 @@ export default function SecurityBrainPage() {
           {patternLoading ? (
             <div className="mt-5 flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Reading historical patterns...</div>
           ) : patterns.length ? (
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
-              {patterns.slice(0, 8).map((pattern) => (
-                <div key={pattern.id} className="rounded-2xl border border-white/10 bg-black/10 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <span className="rounded-full bg-violet-400/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-violet-200">{pattern.pattern.replaceAll("_", " ")}</span>
-                      <h3 className="mt-2 text-sm font-semibold text-white">{pattern.title}</h3>
-                    </div>
-                    <span className="rounded-full bg-white/5 px-2 py-1 text-[9px] uppercase tracking-wider text-slate-500">{pattern.confidence}</span>
+            <div className="mt-5 space-y-5">
+              {patterns.some((pattern) => pattern.pattern === "security_sequence") && (
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-orange-400/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-orange-200">Security sequences</span>
+                    <span className="text-[9px] text-slate-600">Recorded event chains</span>
                   </div>
-                  <p className="mt-2 text-[10px] leading-5 text-slate-500">{pattern.detail}</p>
-                  <div className="mt-3 flex flex-wrap gap-2 text-[9px] text-slate-600">
-                    <span>{pattern.memoryIds.length} memory records</span>
-                    <span>·</span>
-                    <span>Last observed {new Date(pattern.lastObserved).toLocaleString()}</span>
+                  <div className="mt-3 grid gap-3">
+                    {patterns.filter((pattern) => pattern.pattern === "security_sequence").slice(0, 6).map((pattern) => (
+                      <div key={pattern.id} className="rounded-2xl border border-orange-400/10 bg-black/10 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h3 className="text-sm font-semibold text-white">{pattern.title}</h3>
+                            <p className="mt-1 text-[10px] text-slate-600">{pattern.memoryIds.length} linked memory records · Last observed {new Date(pattern.lastObserved).toLocaleString()}</p>
+                          </div>
+                          <span className="rounded-full bg-orange-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-orange-200">{pattern.confidence}</span>
+                        </div>
+                        {pattern.sequence?.length ? (
+                          <div className="mt-4 flex flex-wrap items-center gap-2">
+                            {pattern.sequence.map((step, index) => (
+                              <span key={step + index} className="flex items-center gap-2">
+                                <span className="rounded-lg border border-white/10 bg-white/[0.025] px-2.5 py-2 text-[10px] text-slate-300">{step}</span>
+                                {index < pattern.sequence!.length - 1 && <span className="text-orange-300">→</span>}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        <p className="mt-3 text-[10px] leading-5 text-slate-500">{pattern.detail}</p>
+                        <p className="mt-3 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3 text-[9px] leading-4 text-slate-600">{pattern.boundary}</p>
+                      </div>
+                    ))}
                   </div>
-                  <p className="mt-3 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3 text-[9px] leading-4 text-slate-600">{pattern.boundary}</p>
                 </div>
-              ))}
+              )}
+
+              {patterns.some((pattern) => pattern.pattern !== "security_sequence") && (
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-violet-400/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-violet-200">Recorded patterns</span>
+                    <span className="text-[9px] text-slate-600">Deterministic historical context</span>
+                  </div>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {patterns.filter((pattern) => pattern.pattern !== "security_sequence").slice(0, 8).map((pattern) => (
+                      <div key={pattern.id} className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <span className="rounded-full bg-violet-400/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-violet-200">{pattern.pattern.replaceAll("_", " ")}</span>
+                            <h3 className="mt-2 text-sm font-semibold text-white">{pattern.title}</h3>
+                          </div>
+                          <span className="rounded-full bg-white/5 px-2 py-1 text-[9px] uppercase tracking-wider text-slate-500">{pattern.confidence}</span>
+                        </div>
+                        <p className="mt-2 text-[10px] leading-5 text-slate-500">{pattern.detail}</p>
+                        <div className="mt-3 flex flex-wrap gap-2 text-[9px] text-slate-600">
+                          <span>{pattern.memoryIds.length} memory records</span>
+                          <span>·</span>
+                          <span>Last observed {new Date(pattern.lastObserved).toLocaleString()}</span>
+                        </div>
+                        <p className="mt-3 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3 text-[9px] leading-4 text-slate-600">{pattern.boundary}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="mt-5 rounded-2xl border border-dashed border-white/10 p-5">
