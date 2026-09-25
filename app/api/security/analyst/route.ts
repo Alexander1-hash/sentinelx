@@ -294,21 +294,41 @@ export async function POST(request: Request) {
     }
 
     if (selectedFinding && body.mode === "investigate" && organizationId) {
-      await supabase.from("security_memory").insert({
-        organization_id: organizationId,
-        memory_type: "investigation",
-        subject_id: selectedFinding.id,
-        title: `Investigation: ${selectedFinding.title}`,
-        summary: `SentinelX investigated this finding using recorded evidence and confirmed graph relationships. ${investigation?.blastRadius.length ?? 0} downstream asset(s) were established.`,
-        data: {
-          finding_id: selectedFinding.id,
-          affected_asset_id: investigation?.affectedAsset?.id ?? null,
-          blast_radius_count: investigation?.blastRadius.length ?? 0,
-          supporting_evidence_count: investigation?.supportingEvidence.length ?? 0,
-          unknowns: investigation?.unknowns ?? [],
-          mode: "investigate",
-        },
-      });
+      const investigationFingerprint = [
+        selectedFinding.id,
+        investigation?.affectedAsset?.id ?? "none",
+        investigation?.blastRadius.map((item) => item.asset.id).sort().join(",") ?? "",
+        investigation?.supportingEvidence.map((item) => item.id).sort().join(",") ?? "",
+      ].join("|");
+
+      const { data: priorInvestigation } = await supabase
+        .from("security_memory")
+        .select("id")
+        .eq("organization_id", organizationId)
+        .eq("memory_type", "investigation")
+        .eq("subject_id", selectedFinding.id)
+        .eq("data->>fingerprint", investigationFingerprint)
+        .limit(1)
+        .maybeSingle();
+
+      if (!priorInvestigation) {
+        await supabase.from("security_memory").insert({
+          organization_id: organizationId,
+          memory_type: "investigation",
+          subject_id: selectedFinding.id,
+          title: `Investigation: ${selectedFinding.title}`,
+          summary: `SentinelX investigated this finding using recorded evidence and confirmed graph relationships. ${investigation?.blastRadius.length ?? 0} downstream asset(s) were established.`,
+          data: {
+            fingerprint: investigationFingerprint,
+            finding_id: selectedFinding.id,
+            affected_asset_id: investigation?.affectedAsset?.id ?? null,
+            blast_radius_count: investigation?.blastRadius.length ?? 0,
+            supporting_evidence_count: investigation?.supportingEvidence.length ?? 0,
+            unknowns: investigation?.unknowns ?? [],
+            mode: "investigate",
+          },
+        });
+      }
     }
 
     const aiAnswer = await runGroundedAI(question, {
