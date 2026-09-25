@@ -36,6 +36,13 @@ export default function SecurityActionsPage() {
   const [executorType, setExecutorType] = useState("");
   const [executionReference, setExecutionReference] = useState("");
   const [outcomeEvidence, setOutcomeEvidence] = useState("");
+  const [readiness, setReadiness] = useState<Record<string, {
+    readiness?: string;
+    connectedIntegrations?: Array<{ displayName: string; provider: string; integrationType: string }>;
+    executorReady?: boolean;
+    boundary?: string;
+  }>>({});
+  const [readinessLoading, setReadinessLoading] = useState(true);
 
   async function loadActions() {
     setLoading(true);
@@ -58,6 +65,29 @@ export default function SecurityActionsPage() {
 
   useEffect(() => {
     void loadActions();
+  }, []);
+
+  useEffect(() => {
+    async function loadReadiness() {
+      try {
+        const response = await fetch("/api/security/actions/readiness", { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok) return;
+        const map: typeof readiness = {};
+        for (const item of data.requirements ?? []) {
+          map[item.actionType] = {
+            readiness: item.readiness,
+            connectedIntegrations: [],
+            executorReady: item.executorReady,
+            boundary: item.boundary,
+          };
+        }
+        setReadiness(map);
+      } finally {
+        setReadinessLoading(false);
+      }
+    }
+    void loadReadiness();
   }, []);
 
   async function recordOutcome(id: string) {
@@ -266,6 +296,22 @@ export default function SecurityActionsPage() {
                   <p className="mt-3 text-[10px] leading-5 text-slate-600">
                     {String(action.result.message ?? "Awaiting operator decision.")}
                   </p>
+
+                  {action.status === "approved" && (
+                    <div className="mt-3 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-200">Executor readiness</p>
+                      <p className="mt-1 text-[9px] leading-4 text-slate-500">
+                        {readinessLoading
+                          ? "Checking configured executor readiness..."
+                          : readiness[action.action_type]?.executorReady
+                            ? "This action has a configured readiness path. External execution still requires the provider-specific executor and authorization controls."
+                            : "No provider-specific executor is currently configured for this action. Approval alone does not execute it."}
+                      </p>
+                      <p className="mt-2 text-[8px] leading-4 text-slate-600">
+                        {readiness[action.action_type]?.boundary ?? "Executor readiness is separate from authorization and telemetry connectivity."}
+                      </p>
+                    </div>
+                  )}
 
                   {action.status === "approved" && (
                     <div className="mt-4 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.025] p-3">
