@@ -400,13 +400,32 @@ export async function POST(request: Request) {
               current_state: item.data?.current_security_state ?? item.data?.current_state ?? null,
             })),
           operatorDecisions: relevantMemory
-            .filter((item) => item.memory_type === "operator_decision" || item.memory_type === "response_outcome")
+            .filter((item) => item.memory_type === "operator_decision")
             .slice(0, 10)
             .map((item) => ({
               occurred_at: item.occurred_at,
               title: item.title,
               summary: item.summary,
               state: item.state,
+              action_id: item.data?.action_id ?? null,
+              action_type: item.data?.action_type ?? null,
+              authorization_state: typeof item.data?.authorization === "object" && item.data.authorization !== null
+                ? (item.data.authorization as Record<string, unknown>).state ?? null
+                : null,
+            })),
+          responseOutcomes: relevantMemory
+            .filter((item) => item.memory_type === "response_outcome")
+            .slice(0, 10)
+            .map((item) => ({
+              occurred_at: item.occurred_at,
+              title: item.title,
+              summary: item.summary,
+              state: item.state,
+              action_id: item.data?.action_id ?? null,
+              action_type: item.data?.action_type ?? null,
+              executor_type: item.data?.executor_type ?? null,
+              execution_reference: item.data?.execution_reference ?? null,
+              evidence: Array.isArray(item.data?.evidence) ? item.data.evidence : [],
             })),
         }
       : null;
@@ -445,8 +464,8 @@ export async function POST(request: Request) {
       confirmedRelationshipsReviewed: relationships.length,
       assetsReviewed: assets.length,
       memoryReviewed: relevantMemory.length,
-      patternsReviewed: derivedPatterns.length,
-      securityPatterns: derivedPatterns,
+      patternsReviewed: contextualPatterns.length,
+      securityPatterns: contextualPatterns,
       historicalContext,
       temporalBoundary:
         "Historical memory can explain what SentinelX previously recorded and how state changed over time. It does not prove that a historical condition still exists. Current evidence and telemetry remain authoritative; missing telemetry is not resolution.",
