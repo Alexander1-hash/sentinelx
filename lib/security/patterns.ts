@@ -16,7 +16,8 @@ export type SecurityPattern = {
     | "reopened_condition"
     | "repeated_evidence_change"
     | "repeated_ai_indicator"
-    | "response_cycle";
+    | "response_cycle"
+    | "security_sequence";
   title: string;
   detail: string;
   confidence: "high" | "medium";
@@ -24,6 +25,7 @@ export type SecurityPattern = {
   firstObserved: string;
   lastObserved: string;
   boundary: string;
+  sequence?: string[];
 };
 
 const str = (value: unknown) =>
@@ -200,6 +202,114 @@ export function buildSecurityPatterns(
     });
   }
 
+  const chronological = [...memories].sort(
+    (a, b) =>
+      new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime(),
+  );
+
+  const sequencePatterns = [
+    {
+      name: "AI indicator → finding → investigation",
+      types: ["ai", "finding_state", "investigation"],
+      detail:
+        "Recorded memory shows an AI-security indicator followed by a finding state and a later investigation.",
+    },
+    {
+      name: "Finding → investigation → operator decision",
+      types: ["finding_state", "investigation", "operator_decision"],
+      detail:
+        "Recorded memory shows a finding followed by investigation and an operator decision.",
+    },
+    {
+      name: "Operator decision → response outcome",
+      types: ["operator_decision", "response_outcome"],
+      detail:
+        "Recorded memory shows an operator decision followed by a recorded response outcome.",
+    },
+    {
+      name: "Resolution → later active condition",
+      types: ["resolved", "active"],
+      detail:
+        "Recorded evidence history shows a resolution state followed later by an active state.",
+    },
+  ] as const;
+
+  const isAiMemory = (memory: SecurityPatternMemory) =>
+    /(prompt injection|jailbreak|indirect prompt|credential|secret exposure|sensitive data|tool call|mcp|excessive permission|shadow ai)/i.test(
+      memory.title + " " + memory.summary + " " + JSON.stringify(memory.data),
+    );
+
+  const sequenceMatches: SecurityPatternMemory[][] = [];
+  for (const sequence of sequencePatterns) {
+    for (let start = 0; start < chronological.length; start += 1) {
+      const first = chronological[start];
+      const firstMatches =
+        sequence.types[0] === "ai"
+          ? isAiMemory(first)
+          : sequence.types[0] === "resolved"
+            ? first.memory_type === "evidence_change" &&
+              ["resolved", "cleared", "healthy"].includes(stateOf(first))
+            : first.memory_type === sequence.types[0];
+
+      if (!firstMatches) continue;
+
+      const matched = [first];
+      let cursor = start + 1;
+
+      for (let step = 1; step < sequence.types.length && cursor < chronological.length; step += 1) {
+        let found: SecurityPatternMemory | null = null;
+
+        while (cursor < chronological.length) {
+          const candidate = chronological[cursor];
+          const type = sequence.types[step];
+          const matches =
+            type === "ai"
+              ? isAiMemory(candidate)
+              : type === "active"
+                ? ["active", "degraded", "open"].includes(stateOf(candidate))
+                : type === "resolved"
+                  ? candidate.memory_type === "evidence_change" &&
+                    ["resolved", "cleared", "healthy"].includes(stateOf(candidate))
+                  : candidate.memory_type === type;
+
+          cursor += 1;
+          if (matches) {
+            found = candidate;
+            break;
+          }
+        }
+
+        if (!found) break;
+        matched.push(found);
+      }
+
+      if (matched.length === sequence.types.length) {
+        sequenceMatches.push(matched);
+        break;
+      }
+    }
+  }
+
+  for (let index = 0; index < sequenceMatches.length; index += 1) {
+    const matched = sequenceMatches[index];
+    const definition = sequencePatterns[index];
+    if (!matched.length) continue;
+
+    patterns.push({
+      id: "sequence-" + index + "-" + matched.map((item) => item.id).join("-"),
+      pattern: "security_sequence",
+      title: "Security sequence detected: " + definition.name,
+      detail: definition.detail,
+      confidence: "medium",
+      memoryIds: matched.map((item) => item.id),
+      firstObserved: matched[0].occurred_at,
+      lastObserved: matched[matched.length - 1].occurred_at,
+      boundary:
+        "This sequence connects recorded historical events. It does not prove causation, compromise, or current security state.",
+      sequence: matched.map((item) => item.memory_type),
+    });
+  }
+
   const decisions = memories.filter(
     (memory) => memory.memory_type === "operator_decision",
   );
@@ -243,5 +353,6 @@ export function summarizeSecurityPatterns(patterns: SecurityPattern[]) {
     evidence: patterns.filter((p) => p.pattern === "repeated_evidence_change").length,
     ai: patterns.filter((p) => p.pattern === "repeated_ai_indicator").length,
     response: patterns.filter((p) => p.pattern === "response_cycle").length,
+    sequences: patterns.filter((p) => p.pattern === "security_sequence").length,
   };
 }
