@@ -131,6 +131,94 @@ export async function POST(request: Request) {
     const requirement = getExecutorRequirement(action.action_type);
     const target = targetValidation.target;
 
+    // Resource-level authorization: the outcome endpoint trusts only the target
+    // stored on the already-authorized action, then proves known SentinelX
+    // resources belong to the current organization before recording an outcome.
+    if (target.assetId) {
+      const { data: asset, error: assetError } = await supabase
+        .from("security_assets")
+        .select("id")
+        .eq("id", target.assetId)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (assetError) {
+        return NextResponse.json({ error: assetError.message }, { status: 500 });
+      }
+
+      if (!asset) {
+        return NextResponse.json(
+          { error: "The authorized asset target was not found in this organization." },
+          { status: 409 },
+        );
+      }
+    }
+
+    if (target.resourceId) {
+      const resourceType = target.resourceType?.trim().toLowerCase();
+
+      if (resourceType === "asset") {
+        const { data: asset, error: assetError } = await supabase
+          .from("security_assets")
+          .select("id")
+          .eq("id", target.resourceId)
+          .eq("organization_id", organizationId)
+          .maybeSingle();
+
+        if (assetError) {
+          return NextResponse.json({ error: assetError.message }, { status: 500 });
+        }
+
+        if (!asset) {
+          return NextResponse.json(
+            { error: "The authorized resource target was not found in this organization." },
+            { status: 409 },
+          );
+        }
+      } else if (resourceType === "finding") {
+        const { data: finding, error: findingError } = await supabase
+          .from("security_findings")
+          .select("id")
+          .eq("id", target.resourceId)
+          .eq("organization_id", organizationId)
+          .maybeSingle();
+
+        if (findingError) {
+          return NextResponse.json({ error: findingError.message }, { status: 500 });
+        }
+
+        if (!finding) {
+          return NextResponse.json(
+            { error: "The authorized finding target was not found in this organization." },
+            { status: 409 },
+          );
+        }
+      } else if (resourceType === "integration") {
+        const { data: integration, error: integrationError } = await supabase
+          .from("security_integrations")
+          .select("id")
+          .eq("id", target.resourceId)
+          .eq("organization_id", organizationId)
+          .maybeSingle();
+
+        if (integrationError) {
+          return NextResponse.json({ error: integrationError.message }, { status: 500 });
+        }
+
+        if (!integration) {
+          return NextResponse.json(
+            { error: "The authorized integration resource was not found in this organization." },
+            { status: 409 },
+          );
+        }
+      } else {
+        return NextResponse.json(
+          { error: "The authorized resource target type cannot be verified by SentinelX." },
+          { status: 409 },
+        );
+      }
+    }
+
     if (target.integrationId) {
       const { data: integration, error: integrationError } = await supabase
         .from("security_integrations")
