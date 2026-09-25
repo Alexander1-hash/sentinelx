@@ -144,6 +144,38 @@ export async function POST(request: Request) {
       })
     ).slice(0, 8);
 
+    const responseMemory = memories.filter((memory) => {
+      const findingId = typeof memory.data.finding_id === "string" ? memory.data.finding_id : null;
+      const assetId =
+        typeof memory.data.asset_id === "string"
+          ? memory.data.asset_id
+          : typeof memory.data.affected_asset_id === "string"
+            ? memory.data.affected_asset_id
+            : null;
+      return (
+        findingId === typedFinding.id ||
+        assetId === typedFinding.asset_id ||
+        memory.subject_id === typedFinding.id
+      );
+    });
+
+    const responseCycleContext = responseMemory
+      .filter((memory) => memory.memory_type === "operator_decision" || memory.memory_type === "response_outcome")
+      .slice(0, 12)
+      .map((memory) => ({
+        memoryId: memory.id,
+        type: memory.memory_type,
+        occurredAt: memory.occurred_at,
+        title: memory.title,
+        summary: memory.summary,
+        state: memory.state,
+        actionId: typeof memory.data.action_id === "string" ? memory.data.action_id : memory.subject_id,
+        actionType: typeof memory.data.action_type === "string" ? memory.data.action_type : null,
+        executorType: typeof memory.data.executor_type === "string" ? memory.data.executor_type : null,
+        executionReference: typeof memory.data.execution_reference === "string" ? memory.data.execution_reference : null,
+        evidenceCount: Array.isArray(memory.data.evidence) ? memory.data.evidence.length : 0,
+      }));
+
     const recommendedAction = chooseAction(typedFinding);
     const plan = {
       objective: `Validate and safely respond to “${typedFinding.title}” without assuming compromise.`,
@@ -153,6 +185,9 @@ export async function POST(request: Request) {
       evidence: relevantEvidence.map((item) => ({ id: item.id, title: item.title, source: item.source, observedAt: item.observed_at })),
       graphContext: relatedAssets.map((asset) => ({ id: asset.id, name: asset.name, type: asset.asset_type, criticality: asset.criticality })),
       confirmedRelationships: relationships.filter((edge) => relatedAssetIds.has(edge.source_asset_id) && relatedAssetIds.has(edge.target_asset_id)),
+      historicalResponseCycleContext: responseCycleContext,
+      historicalResponseBoundary:
+        "Historical response decisions and explicit executor outcomes describe recorded prior activity only. Approval alone is not execution, missing outcomes are not failure, and historical outcomes do not establish the current security state.",
       historicalPatternContext: relevantPatterns.map((pattern) => ({
         id: pattern.id,
         pattern: pattern.pattern,
