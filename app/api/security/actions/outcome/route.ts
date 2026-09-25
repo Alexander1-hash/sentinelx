@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getExecutorAdapter } from "@/lib/security/executors";
 
 const OUTCOME_STATUSES = ["completed", "failed"] as const;
 type OutcomeStatus = (typeof OUTCOME_STATUSES)[number];
@@ -73,6 +74,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const adapter = getExecutorAdapter(executorType, "investigate_asset");
+    if (!adapter) {
+      return NextResponse.json(
+        { error: "The requested executor is not enabled for this security action." },
+        { status: 400 },
+      );
+    }
+
     const evidence = Array.isArray(body.evidence)
       ? body.evidence
           .slice(0, 50)
@@ -88,6 +97,36 @@ export async function POST(request: Request) {
     if (evidence.length === 0) {
       return NextResponse.json(
         { error: "At least one explicit evidence record is required." },
+        { status: 400 },
+      );
+    }
+
+    const { data: action, error: actionLookupError } = await supabase
+      .from("security_actions")
+      .select("id,action_type,status,authorization")
+      .eq("id", actionId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (actionLookupError) {
+      return NextResponse.json({ error: actionLookupError.message }, { status: 500 });
+    }
+
+    if (!action) {
+      return NextResponse.json({ error: "Security action not found." }, { status: 404 });
+    }
+
+    if (action.status !== "approved" || action.authorization?.state !== "operator_authorized") {
+      return NextResponse.json(
+        { error: "Execution is blocked until the action is explicitly authorized." },
+        { status: 409 },
+      );
+    }
+
+    const authorizedAdapter = getExecutorAdapter(executorType, action.action_type);
+    if (!authorizedAdapter) {
+      return NextResponse.json(
+        { error: "The requested executor is not enabled for this action type." },
         { status: 400 },
       );
     }
