@@ -82,6 +82,17 @@ export default function SecurityBrainPage() {
     supportingEvidence: Array<{ id: string; title: string; source: string; summary: string | null; observed_at: string }>;
     unknowns: string[];
     memory: Array<{ memory_type: string; title: string; summary: string; state: string; occurred_at: string }>;
+    responseOutcomes: Array<{
+      occurred_at: string;
+      title: string;
+      summary: string;
+      state: string;
+      action_id: string | null;
+      action_type: string | null;
+      executor_type: string | null;
+      execution_reference: string | null;
+      evidence: unknown[];
+    }>;
   } | null>(null);
 
   const [sourceAssetId, setSourceAssetId] = useState("");
@@ -209,7 +220,15 @@ export default function SecurityBrainPage() {
         return;
       }
       setCopilotAnswer(data.answer ?? "No analyst conclusion was returned.");
-      setCopilotInvestigation(data.investigation ?? null);
+      const investigation = data.investigation ?? null;
+      const historicalResponseOutcomes = Array.isArray(data.historicalContext?.responseOutcomes)
+        ? data.historicalContext.responseOutcomes
+        : [];
+      setCopilotInvestigation(
+        investigation
+          ? { ...investigation, responseOutcomes: historicalResponseOutcomes }
+          : null,
+      );
       setCopilotResultFindingId(findingId);
     } catch {
       setMessage("Security Copilot could not connect to the Security Brain.");
@@ -627,6 +646,35 @@ export default function SecurityBrainPage() {
                               </div>
                             </div>
                           )}
+                          {copilotInvestigation.responseOutcomes.length > 0 && (
+                            <div className="mb-3 rounded-xl border border-orange-400/10 bg-orange-400/[0.025] p-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  <p className="text-[9px] font-semibold uppercase tracking-wider text-orange-200">Previous Response Cycles</p>
+                                  <p className="mt-1 text-[9px] leading-4 text-slate-600">Explicit executor outcomes recorded for earlier authorized actions.</p>
+                                </div>
+                                <span className="rounded-full bg-orange-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-orange-200">{copilotInvestigation.responseOutcomes.length} outcomes</span>
+                              </div>
+                              <div className="mt-2 space-y-2">
+                                {copilotInvestigation.responseOutcomes.slice(0, 5).map((outcome) => (
+                                  <div key={(outcome.action_id ?? outcome.title) + outcome.occurred_at} className="rounded-lg border border-white/10 bg-black/10 p-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <p className="text-[10px] font-medium text-slate-200">{outcome.title}</p>
+                                      <span className={`rounded-full px-2 py-1 text-[8px] uppercase tracking-wider ${outcome.state === "completed" ? "bg-emerald-400/10 text-emerald-200" : "bg-rose-400/10 text-rose-200"}`}>{outcome.state}</span>
+                                    </div>
+                                    <p className="mt-1 text-[9px] leading-4 text-slate-500">{outcome.action_type?.replaceAll("_", " ") ?? "Response action"} · {outcome.executor_type ?? "executor not specified"}</p>
+                                    <p className="mt-1 text-[9px] leading-4 text-slate-600">{outcome.summary}</p>
+                                    {outcome.execution_reference && (
+                                      <p className="mt-2 text-[9px] text-slate-600">Execution reference: {outcome.execution_reference}</p>
+                                    )}
+                                    <p className="mt-2 text-[9px] text-slate-600">{outcome.evidence.length} evidence record{outcome.evidence.length === 1 ? "" : "s"} attached</p>
+                                  </div>
+                                ))}
+                              </div>
+                              <p className="mt-3 rounded-lg border border-amber-400/10 bg-amber-400/[0.025] p-2 text-[8px] leading-4 text-slate-600">Historical outcome only: completion or failure reflects the explicit executor result and does not establish the current security state.</p>
+                            </div>
+                          )}
+
                           {copilotInvestigation.memory.length > 0 && (
                             <div className="mb-3 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.025] p-3">
                               <div className="flex items-center justify-between gap-2">
