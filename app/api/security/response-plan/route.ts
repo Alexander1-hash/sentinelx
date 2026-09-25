@@ -113,10 +113,30 @@ export async function POST(request: Request) {
 
     const relatedAssetIds = new Set<string>();
     if (targetAsset) relatedAssetIds.add(targetAsset.id);
-    relationships.forEach((edge) => {
-      if (edge.source_asset_id === typedFinding.asset_id) relatedAssetIds.add(edge.target_asset_id);
-      if (edge.target_asset_id === typedFinding.asset_id) relatedAssetIds.add(edge.source_asset_id);
-    });
+
+    if (typedFinding.asset_id) {
+      const queue: Array<{ assetId: string; depth: number }> = [{ assetId: typedFinding.asset_id, depth: 0 }];
+      const visited = new Set<string>([typedFinding.asset_id]);
+
+      while (queue.length) {
+        const current = queue.shift()!;
+        if (current.depth >= 4) continue;
+
+        for (const edge of relationships) {
+          const next =
+            edge.source_asset_id === current.assetId
+              ? edge.target_asset_id
+              : edge.target_asset_id === current.assetId
+                ? edge.source_asset_id
+                : null;
+
+          if (!next || visited.has(next)) continue;
+          visited.add(next);
+          relatedAssetIds.add(next);
+          queue.push({ assetId: next, depth: current.depth + 1 });
+        }
+      }
+    }
 
     const relatedAssets = assets.filter((asset) => relatedAssetIds.has(asset.id));
     const relevantEvidence = evidence.filter((item) => {
