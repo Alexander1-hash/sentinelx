@@ -126,16 +126,6 @@ export function getExecutorRequirements(): ExecutorRequirement[] {
   return Object.values(REQUIREMENTS);
 }
 
-export const TARGET_RESOURCE_TYPES: Record<SecurityActionType, string[]> = {
-  investigate_asset: ["asset", "finding", "resource"],
-  review_finding: ["finding", "resource"],
-  contain_asset: ["asset", "endpoint", "cloud_resource", "resource"],
-  disable_integration: ["integration", "resource"],
-  revoke_access: ["identity", "user", "resource"],
-  isolate_endpoint: ["endpoint", "asset", "resource"],
-  block_indicator: ["indicator", "ip", "domain", "hash", "resource"],
-};
-
 export type ExecutionTarget = {
   assetId?: string;
   resourceId?: string;
