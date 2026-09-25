@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   getExecutorRequirement,
   getExecutorRequirements,
+  getExecutorAdapters,
 } from "@/lib/security/executors";
 import { buildExecutorPreview } from "@/lib/security/executor-registry";
 
@@ -89,6 +90,15 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
+      executors: getExecutorAdapters().map((adapter) => ({
+        id: adapter.id,
+        displayName: adapter.displayName,
+        executorType: adapter.executorType,
+        mode: adapter.mode,
+        enabled: adapter.enabled,
+        supportedActions: adapter.supportedActions,
+        boundary: adapter.boundary,
+      })),
       requirements: getExecutorRequirements().map((requirement) => ({
         ...requirement,
         connectedIntegrationCount: connected.filter((integration) =>
