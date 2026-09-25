@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getExecutorAdapter } from "@/lib/security/executors";
+import { getExecutorAdapter, validateExecutionTarget } from "@/lib/security/executors";
 
 const OUTCOME_STATUSES = ["completed", "failed"] as const;
 type OutcomeStatus = (typeof OUTCOME_STATUSES)[number];
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
 
     const { data: action, error: actionLookupError } = await supabase
       .from("security_actions")
-      .select("id,action_type,status,authorization")
+      .select("id,action_type,status,target,authorization")
       .eq("id", actionId)
       .eq("organization_id", organizationId)
       .maybeSingle();
@@ -115,6 +115,11 @@ export async function POST(request: Request) {
       );
     }
 
+    const targetValidation = validateExecutionTarget(action.action_type, action.target);
+    if (!targetValidation.valid) {
+      return NextResponse.json({ error: targetValidation.error }, { status: 409 });
+    }
+
     const authorizedAdapter = getExecutorAdapter(executorType, action.action_type);
     if (!authorizedAdapter) {
       return NextResponse.json(
@@ -131,7 +136,12 @@ export async function POST(request: Request) {
         p_executor_type: executorType,
         p_execution_reference: executionReference,
         p_evidence: evidence,
-        p_result: body.result ?? {},
+        p_result: {
+          ...(body.result ?? {}),
+          execution_target: targetValidation.target,
+          target_scope_verified: true,
+          target_scope_source: "authorized_security_action",
+        },
       },
     );
 
