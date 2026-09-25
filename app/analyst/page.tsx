@@ -25,7 +25,7 @@ type AnalystResponse = {
   suggestedNextStep: string;
   boundary: string;
   patternsReviewed?: number;
-  securityPatterns?: Array<{ pattern: string; title: string; detail: string; confidence: string; firstObserved: string; lastObserved: string }>;
+  securityPatterns?: Array<{ pattern: string; title: string; detail: string; confidence: string; firstObserved: string; lastObserved: string; sequence?: string[] }>;
 };
 
 export default function AnalystPage() {
@@ -158,9 +158,24 @@ export default function AnalystPage() {
                   {response.securityPatterns.map((pattern) => (
                     <div key={pattern.title + pattern.lastObserved} className="rounded-2xl border border-white/10 p-4">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-medium text-white">{pattern.title}</p>
+                        <div>
+                          <span className={pattern.pattern === "security_sequence" ? "rounded-full bg-orange-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-orange-200" : "rounded-full bg-violet-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-violet-200"}>
+                            {pattern.pattern === "security_sequence" ? "security sequence" : pattern.pattern.replaceAll("_", " ")}
+                          </span>
+                          <p className="mt-2 text-sm font-medium text-white">{pattern.title}</p>
+                        </div>
                         <span className="rounded-full bg-violet-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-violet-200">{pattern.confidence}</span>
                       </div>
+                      {pattern.pattern === "security_sequence" && pattern.sequence?.length ? (
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                          {pattern.sequence.map((step, index) => (
+                            <span key={step + index} className="flex items-center gap-2">
+                              <span className="rounded-lg border border-white/10 bg-black/10 px-2.5 py-2 text-[10px] text-slate-300">{step}</span>
+                              {index < pattern.sequence!.length - 1 && <span className="text-orange-300">→</span>}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                       <p className="mt-2 text-xs leading-5 text-slate-500">{pattern.detail}</p>
                       <p className="mt-2 text-[9px] text-slate-600">Last observed {new Date(pattern.lastObserved).toLocaleString()}</p>
                     </div>
