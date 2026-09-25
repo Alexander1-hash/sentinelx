@@ -94,10 +94,55 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unsupported security action." }, { status: 400 });
     }
 
-    const target = body.target ?? {};
+    let target: Record<string, unknown> = body.target ?? {};
+
+    // Deterministically derive targets from organization-owned SentinelX records
+    // when the operator supplied a finding but did not provide a target.
+    // We never invent provider resource IDs or infer targets from free-form text.
+    if (body.findingId && Object.keys(target).length === 0) {
+      const { data: finding, error: findingError } = await supabase
+        .from("security_findings")
+        .select("id,asset_id")
+        .eq("id", body.findingId)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (findingError) {
+        return NextResponse.json({ error: findingError.message }, { status: 500 });
+      }
+
+      if (!finding) {
+        return NextResponse.json({ error: "The selected finding was not found in this organization." }, { status: 404 });
+      }
+
+      if (actionType === "review_finding") {
+        target = {
+          resourceId: finding.id,
+          resourceType: "finding",
+        };
+      } else if (
+        ["investigate_asset", "contain_asset", "revoke_access", "isolate_endpoint"].includes(actionType) &&
+        finding.asset_id
+      ) {
+        target = {
+          assetId: finding.asset_id,
+          resourceId: finding.asset_id,
+          resourceType: "asset",
+        };
+      }
+    }
+
     const targetValidation = validateExecutionTarget(actionType, target);
     if (isMutatingSecurityAction(actionType) && !targetValidation.valid) {
-      return NextResponse.json({ error: targetValidation.error }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: targetValidation.error,
+          targetResolution: body.findingId
+            ? "The finding was verified, but no deterministic executable target could be derived for this action."
+            : "Provide an explicit authorized target for this action.",
+        },
+        { status: 400 },
+      );
     }
     const reason = body.reason?.trim() || "Operator-requested security action.";
 
