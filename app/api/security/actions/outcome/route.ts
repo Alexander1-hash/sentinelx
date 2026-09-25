@@ -74,14 +74,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const adapter = getExecutorAdapter(executorType, "investigate_asset");
-    if (!adapter) {
-      return NextResponse.json(
-        { error: "The requested executor is not enabled for this security action." },
-        { status: 400 },
-      );
-    }
-
     const evidence = Array.isArray(body.evidence)
       ? body.evidence
           .slice(0, 50)
