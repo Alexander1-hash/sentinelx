@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildSecurityPatterns, type SecurityPatternMemory } from "@/lib/security/patterns";
+import { validateExecutionTarget, isMutatingSecurityAction } from "@/lib/security/executors";
 
 const ACTION_TYPES = [
   "investigate_asset",
@@ -94,6 +95,10 @@ export async function POST(request: Request) {
     }
 
     const target = body.target ?? {};
+    const targetValidation = validateExecutionTarget(actionType, target);
+    if (isMutatingSecurityAction(actionType) && !targetValidation.valid) {
+      return NextResponse.json({ error: targetValidation.error }, { status: 400 });
+    }
     const reason = body.reason?.trim() || "Operator-requested security action.";
 
     let historicalPatternContext: Array<Record<string, unknown>> = [];
