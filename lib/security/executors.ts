@@ -126,6 +126,52 @@ export function getExecutorRequirements(): ExecutorRequirement[] {
   return Object.values(REQUIREMENTS);
 }
 
+export type ExecutionTarget = {
+  assetId?: string;
+  resourceId?: string;
+  resourceType?: string;
+  provider?: string;
+  integrationId?: string;
+  indicator?: string;
+};
+
+const TARGET_KEYS: Record<SecurityActionType, Array<keyof ExecutionTarget>> = {
+  investigate_asset: ["assetId", "resourceId"],
+  review_finding: ["resourceId"],
+  contain_asset: ["assetId", "resourceId"],
+  disable_integration: ["integrationId", "resourceId"],
+  revoke_access: ["assetId", "resourceId"],
+  isolate_endpoint: ["assetId", "resourceId"],
+  block_indicator: ["indicator", "resourceId"],
+};
+
+export function validateExecutionTarget(
+  actionType: string,
+  target: unknown,
+): { valid: true; target: ExecutionTarget } | { valid: false; error: string } {
+  if (!target || typeof target !== "object" || Array.isArray(target)) {
+    return { valid: false, error: "The authorized action has no valid execution target." };
+  }
+
+  const normalized = target as Record<string, unknown>;
+  const keys = TARGET_KEYS[actionType as SecurityActionType];
+  if (!keys) return { valid: false, error: "Unsupported security action target." };
+
+  const hasStableTarget = keys.some((key) => {
+    const value = normalized[key];
+    return typeof value === "string" && value.trim().length > 0;
+  });
+
+  if (!hasStableTarget) {
+    return {
+      valid: false,
+      error: "The authorized action must contain a stable target identifier before execution can be recorded.",
+    };
+  }
+
+  return { valid: true, target: normalized as ExecutionTarget };
+}
+
 export function isMutatingSecurityAction(actionType: string): boolean {
   return [
     "contain_asset",
