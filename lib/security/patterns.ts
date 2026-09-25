@@ -281,7 +281,7 @@ export function buildSecurityPatterns(
     return false;
   };
 
-  const sequenceMatches: SecurityPatternMemory[][] = [];
+  const sequenceMatches: Array<{ definition: (typeof sequencePatterns)[number]; matched: SecurityPatternMemory[] }> = [];
   for (const sequence of sequencePatterns) {
     for (let start = 0; start < chronological.length; start += 1) {
       const first = chronological[start];
@@ -329,15 +329,15 @@ export function buildSecurityPatterns(
       }
 
       if (matched.length === sequence.types.length) {
-        sequenceMatches.push(matched);
+        sequenceMatches.push({ definition: sequence, matched });
         break;
       }
     }
   }
 
-  for (let index = 0; index < sequenceMatches.length; index += 1) {
-    const matched = sequenceMatches[index];
-    const definition = sequencePatterns[index];
+  for (const sequenceMatch of sequenceMatches) {
+    const matched = sequenceMatch.matched;
+    const definition = sequenceMatch.definition;
     if (!matched.length) continue;
 
     patterns.push({
@@ -351,7 +351,19 @@ export function buildSecurityPatterns(
       lastObserved: matched[matched.length - 1].occurred_at,
       boundary:
         "This sequence connects recorded historical events. It does not prove causation, compromise, or current security state.",
-      sequence: matched.map((item) => item.memory_type),
+      sequence: matched.map((item) => {
+        if (item.memory_type === "evidence_change") {
+          const state = stateOf(item);
+          if (["resolved", "cleared", "healthy"].includes(state)) return "resolution";
+          if (["active", "degraded", "open"].includes(state)) return "active condition";
+        }
+        if (item.memory_type === "finding_state") return "finding";
+        if (item.memory_type === "operator_decision") return "operator decision";
+        if (item.memory_type === "response_outcome") return "response outcome";
+        if (item.memory_type === "investigation") return "investigation";
+        if (isAiMemory(item)) return "AI security indicator";
+        return item.memory_type;
+      }),
     });
   }
 
@@ -362,23 +374,60 @@ export function buildSecurityPatterns(
     (memory) => memory.memory_type === "response_outcome",
   );
 
-  if (decisions.length > 0 && outcomes.length === 0) {
-    patterns.push({
-      id: "response-pending-outcome",
-      pattern: "response_cycle",
-      title: "Response decisions exist without recorded outcomes",
-      detail:
-        decisions.length +
-        " operator decision memory event(s) exist, but no response outcome memory is currently recorded.",
-      confidence: "medium",
-      memoryIds: decisions.slice(0, 8).map((item) => item.id),
-      firstObserved:
-        decisions[decisions.length - 1]?.occurred_at ??
-        new Date().toISOString(),
-      lastObserved: decisions[0]?.occurred_at ?? new Date().toISOString(),
-      boundary:
-        "No outcome memory does not mean an action failed or succeeded; it means the outcome is not recorded.",
-    });
+  const decisionGroups = new Map<string, SecurityPatternMemory[]>();
+  for (const decision of decisions) {
+    const actionId = str(decision.data.action_id) ?? decision.subject_id;
+    if (!actionId) continue;
+    const list = decisionGroups.get(actionId) ?? [];
+    list.push(decision);
+    decisionGroups.set(actionId, list);
+  }
+
+  for (const [actionId, actionDecisions] of decisionGroups) {
+    const hasOutcome = outcomes.some(
+      (outcome) => str(outcome.data.action_id) === actionId,
+    );
+
+    if (!hasOutcome) {
+      patterns.push({
+        id: "response-pending-outcome-" + actionId,
+        pattern: "response_cycle",
+        title: "Authorized response has no recorded outcome",
+        detail:
+          "An operator decision is recorded for this action, but no explicit executor outcome is currently recorded for the same action.",
+        confidence: "medium",
+        memoryIds: actionDecisions.slice(0, 8).map((item) => item.id),
+        firstObserved: actionDecisions[actionDecisions.length - 1].occurred_at,
+        lastObserved: actionDecisions[0].occurred_at,
+        boundary:
+          "Missing outcome memory does not mean the action failed or succeeded; it means the executor result is not recorded.",
+      });
+    }
+  }
+
+  for (const outcome of outcomes) {
+    const actionId = str(outcome.data.action_id);
+    if (!actionId) continue;
+
+    const relatedDecisions = decisions.filter(
+      (decision) => (str(decision.data.action_id) ?? decision.subject_id) === actionId,
+    );
+
+    if (relatedDecisions.length === 0) {
+      patterns.push({
+        id: "response-unlinked-outcome-" + outcome.id,
+        pattern: "response_cycle",
+        title: "Response outcome has no linked operator decision",
+        detail:
+          "An explicit executor outcome exists, but no matching operator decision memory was found for the same action context.",
+        confidence: "medium",
+        memoryIds: [outcome.id],
+        firstObserved: outcome.occurred_at,
+        lastObserved: outcome.occurred_at,
+        boundary:
+          "The outcome is recorded evidence, but the missing decision link limits the historical response chain.",
+      });
+    }
   }
 
   return Array.from(new Map(patterns.map((pattern) => [pattern.id, pattern])).values())
