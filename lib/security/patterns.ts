@@ -239,6 +239,48 @@ export function buildSecurityPatterns(
       memory.title + " " + memory.summary + " " + JSON.stringify(memory.data),
     );
 
+  const contextIds = (memory: SecurityPatternMemory) => {
+    const ids = new Set<string>();
+
+    const findingId =
+      str(memory.data.finding_id) ??
+      (memory.memory_type === "finding_state" ? memory.subject_id : null);
+    const assetId =
+      str(memory.data.asset_id) ??
+      str(memory.data.affected_asset_id);
+    const evidenceId = str(memory.data.evidence_id) ?? str(memory.data.current_evidence_id);
+    const actionId = str(memory.data.action_id);
+
+    if (findingId) ids.add("finding:" + findingId);
+    if (assetId) ids.add("asset:" + assetId);
+    if (evidenceId) ids.add("evidence:" + evidenceId);
+    if (actionId) ids.add("action:" + actionId);
+
+    return ids;
+  };
+
+  const sharesContext = (
+    chain: SecurityPatternMemory[],
+    candidate: SecurityPatternMemory,
+  ) => {
+    const chainContext = new Set<string>();
+    for (const memory of chain) {
+      for (const id of contextIds(memory)) chainContext.add(id);
+    }
+
+    const candidateContext = contextIds(candidate);
+
+    // Strongly prefer shared finding/asset/evidence/action context. If neither
+    // side has usable context, do not manufacture a relationship between them.
+    if (chainContext.size === 0 || candidateContext.size === 0) return false;
+
+    for (const id of candidateContext) {
+      if (chainContext.has(id)) return true;
+    }
+
+    return false;
+  };
+
   const sequenceMatches: SecurityPatternMemory[][] = [];
   for (const sequence of sequencePatterns) {
     for (let start = 0; start < chronological.length; start += 1) {
@@ -249,7 +291,9 @@ export function buildSecurityPatterns(
           : sequence.types[0] === "resolved"
             ? first.memory_type === "evidence_change" &&
               ["resolved", "cleared", "healthy"].includes(stateOf(first))
-            : first.memory_type === sequence.types[0];
+            : sequence.types[0] === "active"
+              ? ["active", "degraded", "open"].includes(stateOf(first))
+              : first.memory_type === sequence.types[0];
 
       if (!firstMatches) continue;
 
@@ -273,7 +317,8 @@ export function buildSecurityPatterns(
                   : candidate.memory_type === type;
 
           cursor += 1;
-          if (matches) {
+
+          if (matches && sharesContext(matched, candidate)) {
             found = candidate;
             break;
           }
