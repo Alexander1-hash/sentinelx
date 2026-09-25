@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildSecurityPatterns, type SecurityPatternMemory } from "@/lib/security/patterns";
-import { getExecutorRequirement } from "@/lib/security/executors";
-import { buildExecutorPreview } from "@/lib/security/executor-registry";
 
 type Finding = {
   id: string;
