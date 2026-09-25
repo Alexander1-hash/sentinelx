@@ -32,7 +32,11 @@ async function getContext() {
     .eq("id", user.id)
     .maybeSingle();
 
-  return { supabase, user, organizationId: profile?.organization_id ?? null };
+  return {
+    supabase,
+    user,
+    organizationId: profile?.organization_id ?? null,
+  };
 }
 
 export async function POST(request: Request) {
@@ -61,18 +65,24 @@ export async function POST(request: Request) {
 
     if (!executorType || !executionReference) {
       return NextResponse.json(
-        { error: "executorType and executionReference are required to record an execution outcome." },
+        {
+          error:
+            "executorType and executionReference are required to record an execution outcome.",
+        },
         { status: 400 },
       );
     }
 
     const evidence = Array.isArray(body.evidence)
-      ? body.evidence.slice(0, 50).map((item) => ({
-          type: item?.type?.trim() || "executor_result",
-          source: item?.source?.trim() || executorType,
-          summary: item?.summary?.trim() || "",
-          reference: item?.reference?.trim() || executionReference,
-        }))
+      ? body.evidence
+          .slice(0, 50)
+          .map((item) => ({
+            type: item?.type?.trim() || "executor_result",
+            source: item?.source?.trim() || executorType,
+            summary: item?.summary?.trim() || "",
+            reference: item?.reference?.trim() || executionReference,
+          }))
+          .filter((item) => item.summary || item.reference)
       : [];
 
     if (evidence.length === 0) {
@@ -82,111 +92,49 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: action, error: actionError } = await supabase
-      .from("security_actions")
-      .select("id,finding_id,action_type,status,target,authorization,result,created_at,executed_at")
-      .eq("id", actionId)
-      .eq("organization_id", organizationId)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc(
+      "record_security_action_outcome",
+      {
+        p_action_id: actionId,
+        p_status: status,
+        p_executor_type: executorType,
+        p_execution_reference: executionReference,
+        p_evidence: evidence,
+        p_result: body.result ?? {},
+      },
+    );
 
-    if (actionError) {
-      return NextResponse.json({ error: actionError.message }, { status: 500 });
-    }
+    if (error) {
+      if (error.code === "42501") {
+        return NextResponse.json({ error: error.message }, { status: 401 });
+      }
 
-    if (!action) {
-      return NextResponse.json({ error: "Security action not found." }, { status: 404 });
-    }
+      if (error.code === "P0002") {
+        return NextResponse.json({ error: error.message }, { status: 404 });
+      }
 
-    if (action.status !== "approved") {
+      if (error.code === "55000") {
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
+
+      if (error.code === "22023") {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+
       return NextResponse.json(
-        { error: "Only explicitly approved actions can receive an execution outcome." },
-        { status: 409 },
-      );
-    }
-
-    const existingResult =
-      action.result && typeof action.result === "object"
-        ? (action.result as Record<string, unknown>)
-        : {};
-
-    const outcome = {
-      state: status,
-      executor_type: executorType,
-      execution_reference: executionReference,
-      evidence,
-      supplied_at: new Date().toISOString(),
-      supplied_by: user.id,
-      boundary:
-        "This outcome is recorded from an explicit executor result. SentinelX does not infer execution from approval alone.",
-      ...(body.result ?? {}),
-    };
-
-    const { data: updatedAction, error: updateError } = await supabase
-      .from("security_actions")
-      .update({
-        status,
-        result: {
-          ...existingResult,
-          state: status,
-          response_outcome: outcome,
-        },
-        executed_at: new Date().toISOString(),
-      })
-      .eq("id", actionId)
-      .eq("organization_id", organizationId)
-      .eq("status", "approved")
-      .select("id,finding_id,action_type,status,target,authorization,result,created_at,executed_at")
-      .single();
-
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
-    }
-
-    const { data: memory, error: memoryError } = await supabase
-      .from("security_memory")
-      .insert({
-        organization_id: organizationId,
-        memory_type: "response_outcome",
-        subject_id: updatedAction.id,
-        title:
-          status === "completed"
-            ? "Security action execution completed"
-            : "Security action execution failed",
-        summary:
-          status === "completed"
-            ? updatedAction.action_type + " received a completed result from " + executorType + "."
-            : updatedAction.action_type + " received a failed result from " + executorType + ".",
-        state: status,
-        data: {
-          action_id: updatedAction.id,
-          finding_id: updatedAction.finding_id,
-          action_type: updatedAction.action_type,
-          status,
-          executor_type: executorType,
-          execution_reference: executionReference,
-          evidence,
-          response_outcome: outcome,
-          memory_reason:
-            "Created only from an explicit authorized executor result; approval alone is not execution.",
-        },
-      })
-      .select("id,memory_type,subject_id,title,summary,state,data,occurred_at,created_at")
-      .single();
-
-    if (memoryError) {
-      return NextResponse.json(
-        {
-          error: "Action outcome was recorded, but the response outcome memory could not be created.",
-          action: updatedAction,
-          details: memoryError.message,
-        },
+        { error: "Security action outcome could not be recorded.", details: error.message },
         { status: 500 },
       );
     }
 
+    const result = data as {
+      action?: Record<string, unknown>;
+      memory?: Record<string, unknown>;
+    };
+
     return NextResponse.json({
-      action: updatedAction,
-      memory,
+      action: result.action,
+      memory: result.memory,
       message:
         status === "completed"
           ? "Verified response outcome recorded as completed."
