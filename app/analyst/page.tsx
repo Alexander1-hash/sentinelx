@@ -24,6 +24,8 @@ type AnalystResponse = {
   }>;
   suggestedNextStep: string;
   boundary: string;
+  patternsReviewed?: number;
+  securityPatterns?: Array<{ pattern: string; title: string; detail: string; confidence: string; firstObserved: string; lastObserved: string }>;
 };
 
 export default function AnalystPage() {
@@ -142,6 +144,31 @@ export default function AnalystPage() {
                 </div>
               </section>
             )}
+
+            {response.securityPatterns?.length ? (
+              <section className="rounded-3xl border border-violet-400/10 bg-violet-400/[0.025] p-5 sm:p-6">
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-violet-200">Temporal pattern context</p>
+                    <p className="mt-1 text-[10px] text-slate-600">{response.patternsReviewed ?? response.securityPatterns.length} recorded pattern context item(s)</p>
+                  </div>
+                  <Link href="/history" className="text-[10px] uppercase tracking-wider text-slate-500 hover:text-white">History</Link>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {response.securityPatterns.map((pattern) => (
+                    <div key={pattern.title + pattern.lastObserved} className="rounded-2xl border border-white/10 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium text-white">{pattern.title}</p>
+                        <span className="rounded-full bg-violet-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-violet-200">{pattern.confidence}</span>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-slate-500">{pattern.detail}</p>
+                      <p className="mt-2 text-[9px] text-slate-600">Last observed {new Date(pattern.lastObserved).toLocaleString()}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-4 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3 text-[9px] leading-4 text-slate-600">Pattern context describes recorded history. It does not prove current compromise or current security state.</p>
+              </section>
+            ) : null}
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Supporting evidence</p>
