@@ -4,6 +4,7 @@ import {
   getExecutorRequirement,
   getExecutorRequirements,
 } from "@/lib/security/executors";
+import { buildExecutorPreview } from "@/lib/security/executor-registry";
 
 async function getContext() {
   const supabase = await createClient();
@@ -63,6 +64,7 @@ export async function GET(request: Request) {
         );
       }
 
+      const preview = buildExecutorPreview(actionType);
       const matchingIntegrations = connected.filter((integration) =>
         requirement.requiredIntegrationTypes.includes(integration.integration_type),
       );
