@@ -329,6 +329,26 @@ export default function AnalystPage() {
               </section>
             )}
 
+            {response.investigation && response.topFinding && (
+              <section className="rounded-3xl border border-orange-400/10 bg-orange-400/[0.025] p-5 sm:p-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-orange-200">Decision point</p>
+                    <h2 className="mt-1 text-lg font-semibold text-white">Investigation is ready for an operator decision</h2>
+                    <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                      Review the confirmed target, evidence, relationships, and known unknowns before creating or authorizing a response.
+                    </p>
+                  </div>
+                  <Link
+                    href={`/actions?findingId=${encodeURIComponent(response.topFinding.id)}`}
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-xs font-semibold text-slate-950 hover:bg-cyan-200"
+                  >
+                    <ShieldAlert className="h-4 w-4" /> Continue to Decision
+                  </Link>
+                </div>
+              </section>
+            )}
+
             {response.investigation && (
               <section className="rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.025] p-5 sm:p-6">
                 <div className="flex items-start justify-between gap-3">
