@@ -269,21 +269,41 @@ export async function POST(request: Request) {
       const typedMemories = (memories ?? []) as SecurityPatternMemory[];
       const patterns = buildSecurityPatterns(typedMemories);
       historicalPatternContext = patterns
-        .filter((pattern) =>
-          pattern.memoryIds.some((memoryId) => {
+        .map((pattern) => {
+          const matchRank = pattern.memoryIds.reduce((rank, memoryId) => {
             const memory = typedMemories.find((item) => item.id === memoryId);
-            if (!memory) return false;
-            const findingId =
+            if (!memory) return rank;
+
+            const memoryFindingId =
               typeof memory.data.finding_id === "string"
                 ? memory.data.finding_id
                 : memory.memory_type === "finding_state"
                   ? memory.subject_id
                   : null;
-            return findingId === body.findingId;
-          })
-        )
+            const memoryAssetId =
+              typeof memory.data.asset_id === "string"
+                ? memory.data.asset_id
+                : typeof memory.data.affected_asset_id === "string"
+                  ? memory.data.affected_asset_id
+                  : null;
+            const memoryFindingType =
+              typeof memory.data.finding_type === "string" ? memory.data.finding_type : null;
+
+            if (memoryFindingId === body.findingId) return Math.max(rank, 4);
+            if (findingAssetId && memoryAssetId === findingAssetId && findingType && memoryFindingType === findingType) {
+              return Math.max(rank, 3);
+            }
+            if (findingAssetId && memoryAssetId === findingAssetId) return Math.max(rank, 2);
+            if (findingType && memoryFindingType === findingType) return Math.max(rank, 1);
+            return rank;
+          }, 0);
+
+          return { pattern, matchRank };
+        })
+        .filter(({ matchRank }) => matchRank > 0)
+        .sort((a, b) => b.matchRank - a.matchRank || new Date(b.pattern.lastObserved).getTime() - new Date(a.pattern.lastObserved).getTime())
         .slice(0, 8)
-        .map((pattern) => ({
+        .map(({ pattern }) => ({
           id: pattern.id,
           pattern: pattern.pattern,
           title: pattern.title,
