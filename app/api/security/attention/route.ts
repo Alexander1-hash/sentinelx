@@ -36,7 +36,7 @@ export async function GET() {
         .order("observed_at", { ascending: false })
         .limit(10),
       supabase.from("security_actions")
-        .select("id,action_type,status,created_at")
+        .select("id,finding_id,action_type,status,created_at")
         .eq("organization_id", organizationId)
         .eq("status", "pending")
         .order("created_at", { ascending: false })
@@ -54,7 +54,7 @@ export async function GET() {
         title: item.title,
         detail: item.summary ?? "Open high-impact security finding requires review.",
         observedAt: item.detected_at,
-        href: "/brain",
+        href: `/analyst?findingId=${encodeURIComponent(item.id)}`,
       })),
       ...(eventsResult.data ?? []).map((item) => ({
         id: item.id,
@@ -72,7 +72,9 @@ export async function GET() {
         title: "Operator review required",
         detail: `${item.action_type.replaceAll("_", " ")} is waiting for an explicit decision.`,
         observedAt: item.created_at,
-        href: "/actions",
+        href: item.finding_id
+          ? `/actions?findingId=${encodeURIComponent(item.finding_id)}`
+          : "/actions",
       })),
     ]
       .sort((a, b) => new Date(b.observedAt).getTime() - new Date(a.observedAt).getTime())
