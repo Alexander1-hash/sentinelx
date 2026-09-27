@@ -229,7 +229,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-[#071018] text-slate-100">
+    <main className="min-h-screen bg-[#071018] pb-20 text-slate-100 lg:pb-0">
       <header className="sticky top-0 z-50 border-b border-white/10 bg-[#071018]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1500px] items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
@@ -521,7 +521,7 @@ export default function DashboardPage() {
               <h2 className="mt-1 text-xl font-semibold text-white">Security timeline</h2>
               <p className="mt-1 text-sm text-slate-500">Only verified events will appear here.</p>
             </div>
-            <button type="button" className="inline-flex w-fit items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-400">
+            <button type="button" onClick={() => window.location.reload()} aria-label="Refresh security timeline" className="inline-flex w-fit items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-400 transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60">
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
             </button>
@@ -537,7 +537,19 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <footer className="mt-8 flex flex-col gap-2 border-t border-white/10 py-6 text-[10px] text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+        <nav aria-label="Primary navigation" className="fixed inset-x-3 bottom-3 z-50 grid grid-cols-5 gap-1 rounded-2xl border border-white/10 bg-[#0b151f] p-1.5 shadow-2xl shadow-black/40 lg:hidden">
+        {navigation.slice(0, 5).map((item) => {
+          const Icon = item.icon;
+          return (
+            <a key={item.label} href={item.href} className="flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[9px] font-medium text-slate-400 transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60">
+              <Icon className="h-4 w-4" />
+              <span className="w-full truncate text-center">{item.label.replace(" Security Center", "").replace(" Security", "")}</span>
+            </a>
+          );
+        })}
+      </nav>
+
+      <footer className="mt-8 flex flex-col gap-2 border-t border-white/10 py-6 text-[10px] text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <p>SentinelX · AI Security Operating System</p>
           <p>Authorized systems only · Evidence-first security</p>
         </footer>
