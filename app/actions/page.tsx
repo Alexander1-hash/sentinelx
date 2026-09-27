@@ -452,6 +452,31 @@ function SecurityActionsPageContent() {
                         </div>
                       )}
 
+                      {Array.isArray((action.result as Record<string, unknown>).historical_pattern_context) && (
+                        <div className="mt-3 rounded-lg border border-cyan-400/10 bg-cyan-400/[0.02] p-3">
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-200">Finding-specific learned context</p>
+                          <p className="mt-1 text-[9px] leading-4 text-slate-600">
+                            Security patterns are deterministic signals from recorded memory. They are shown here because they relate to this finding, its affected asset, or its finding type.
+                          </p>
+                          <div className="mt-2 space-y-2">
+                            {((action.result as Record<string, unknown>).historical_pattern_context as Array<Record<string, unknown>>).slice(0, 4).map((pattern, index) => (
+                              <div key={String(pattern.id ?? index)} className="rounded-lg border border-white/10 p-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="text-[9px] font-medium text-slate-300">{String(pattern.title ?? "Recorded security pattern")}</span>
+                                  <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-cyan-200">
+                                    {String(pattern.confidence ?? "recorded")}
+                                  </span>
+                                </div>
+                                <p className="mt-1 text-[8px] leading-4 text-slate-600">
+                                  {String(pattern.detail ?? "Recorded historical security pattern.")} · {Array.isArray(pattern.memoryIds) ? pattern.memoryIds.length : 0} linked memory record{Array.isArray(pattern.memoryIds) && pattern.memoryIds.length === 1 ? "" : "s"} · last observed {new Date(String(pattern.lastObserved)).toLocaleString()}
+                                </p>
+                                <p className="mt-1 text-[8px] leading-4 text-cyan-100/40">{String(pattern.boundary ?? "Pattern context does not establish current security state.")}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {Array.isArray((action.result as Record<string, unknown>).historical_response_context) && (
                         <div className="mt-3 rounded-lg border border-violet-400/10 bg-violet-400/[0.02] p-3">
                           <p className="text-[9px] font-semibold uppercase tracking-wider text-violet-200">Decision context from prior responses</p>
