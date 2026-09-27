@@ -257,6 +257,7 @@ export async function POST(request: Request) {
     const reason = body.reason?.trim() || "Operator-requested security action.";
 
     let historicalPatternContext: Array<Record<string, unknown>> = [];
+    let historicalResponseContext: Array<Record<string, unknown>> = [];
     if (body.findingId) {
       const { data: memories } = await supabase
         .from("security_memory")
@@ -294,6 +295,74 @@ export async function POST(request: Request) {
           sequence: pattern.sequence ?? null,
           boundary: pattern.boundary,
         }));
+
+      let findingType: string | null = null;
+      let findingAssetId: string | null = null;
+      const { data: findingContext } = await supabase
+        .from("security_findings")
+        .select("id,finding_type,asset_id")
+        .eq("id", body.findingId)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (findingContext) {
+        findingType = findingContext.finding_type;
+        findingAssetId = findingContext.asset_id;
+      }
+
+      historicalResponseContext = typedMemories
+        .filter((memory) => memory.memory_type === "response_outcome")
+        .map((memory) => {
+          const memoryFindingId = typeof memory.data.finding_id === "string" ? memory.data.finding_id : null;
+          const memoryAssetId =
+            typeof memory.data.asset_id === "string"
+              ? memory.data.asset_id
+              : typeof memory.data.affected_asset_id === "string"
+                ? memory.data.affected_asset_id
+                : null;
+          const memoryFindingType = typeof memory.data.finding_type === "string" ? memory.data.finding_type : null;
+          const memoryActionType = typeof memory.data.action_type === "string" ? memory.data.action_type : null;
+          const matchesFinding = memoryFindingId === body.findingId;
+          const matchesAsset = Boolean(findingAssetId && memoryAssetId === findingAssetId);
+          const matchesFindingType = Boolean(findingType && memoryFindingType === findingType);
+          const matchesActionType = memoryActionType === actionType;
+
+          const matchRank = matchesFinding
+            ? 4
+            : matchesAsset && matchesFindingType
+              ? 3
+              : matchesAsset || matchesFindingType
+                ? 2
+                : matchesActionType
+                  ? 1
+                  : 0;
+
+          return {
+            memoryId: memory.id,
+            title: memory.title,
+            summary: memory.summary,
+            state: memory.state,
+            occurredAt: memory.occurred_at,
+            actionType: memoryActionType,
+            evidenceCount: Array.isArray(memory.data.evidence) ? memory.data.evidence.length : 0,
+            matchContext: matchesFinding
+              ? "same finding"
+              : matchesAsset && matchesFindingType
+                ? "same asset and finding type"
+                : matchesAsset
+                  ? "same asset"
+                  : matchesFindingType
+                    ? "same finding type"
+                    : matchesActionType
+                      ? "same action type"
+                      : "related security history",
+            matchRank,
+          };
+        })
+        .filter((item) => item.matchRank > 0)
+        .sort((a, b) => b.matchRank - a.matchRank || new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
+        .slice(0, 8)
+        .map(({ matchRank: _matchRank, ...item }) => item);
     }
 
     const authorization = {
@@ -319,6 +388,7 @@ export async function POST(request: Request) {
           state: "recommendation_created",
           message: "Action is queued for explicit operator review.",
           historical_pattern_context: historicalPatternContext,
+          historical_response_context: historicalResponseContext,
         },
       })
       .select("id,finding_id,action_type,status,target,authorization,result,created_at,executed_at")
