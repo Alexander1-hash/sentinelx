@@ -647,6 +647,31 @@ function DefenseLifecycleOverview({
             }>
               {stage.state}
             </span>
+            <a
+              href={
+                stage.label === "Detect"
+                  ? "#activity"
+                  : stage.label === "Investigate"
+                    ? "/analyst"
+                    : stage.label === "Decide"
+                      ? "/actions"
+                      : stage.label === "Respond"
+                        ? "/actions"
+                        : stage.label === "Verify"
+                          ? "/analyst"
+                          : "/brain"
+              }
+              className="mt-3 inline-flex items-center gap-1 text-[9px] font-semibold text-slate-500 transition hover:text-cyan-200"
+            >
+              {stage.state === "recorded"
+                ? "Review"
+                : stage.state === "next"
+                  ? "Continue"
+                  : stage.label === "Detect"
+                    ? "View signals"
+                    : "Open"}
+              <ArrowRight className="h-3 w-3" />
+            </a>
           </div>
         ))}
       </div>
