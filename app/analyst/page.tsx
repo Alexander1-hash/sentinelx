@@ -46,6 +46,13 @@ type AnalystResponse = {
   };
 };
 
+type LifecycleStep = {
+  key: string;
+  label: string;
+  description: string;
+  state: "current" | "recorded" | "pending";
+};
+
 export default function AnalystPage() {
   const [question, setQuestion] = useState("");
   const [response, setResponse] = useState<AnalystResponse | null>(null);
@@ -131,12 +138,64 @@ export default function AnalystPage() {
       }
 
       setResponse(data);
+      setVerificationChanges([]);
     } catch {
       setMessage("The Security Analyst could not connect to the Security Brain.");
     } finally {
       setLoading(false);
     }
   }
+
+  const lifecycleSteps: LifecycleStep[] = response?.topFinding
+    ? [
+        {
+          key: "finding",
+          label: "Finding",
+          description: "A recorded security finding is in focus.",
+          state: "current",
+        },
+        {
+          key: "investigate",
+          label: "Investigate",
+          description: response.investigation
+            ? "Affected assets, relationships, evidence, and unknowns have been inspected."
+            : "Open the investigation to establish affected assets and evidence.",
+          state: response.investigation ? "recorded" : "current",
+        },
+        {
+          key: "decide",
+          label: "Decide",
+          description: response.historicalContext?.operatorDecisions?.length
+            ? "An operator decision is recorded in Security Brain history."
+            : "No operator authorization decision is recorded for this finding yet.",
+          state: response.historicalContext?.operatorDecisions?.length ? "recorded" : "pending",
+        },
+        {
+          key: "respond",
+          label: "Respond",
+          description: response.historicalContext?.responseOutcomes?.length
+            ? "An explicit executor outcome is recorded."
+            : "No explicit response outcome is recorded yet.",
+          state: response.historicalContext?.responseOutcomes?.length ? "recorded" : "pending",
+        },
+        {
+          key: "verify",
+          label: "Verify",
+          description: verificationChanges.length
+            ? "SentinelX has post-response evidence or a recorded verification state to review."
+            : "Verification is waiting for a recorded response and post-response evidence.",
+          state: verificationChanges.length ? "recorded" : "pending",
+        },
+        {
+          key: "learn",
+          label: "Learn",
+          description: response.securityPatterns?.length
+            ? "Historical patterns are available as context for future investigations."
+            : "Pattern learning will use future recorded security history.",
+          state: response.securityPatterns?.length ? "recorded" : "pending",
+        },
+      ]
+    : [];
 
   return (
     <main className="min-h-screen bg-[#071018] text-slate-100">
@@ -193,6 +252,46 @@ export default function AnalystPage() {
 
         {response && (
           <div className="mt-6 space-y-5">
+            {lifecycleSteps.length > 0 && (
+              <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Defense lifecycle</p>
+                    <h2 className="mt-1 text-lg font-semibold text-white">From finding to verified learning</h2>
+                  </div>
+                  <p className="text-[10px] text-slate-600">SentinelX never treats an unverified step as completed.</p>
+                </div>
+                <div className="mt-5 grid gap-2 md:grid-cols-6">
+                  {lifecycleSteps.map((step, index) => (
+                    <div key={step.key} className="relative rounded-2xl border border-white/10 bg-black/10 p-3">
+                      <div className="flex items-center gap-2">
+                        <span className={
+                          step.state === "recorded"
+                            ? "flex h-6 w-6 items-center justify-center rounded-full bg-emerald-400/10 text-[10px] font-semibold text-emerald-200"
+                            : step.state === "current"
+                              ? "flex h-6 w-6 items-center justify-center rounded-full bg-cyan-400/10 text-[10px] font-semibold text-cyan-200"
+                              : "flex h-6 w-6 items-center justify-center rounded-full bg-amber-400/10 text-[10px] font-semibold text-amber-200"
+                        }>
+                          {index + 1}
+                        </span>
+                        <span className="text-[10px] font-semibold text-white">{step.label}</span>
+                      </div>
+                      <p className="mt-2 text-[9px] leading-4 text-slate-600">{step.description}</p>
+                      <span className={
+                        step.state === "recorded"
+                          ? "mt-3 inline-flex rounded-full bg-emerald-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-emerald-200"
+                          : step.state === "current"
+                            ? "mt-3 inline-flex rounded-full bg-cyan-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-cyan-200"
+                            : "mt-3 inline-flex rounded-full bg-amber-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-amber-200"
+                      }>
+                        {step.state === "recorded" ? "recorded" : step.state === "current" ? "current" : "pending"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             <section className="rounded-3xl border border-cyan-400/10 bg-cyan-400/[0.025] p-5 sm:p-6">
               <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Analyst conclusion</p>
               <p className="mt-3 text-sm leading-7 text-slate-300">{response.answer}</p>
@@ -419,7 +518,7 @@ export default function AnalystPage() {
               <p className="mt-3 text-[10px] leading-5 text-slate-600">{response.boundary}</p>
             </section>
 
-            <Link href="/actions" className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-xs font-semibold text-slate-300 hover:bg-white/5">
+            <Link href={response.topFinding ? `/actions?findingId=${encodeURIComponent(response.topFinding.id)}` : "/actions"} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-xs font-semibold text-slate-300 hover:bg-white/5">
               <ShieldAlert className="h-4 w-4" /> Review Security Actions
             </Link>
           </div>
