@@ -369,6 +369,8 @@ export default function DashboardPage() {
           </section>
         )}
 
+        <DefenseLifecycleOverview attention={attention} changes={changes} />
+
         <section id="command-center" className="grid gap-5 xl:grid-cols-[1.55fr_0.45fr]">
           <div className="relative overflow-hidden rounded-3xl border border-cyan-400/15 bg-gradient-to-br from-cyan-400/[0.08] via-white/[0.03] to-transparent p-6 sm:p-8">
             <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
@@ -586,3 +588,69 @@ export default function DashboardPage() {
     </main>
   );
 }
+function DefenseLifecycleOverview({
+  attention,
+  changes,
+}: {
+  attention: SecurityAttention | null;
+  changes: SecurityChanges | null;
+}) {
+  const hasSignals = Boolean((attention?.items.length ?? 0) > 0 || (changes?.changes.length ?? 0) > 0);
+  const hasDecisions = Boolean(
+    changes?.changes.some((item) => item.kind === "decision")
+  );
+  const hasResponse = Boolean(
+    changes?.changes.some(
+      (item) =>
+        item.kind === "verification" ||
+        (item.kind === "decision" && item.detail.includes("completed"))
+    )
+  );
+  const hasVerification = Boolean(
+    changes?.changes.some((item) => item.kind === "verification")
+  );
+  const hasLearning = Boolean(
+    changes?.changes.some((item) => item.kind === "memory")
+  );
+
+  const stages = [
+    { label: "Detect", state: hasSignals ? "recorded" : "waiting" },
+    { label: "Investigate", state: hasSignals ? "available" : "waiting" },
+    { label: "Decide", state: hasDecisions ? "recorded" : "waiting" },
+    { label: "Respond", state: hasResponse ? "recorded" : hasDecisions ? "next" : "waiting" },
+    { label: "Verify", state: hasVerification ? "recorded" : hasResponse ? "next" : "waiting" },
+    { label: "Learn", state: hasLearning ? "recorded" : hasVerification ? "next" : "waiting" },
+  ] as const;
+
+  return (
+    <section className="mb-5 rounded-3xl border border-violet-400/10 bg-violet-400/[0.02] p-5 sm:p-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-violet-200">Defense lifecycle</p>
+          <h2 className="mt-1 text-lg font-semibold text-white">One continuous security workflow</h2>
+        </div>
+        <p className="text-[10px] text-slate-600">
+          SentinelX separates recorded activity from verified security state.
+        </p>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        {stages.map((stage) => (
+          <div key={stage.label} className="rounded-2xl border border-white/10 bg-black/10 p-3">
+            <p className="text-[10px] font-semibold text-white">{stage.label}</p>
+            <span className={
+              stage.state === "recorded"
+                ? "mt-2 inline-flex rounded-full bg-emerald-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-emerald-200"
+                : stage.state === "next"
+                  ? "mt-2 inline-flex rounded-full bg-cyan-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-cyan-200"
+                  : "mt-2 inline-flex rounded-full bg-amber-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-amber-200"
+            }>
+              {stage.state}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
