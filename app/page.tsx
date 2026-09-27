@@ -146,6 +146,8 @@ export default function DashboardPage() {
   const [attention, setAttention] = useState<SecurityAttention | null>(null);
   const [changes, setChanges] = useState<SecurityChanges | null>(null);
   const [patterns, setPatterns] = useState<SecurityPattern[]>([]);
+  const [analysisRunning, setAnalysisRunning] = useState(false);
+  const [analysisMessage, setAnalysisMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -204,6 +206,47 @@ export default function DashboardPage() {
 
     void loadUser();
   }, []);
+
+  async function analyzeTelemetry() {
+    setAnalysisRunning(true);
+    setAnalysisMessage(null);
+
+    try {
+      const response = await fetch("/api/security/analysis", {
+        method: "POST",
+        cache: "no-store",
+      });
+      const data = (await response.json()) as {
+        findingsCreated?: number;
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        setAnalysisMessage(data.error ?? "Security analysis could not be completed.");
+        return;
+      }
+
+      setAnalysisMessage(
+        data.message ??
+          `${data.findingsCreated ?? 0} new finding(s) created from the available telemetry.`
+      );
+
+      const [overviewResponse, attentionResponse, changesResponse] = await Promise.all([
+        fetch("/api/security/overview", { cache: "no-store" }),
+        fetch("/api/security/attention", { cache: "no-store" }),
+        fetch("/api/security/changes", { cache: "no-store" }),
+      ]);
+
+      if (overviewResponse.ok) setOverview((await overviewResponse.json()) as SecurityOverview);
+      if (attentionResponse.ok) setAttention((await attentionResponse.json()) as SecurityAttention);
+      if (changesResponse.ok) setChanges((await changesResponse.json()) as SecurityChanges);
+    } catch {
+      setAnalysisMessage("Security analysis could not be completed.");
+    } finally {
+      setAnalysisRunning(false);
+    }
+  }
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -609,11 +652,28 @@ export default function DashboardPage() {
               <h2 className="mt-1 text-xl font-semibold text-white">Security timeline</h2>
               <p className="mt-1 text-sm text-slate-500">Only verified events will appear here.</p>
             </div>
-            <button type="button" onClick={() => window.location.reload()} aria-label="Refresh security timeline" className="inline-flex w-fit items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-400 transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60">
-              <RefreshCw className="h-3.5 w-3.5" />
-              Refresh
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void analyzeTelemetry()}
+                disabled={analysisRunning || !(overview?.metrics.securityEvents)}
+                className="inline-flex w-fit items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs font-medium text-cyan-200 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60"
+              >
+                <BrainCircuit className={analysisRunning ? "h-3.5 w-3.5 animate-pulse" : "h-3.5 w-3.5"} />
+                {analysisRunning ? "Analyzing telemetry..." : "Analyze telemetry"}
+              </button>
+              <button type="button" onClick={() => window.location.reload()} aria-label="Refresh security timeline" className="inline-flex w-fit items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-400 transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60">
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh
+              </button>
+            </div>
           </div>
+
+          {analysisMessage ? (
+            <div className="mt-4 rounded-2xl border border-cyan-300/10 bg-cyan-300/[0.035] px-4 py-3 text-xs leading-5 text-cyan-100">
+              {analysisMessage}
+            </div>
+          ) : null}
 
           {overviewLoading ? (
             <div className="mt-6 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-white/10 px-5 py-12 text-xs text-slate-500">
