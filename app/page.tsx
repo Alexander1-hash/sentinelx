@@ -613,14 +613,26 @@ function DefenseLifecycleOverview({
     changes?.changes.some((item) => item.kind === "memory")
   );
 
+  const activeFinding = attention?.items.find((item) => item.kind === "finding");
+  const activeAction = attention?.items.find((item) => item.kind === "action");
+
   const stages = [
     { label: "Detect", state: hasSignals ? "recorded" : "waiting" },
     { label: "Investigate", state: hasSignals ? "available" : "waiting" },
-    { label: "Decide", state: hasDecisions ? "recorded" : "waiting" },
-    { label: "Respond", state: hasResponse ? "recorded" : hasDecisions ? "next" : "waiting" },
+    { label: "Decide", state: hasDecisions ? "recorded" : activeFinding ? "next" : "waiting" },
+    { label: "Respond", state: hasResponse ? "recorded" : hasDecisions ? "next" : activeAction ? "next" : "waiting" },
     { label: "Verify", state: hasVerification ? "recorded" : hasResponse ? "next" : "waiting" },
     { label: "Learn", state: hasLearning ? "recorded" : hasVerification ? "next" : "waiting" },
   ] as const;
+
+  const lifecycleHref = (label: string) => {
+    if (label === "Detect") return attention?.items[0]?.href ?? "#activity";
+    if (label === "Investigate") return activeFinding?.href ?? "/analyst";
+    if (label === "Decide") return activeFinding ? activeFinding.href.replace("/analyst?", "/actions?") : "/actions";
+    if (label === "Respond") return activeAction?.href ?? "/actions";
+    if (label === "Verify") return activeFinding?.href ?? "/analyst";
+    return "/brain";
+  };
 
   return (
     <section className="mb-5 rounded-3xl border border-violet-400/10 bg-violet-400/[0.02] p-5 sm:p-6">
@@ -648,19 +660,7 @@ function DefenseLifecycleOverview({
               {stage.state}
             </span>
             <a
-              href={
-                stage.label === "Detect"
-                  ? "#activity"
-                  : stage.label === "Investigate"
-                    ? "/analyst"
-                    : stage.label === "Decide"
-                      ? "/actions"
-                      : stage.label === "Respond"
-                        ? "/actions"
-                        : stage.label === "Verify"
-                          ? "/analyst"
-                          : "/brain"
-              }
+              href={lifecycleHref(stage.label)}
               className="mt-3 inline-flex items-center gap-1 text-[9px] font-semibold text-slate-500 transition hover:text-cyan-200"
             >
               {stage.state === "recorded"
