@@ -367,6 +367,8 @@ function SecurityActionsPageContent() {
                     </p>
                   </div>
 
+                  <ResponseLifecycle action={action} />
+
                   {typeof action.result.response_plan === "object" && action.result.response_plan !== null ? (
                     <div className="mt-3 rounded-xl border border-orange-400/10 bg-orange-400/[0.025] p-3">
                       <p className="text-[9px] font-semibold uppercase tracking-wider text-orange-200">Response plan</p>
@@ -659,6 +661,49 @@ function ApprovalCheck({
         <p className="text-[9px] font-medium text-slate-300">{label}</p>
         <p className="mt-0.5 text-[8px] leading-4 text-slate-600">{detail}</p>
       </div>
+    </div>
+  );
+}
+
+function ResponseLifecycle({ action }: { action: Action }) {
+  const stages = [
+    { label: "Finding", state: action.finding_id ? "recorded" : "pending" },
+    { label: "Decide", state: action.status === "pending" ? "current" : "recorded" },
+    { label: "Respond", state: ["approved", "executing", "completed", "failed"].includes(action.status) ? "recorded" : "pending" },
+    { label: "Verify", state: action.status === "completed" || action.status === "failed" ? "current" : "pending" },
+    { label: "Learn", state: "pending" },
+  ] as const;
+
+  return (
+    <div className="mt-3 rounded-xl border border-violet-400/10 bg-violet-400/[0.02] p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[9px] font-semibold uppercase tracking-wider text-violet-200">Defense lifecycle</p>
+        <Link
+          href={action.finding_id ? `/analyst?findingId=${encodeURIComponent(action.finding_id)}` : "/analyst"}
+          className="text-[8px] uppercase tracking-wider text-slate-500 hover:text-white"
+        >
+          Verify in Analyst
+        </Link>
+      </div>
+      <div className="mt-3 grid grid-cols-5 gap-1.5">
+        {stages.map((stage) => (
+          <div key={stage.label} className="rounded-lg border border-white/10 bg-black/10 p-2">
+            <p className="text-[8px] font-medium text-slate-300">{stage.label}</p>
+            <span className={
+              stage.state === "recorded"
+                ? "mt-1 inline-flex rounded-full bg-emerald-400/10 px-1.5 py-0.5 text-[7px] uppercase tracking-wider text-emerald-200"
+                : stage.state === "current"
+                  ? "mt-1 inline-flex rounded-full bg-cyan-400/10 px-1.5 py-0.5 text-[7px] uppercase tracking-wider text-cyan-200"
+                  : "mt-1 inline-flex rounded-full bg-amber-400/10 px-1.5 py-0.5 text-[7px] uppercase tracking-wider text-amber-200"
+            }>
+              {stage.state}
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[8px] leading-4 text-slate-600">
+        A recorded execution is not treated as verified remediation. Verification still depends on post-response evidence and current finding state.
+      </p>
     </div>
   );
 }
