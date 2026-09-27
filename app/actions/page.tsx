@@ -369,6 +369,51 @@ function SecurityActionsPageContent() {
 
                   <ResponseLifecycle action={action} />
 
+                  {action.status === "pending" && (
+                    <div className="mt-3 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.02] p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-200">Decision readiness</p>
+                        <span className="text-[8px] uppercase tracking-wider text-slate-600">Before authorization</span>
+                      </div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                        <div className="rounded-lg border border-white/10 bg-black/10 p-2">
+                          <p className="text-[8px] uppercase tracking-wider text-slate-600">Current target</p>
+                          <p className="mt-1 text-[9px] font-medium text-slate-300">
+                            {action.target_context?.resourceName ?? "Not resolved"}
+                          </p>
+                          <p className="mt-1 text-[8px] leading-4 text-slate-600">
+                            {action.target_context?.stableIdentifier ? "Stable identifier available." : "Stable identifier still needs verification."}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-white/10 bg-black/10 p-2">
+                          <p className="text-[8px] uppercase tracking-wider text-slate-600">Execution path</p>
+                          <p className="mt-1 text-[9px] font-medium text-slate-300">
+                            {action.action_type === "review_finding"
+                              ? "Review-only"
+                              : readinessLoading
+                                ? "Checking readiness…"
+                                : readiness[action.action_type]?.executorReady
+                                  ? "Executor path available"
+                                  : "No provider executor configured"}
+                          </p>
+                          <p className="mt-1 text-[8px] leading-4 text-slate-600">Authorization remains separate from external execution.</p>
+                        </div>
+                        <div className="rounded-lg border border-white/10 bg-black/10 p-2">
+                          <p className="text-[8px] uppercase tracking-wider text-slate-600">Historical context</p>
+                          <p className="mt-1 text-[9px] font-medium text-slate-300">
+                            {Array.isArray((action.result as Record<string, unknown>).historical_response_context)
+                              ? `${((action.result as Record<string, unknown>).historical_response_context as unknown[]).length} prior outcome record${((action.result as Record<string, unknown>).historical_response_context as unknown[]).length === 1 ? "" : "s"}`
+                              : "No correlated outcome history"}
+                          </p>
+                          <p className="mt-1 text-[8px] leading-4 text-slate-600">History is context only; current evidence remains authoritative.</p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-[8px] leading-4 text-cyan-100/50">
+                        SentinelX presents the evidence and known boundaries for an operator decision. It does not score or rank response choices, and historical outcomes do not prove current effectiveness.
+                      </p>
+                    </div>
+                  )}
+
                   {typeof action.result.response_plan === "object" && action.result.response_plan !== null ? (
                     <div className="mt-3 rounded-xl border border-orange-400/10 bg-orange-400/[0.025] p-3">
                       <p className="text-[9px] font-semibold uppercase tracking-wider text-orange-200">Response plan</p>
