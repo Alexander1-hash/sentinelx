@@ -483,9 +483,21 @@ function SecurityActionsPageContent() {
                               <div key={String(pattern.id ?? index)} className="rounded-lg border border-white/10 p-2">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                   <span className="text-[9px] font-medium text-slate-300">{String(pattern.title ?? "Recorded security pattern")}</span>
-                                  <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-cyan-200">
-                                    {String(pattern.confidence ?? "recorded")}
-                                  </span>
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    {pattern.actionType ? (
+                                      <span className="rounded-full bg-violet-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-violet-200">
+                                        {String(pattern.actionType).replaceAll("_", " ")}
+                                      </span>
+                                    ) : null}
+                                    {pattern.outcomeState ? (
+                                      <span className="rounded-full bg-amber-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-amber-200">
+                                        {String(pattern.outcomeState).replaceAll("_", " ")}
+                                      </span>
+                                    ) : null}
+                                    <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-cyan-200">
+                                      {String(pattern.confidence ?? "recorded")}
+                                    </span>
+                                  </div>
                                 </div>
                                 <p className="mt-1 text-[8px] leading-4 text-slate-600">
                                   {String(pattern.detail ?? "Recorded historical security pattern.")} · {Array.isArray(pattern.memoryIds) ? pattern.memoryIds.length : 0} linked memory record{Array.isArray(pattern.memoryIds) && pattern.memoryIds.length === 1 ? "" : "s"} · last observed {new Date(String(pattern.lastObserved)).toLocaleString()}
