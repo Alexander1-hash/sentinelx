@@ -60,7 +60,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
+    <main className="min-h-screen bg-slate-950 px-1 text-white">
       <div className="flex min-h-screen items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
@@ -68,7 +68,7 @@ export default function LoginPage() {
               <ShieldCheck className="h-7 w-7" />
             </div>
 
-            <h1 className="text-3xl font-bold tracking-tight">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
               Welcome to SentinelX
             </h1>
 
@@ -77,7 +77,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl sm:p-6">
             {error && (
               <div className="mb-5 flex gap-3 rounded-xl border border-red-900/50 bg-red-950/30 p-4 text-sm text-red-300">
                 <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
