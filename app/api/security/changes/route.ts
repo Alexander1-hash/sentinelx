@@ -262,23 +262,78 @@ export async function GET() {
         });
 
         const evidenceCount = linkedEvidence.length;
+        const currentFinding = (findingResult.data ?? []).find(
+          (finding) => finding.id === action.finding_id
+        );
+        const preResponseFindingState = [...memories]
+          .filter(
+            (memory) =>
+              memory.memory_type === "finding_state" &&
+              (memory.subject_id === action.finding_id ||
+                memory.data.finding_id === action.finding_id) &&
+              new Date(memory.occurred_at).getTime() <= new Date(action.executed_at!).getTime()
+          )
+          .sort(
+            (a, b) =>
+              new Date(b.occurred_at).getTime() -
+              new Date(a.occurred_at).getTime()
+          )[0];
+
+        const resolvedStatuses = new Set(["resolved", "closed", "cleared", "healthy"]);
+        const severityRank: Record<string, number> = {
+          critical: 4,
+          high: 3,
+          medium: 2,
+          low: 1,
+          info: 0,
+        };
+        const baselineSeverity =
+          typeof preResponseFindingState?.data.severity === "string"
+            ? preResponseFindingState.data.severity
+            : null;
+        const currentSeverity = currentFinding?.severity ?? null;
+        const severityImproved =
+          baselineSeverity !== null &&
+          currentSeverity !== null &&
+          severityRank[currentSeverity] < severityRank[baselineSeverity];
+
+        const stateImproved =
+          Boolean(currentFinding && resolvedStatuses.has(currentFinding.status)) ||
+          severityImproved;
+
+        const stateUnchanged =
+          Boolean(
+            currentFinding &&
+            preResponseFindingState &&
+            currentFinding.status === preResponseFindingState.state &&
+            currentFinding.severity === baselineSeverity
+          );
+
         const verificationState =
           action.status === "failed"
             ? "uncertain"
-            : evidenceCount > 0
-              ? "observed"
-              : "awaiting_evidence";
+            : stateImproved
+              ? "improved"
+              : evidenceCount > 0
+                ? "observed"
+                : "awaiting_evidence";
+
+        const verificationDetail =
+          verificationState === "improved"
+            ? `Current finding state provides a post-response improvement signal${severityImproved ? " through lower recorded severity" : ""}.`
+            : verificationState === "observed"
+              ? `${evidenceCount} evidence record(s) were observed at or after execution, but the finding state is not independently resolved.`
+              : verificationState === "uncertain"
+                ? "The recorded response failed; current security state still requires independent evidence."
+                : stateUnchanged
+                  ? "The response was recorded, but the finding state remains unchanged and no post-response evidence is available."
+                  : "The response was recorded, but no post-response evidence is available yet.";
 
         changes.push({
           id: `verification-${action.id}`,
           kind: "verification",
           title: `Response verification: ${action.action_type}`,
-          detail:
-            verificationState === "observed"
-              ? `${evidenceCount} evidence record(s) were observed at or after the recorded response execution.`
-              : verificationState === "uncertain"
-                ? "The recorded response failed; current security state still requires independent evidence."
-                : "The response was recorded, but no post-response evidence is available yet.",
+          detail: verificationDetail,
           observedAt: action.executed_at,
           state: "changed",
           href: action.finding_id
