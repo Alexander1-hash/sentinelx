@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import MobileNavigation from "./components/mobile-navigation";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -45,7 +46,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>{children}<MobileNavigation /></body>
     </html>
   );
 }
