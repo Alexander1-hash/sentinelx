@@ -246,6 +246,33 @@ function SecurityActionsPageContent() {
 
         {linkedFindingId && (
           <section className="mt-6 rounded-3xl border border-cyan-400/10 bg-cyan-400/[0.025] p-5 sm:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Finding in focus</p>
+                <p className="mt-1 text-sm font-medium text-white">This decision workspace is scoped to the investigation you just reviewed.</p>
+                <p className="mt-2 break-all text-[9px] text-slate-600">Finding ID: {linkedFindingId}</p>
+              </div>
+              <Link href={"/analyst?findingId="+encodeURIComponent(linkedFindingId)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-[10px] font-semibold text-slate-300 hover:bg-white/5">
+                Return to investigation
+              </Link>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <div className="rounded-xl border border-white/10 bg-black/10 p-3">
+                <p className="text-[8px] uppercase tracking-wider text-slate-600">Decision scope</p>
+                <p className="mt-1 text-[10px] text-slate-300">Evidence-backed finding</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-black/10 p-3">
+                <p className="text-[8px] uppercase tracking-wider text-slate-600">Authorization</p>
+                <p className="mt-1 text-[10px] text-slate-300">Explicit operator approval</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-black/10 p-3">
+                <p className="text-[8px] uppercase tracking-wider text-slate-600">Execution</p>
+                <p className="mt-1 text-[10px] text-slate-300">Provider executor required</p>
+              </div>
+            </div>
+            <p className="mt-3 text-[9px] leading-4 text-slate-600">SentinelX does not silently execute, approve, or infer remediation. Current evidence and explicit authorization remain the decision boundary.</p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+
             <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Investigation → decision</p>
             <h2 className="mt-1 text-lg font-semibold text-white">Continue with this finding</h2>
             <p className="mt-2 max-w-2xl text-[11px] leading-5 text-slate-500">
