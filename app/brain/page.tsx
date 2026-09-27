@@ -493,6 +493,39 @@ export default function SecurityBrainPage() {
           )}
         </section>
 
+        {patterns.some((pattern) => pattern.pattern === "response_cycle") && (
+          <section className="mt-6 rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.025] p-5 sm:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-200">Response learning</p>
+                <h2 className="mt-1 text-lg font-semibold text-white">What SentinelX has learned from recorded response cycles</h2>
+                <p className="mt-2 max-w-2xl text-[11px] leading-5 text-slate-500">
+                  Recorded response outcomes and recurring cycles are carried into future investigations as historical context. They do not guarantee that the same response will work again or describe the current security state.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/analyst" className="rounded-full bg-white/5 px-3 py-1.5 text-[9px] uppercase tracking-wider text-slate-400 hover:text-white">Open Analyst</Link>
+                <Link href="/actions" className="rounded-full bg-white/5 px-3 py-1.5 text-[9px] uppercase tracking-wider text-slate-400 hover:text-white">Review Actions</Link>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {patterns.filter((pattern) => pattern.pattern === "response_cycle").slice(0, 6).map((pattern) => (
+                <div key={pattern.id} className="rounded-2xl border border-emerald-400/10 bg-black/10 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-white">{pattern.title}</p>
+                      <p className="mt-1 text-[9px] text-slate-600">{pattern.memoryIds.length} linked response-memory records · Last observed {new Date(pattern.lastObserved).toLocaleString()}</p>
+                    </div>
+                    <span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-emerald-200">{pattern.confidence}</span>
+                  </div>
+                  <p className="mt-3 text-[10px] leading-5 text-slate-500">{pattern.detail}</p>
+                  <p className="mt-3 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3 text-[9px] leading-4 text-slate-600">{pattern.boundary}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className="mt-6 rounded-3xl border border-orange-400/10 bg-orange-400/[0.025] p-5 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -898,21 +931,3 @@ export default function SecurityBrainPage() {
               </div>
 
               <div className="mt-5 rounded-2xl border border-cyan-400/10 bg-cyan-400/[0.03] p-4">
-                <p className="text-xs font-semibold text-cyan-200">Evidence boundary</p>
-                <p className="mt-2 text-[11px] leading-5 text-slate-500">
-                  SentinelX distinguishes observed evidence, discovered candidates, operator confirmation, and AI analysis. Missing evidence never becomes a security claim.
-                </p>
-              </div>
-            </section>
-          </div>
-        )}
-      </div>
-
-      <footer className="mx-auto max-w-[1200px] px-4 pb-8 text-[10px] text-slate-600 sm:px-6">
-        <div className="flex items-center gap-2 border-t border-white/10 pt-6">
-          <ShieldCheck className="h-3.5 w-3.5" /> Authorized systems only · Evidence-first security
-        </div>
-      </footer>
-    </main>
-  );
-}
