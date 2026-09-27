@@ -6,7 +6,8 @@ import {
   type SecurityPatternMemory,
 } from "@/lib/security/patterns";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const findingId = new URL(request.url).searchParams.get("findingId");
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -46,7 +47,50 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const memories = (data ?? []) as SecurityPatternMemory[];
+    let memories = (data ?? []) as SecurityPatternMemory[];
+
+    if (findingId) {
+      const { data: finding, error: findingError } = await supabase
+        .from("security_findings")
+        .select("id,asset_id,finding_type")
+        .eq("id", findingId)
+        .eq("organization_id", profile.organization_id)
+        .maybeSingle();
+
+      if (findingError) {
+        return NextResponse.json({ error: findingError.message }, { status: 500 });
+      }
+
+      if (!finding) {
+        return NextResponse.json({ patterns: [], summary: { total: 0, recurrence: 0, reopened: 0, evidence: 0, ai: 0, response: 0, sequences: 0 } });
+      }
+
+      memories = memories.filter((memory) => {
+        const memoryFindingId =
+          typeof memory.data.finding_id === "string"
+            ? memory.data.finding_id
+            : memory.memory_type === "finding_state"
+              ? memory.subject_id
+              : null;
+        const memoryAssetId =
+          typeof memory.data.asset_id === "string"
+            ? memory.data.asset_id
+            : typeof memory.data.affected_asset_id === "string"
+              ? memory.data.affected_asset_id
+              : null;
+        const memoryFindingType =
+          typeof memory.data.finding_type === "string"
+            ? memory.data.finding_type
+            : null;
+
+        return (
+          memoryFindingId === finding.id ||
+          (Boolean(finding.asset_id) && memoryAssetId === finding.asset_id) ||
+          (Boolean(finding.finding_type) && memoryFindingType === finding.finding_type)
+        );
+      });
+    }
+
     const patterns = buildSecurityPatterns(memories);
 
     return NextResponse.json({
