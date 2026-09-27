@@ -314,10 +314,15 @@ export default function DashboardPage() {
               {changes.changes.slice(0, 6).map((item) => (
                 <a key={item.kind + item.id} href={item.href} className="rounded-2xl border border-white/10 bg-black/10 p-3 transition hover:bg-white/[0.04]">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-medium text-white">{item.title}</p>
-                    <span className={`text-[9px] uppercase tracking-wider ${item.state === "resolved" ? "text-emerald-300" : item.state === "changed" ? "text-amber-300" : "text-cyan-300"}`}>{item.state}</span>
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">{item.kind}</p>
+                      <p className="mt-1 text-xs font-medium text-white">{item.title}</p>
+                    </div>
+                    <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] uppercase tracking-wider ${item.kind === "verification" ? "bg-emerald-400/10 text-emerald-200" : item.state === "resolved" ? "bg-emerald-400/10 text-emerald-300" : item.state === "changed" ? "bg-amber-400/10 text-amber-300" : "bg-cyan-400/10 text-cyan-300"}`}>
+                      {item.kind === "verification" ? "verified signal" : item.state}
+                    </span>
                   </div>
-                  <p className="mt-1 text-[10px] leading-4 text-slate-500">{item.detail}</p>
+                  <p className="mt-2 text-[10px] leading-4 text-slate-500">{item.detail}</p>
                 </a>
               ))}
             </div>
