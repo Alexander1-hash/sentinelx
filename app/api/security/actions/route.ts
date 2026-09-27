@@ -137,30 +137,41 @@ export async function GET() {
             resourceName: asset.name,
             resourceType: asset.asset_type,
             source: target.assetId ? "Security Brain asset" : "verified asset resource",
+            stableIdentifier: asset.id,
+            ownership: "Organization-owned SentinelX resource",
             evidence: finding
               ? `The action is linked to finding “${finding.title}” and targets its recorded affected asset.`
               : "The target is a recorded organization-owned Security Brain asset.",
             boundary: "Target identity is resolved from SentinelX records. This does not prove the external provider will execute the action.",
+            unknowns: ["External provider execution state", "Provider-side resource state"],
           }
         : finding
           ? {
               resourceName: finding.title,
               resourceType: "finding",
               source: "Security finding",
+              stableIdentifier: finding.id,
+              ownership: "Organization-owned SentinelX finding",
               evidence: `The action targets the organization-owned finding “${finding.title}”.`,
               boundary: "Finding identity is verified in SentinelX. A finding is not proof that an external action has occurred.",
+              unknowns: ["Whether the finding reflects a current external condition", "External remediation state"],
             }
           : integration
             ? {
                 resourceName: integration.display_name,
                 resourceType: integration.integration_type,
                 source: "Security integration",
+                stableIdentifier: integration.id,
+                ownership: "Organization-owned SentinelX integration",
                 evidence: `The action references the organization-owned ${integration.provider} integration.`,
                 boundary: "Integration identity is verified separately from provider execution capability.",
+                unknowns: ["Provider connection state", "External execution capability"],
               }
             : {
                 source: "operator supplied",
+                ownership: "Unresolved",
                 boundary: "Target identity is not resolved to a known SentinelX resource. External execution must remain blocked.",
+                unknowns: ["Resource identity", "Organization ownership", "Provider execution state"],
               };
 
       return { ...action, target_context: targetContext };
