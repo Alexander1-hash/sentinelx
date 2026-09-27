@@ -70,7 +70,7 @@ export default function SecurityBrainPage() {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [attackPaths, setAttackPaths] = useState<AttackPath[]>([]);
   const [attackPathLoading, setAttackPathLoading] = useState(true);
-  const [patterns, setPatterns] = useState<Array<{ id: string; pattern: string; title: string; detail: string; confidence: string; memoryIds: string[]; firstObserved: string; lastObserved: string; boundary: string; sequence?: string[] }>>([]);
+  const [patterns, setPatterns] = useState<Array<{ id: string; pattern: string; title: string; detail: string; confidence: string; memoryIds: string[]; firstObserved: string; lastObserved: string; boundary: string; sequence?: string[]; actionType?: string; outcomeState?: string }>>([]);
   const [patternLoading, setPatternLoading] = useState(true);
   const [copilotFindingId, setCopilotFindingId] = useState("");
   const [copilotAnswer, setCopilotAnswer] = useState("");
@@ -522,9 +522,24 @@ export default function SecurityBrainPage() {
                     <span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-emerald-200">Historical learning</span>
                     <span className="rounded-full bg-white/5 px-2 py-1 text-[8px] uppercase tracking-wider text-slate-500">Not current-state proof</span>
                   </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {pattern.actionType && (
+                      <span className="rounded-full bg-white/5 px-2 py-1 text-[8px] uppercase tracking-wider text-slate-400">
+                        Response: {pattern.actionType.replaceAll("_", " ")}
+                      </span>
+                    )}
+                    {pattern.outcomeState && (
+                      <span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-emerald-200">
+                        Recorded outcome: {pattern.outcomeState}
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-3 text-[10px] leading-5 text-slate-500">{pattern.detail}</p>
                   <p className="mt-3 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3 text-[9px] leading-4 text-slate-600">{pattern.boundary}</p>
-                  <p className="mt-2 text-[9px] leading-4 text-slate-600">Use this context to understand prior response activity; verify any current condition through fresh evidence and the linked finding.</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Link href="/analyst" className="rounded-lg border border-white/10 px-2.5 py-1.5 text-[9px] text-slate-400 hover:text-white">Verify with Analyst</Link>
+                    <Link href="/actions" className="rounded-lg border border-white/10 px-2.5 py-1.5 text-[9px] text-slate-400 hover:text-white">Review response history</Link>
+                  </div>
                 </div>
               ))}
             </div>
