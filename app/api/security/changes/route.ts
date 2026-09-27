@@ -337,11 +337,7 @@ export async function GET(request: Request) {
     }
 
     const filtered = findingIdFilter
-      ? changes.filter(
-          (change) =>
-            change.href.includes(encodeURIComponent(findingIdFilter)) ||
-            change.id === `verification-${findingIdFilter}`
-        )
+      ? changes.filter((change) => change.href.includes(encodeURIComponent(findingIdFilter)))
       : changes;
 
     const deduplicated = Array.from(
