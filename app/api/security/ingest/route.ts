@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizeSecurityEvent } from "@/lib/security/normalize";
 
 const relationshipTypes = [
   "hosts",
@@ -27,6 +28,8 @@ const evidenceTypes = [
   "relationship_observation",
 ] as const;
 
+const MAX_BODY_BYTES = 1_000_000;
+
 async function hashToken(token: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
   return Array.from(new Uint8Array(digest))
@@ -36,6 +39,11 @@ async function hashToken(token: string) {
 
 export async function POST(request: Request) {
   try {
+    const contentLength = Number(request.headers.get("content-length") ?? "0");
+    if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "Ingestion payload is too large." }, { status: 413 });
+    }
+
     const authorization = request.headers.get("authorization");
     const token = authorization?.startsWith("Bearer ")
       ? authorization.slice(7).trim()
@@ -63,22 +71,32 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const evidenceType = typeof body.evidenceType === "string" ? body.evidenceType : "";
-    const source = typeof body.source === "string" ? body.source.trim() : "";
-    const title = typeof body.title === "string" ? body.title.trim() : "";
-    const summary = typeof body.summary === "string" ? body.summary.trim() : null;
-    const assetId = typeof body.assetId === "string" ? body.assetId : null;
-    const observedAt = typeof body.observedAt === "string" ? body.observedAt : null;
-    const data = body.data && typeof body.data === "object" ? body.data : {};
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "A JSON object is required." }, { status: 400 });
+    }
+
+    const payload = body as Record<string, unknown>;
+    const evidenceType = typeof payload.evidenceType === "string" ? payload.evidenceType : "";
+    const source = typeof payload.source === "string" ? payload.source.trim() : "";
+    const title = typeof payload.title === "string" ? payload.title.trim() : "";
+    const summary = typeof payload.summary === "string" ? payload.summary.trim() : null;
+    const assetId = typeof payload.assetId === "string" ? payload.assetId : null;
+    const observedAt = typeof payload.observedAt === "string" ? payload.observedAt : null;
+    const data =
+      payload.data && typeof payload.data === "object" && !Array.isArray(payload.data)
+        ? payload.data
+        : {};
     const securityState =
-      body.securityState === "active" ||
-      body.securityState === "degraded" ||
-      body.securityState === "cleared" ||
-      body.securityState === "resolved" ||
-      body.securityState === "healthy"
-        ? body.securityState
+      payload.securityState === "active" ||
+      payload.securityState === "degraded" ||
+      payload.securityState === "cleared" ||
+      payload.securityState === "resolved" ||
+      payload.securityState === "healthy"
+        ? payload.securityState
         : null;
-    const relationships = Array.isArray(body.observedRelationships) ? body.observedRelationships : [];
+    const relationships = Array.isArray(payload.observedRelationships)
+      ? payload.observedRelationships
+      : [];
 
     if (!evidenceTypes.includes(evidenceType as (typeof evidenceTypes)[number])) {
       return NextResponse.json({ error: "Invalid evidence type." }, { status: 400 });
@@ -133,16 +151,8 @@ export async function POST(request: Request) {
       title: string;
       summary: string | null;
       data: unknown;
-      security_state: string | null;
     }) {
-      const canonical = JSON.stringify(normalizeValue({
-        asset_id: value.asset_id,
-        evidence_type: value.evidence_type,
-        source: value.source,
-        title: value.title,
-        summary: value.summary,
-        data: value.data,
-      }));
+      const canonical = JSON.stringify(normalizeValue(value));
       const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
       return Array.from(new Uint8Array(digest))
         .map((byte) => byte.toString(16).padStart(2, "0"))
@@ -156,8 +166,8 @@ export async function POST(request: Request) {
       title,
       summary,
       data,
-      security_state: securityState,
     });
+
     const previous = previousEvidence?.[0] ?? null;
     const previousFingerprint = previous
       ? await fingerprintEvidence({
@@ -167,24 +177,24 @@ export async function POST(request: Request) {
           title: previous.title,
           summary: previous.summary,
           data: previous.data,
-          security_state:
-            previous.data && typeof previous.data === "object" && "security_state" in previous.data
-              ? (typeof (previous.data as Record<string, unknown>).security_state === "string"
-                  ? (previous.data as Record<string, unknown>).security_state as string
-                  : null)
-              : null,
         })
       : null;
+
     const previousSecurityState =
-      previous?.data && typeof previous.data === "object" && "security_state" in previous.data
-        ? (typeof (previous.data as Record<string, unknown>).security_state === "string"
-            ? (previous.data as Record<string, unknown>).security_state as string
-            : null)
+      previous?.data &&
+      typeof previous.data === "object" &&
+      !Array.isArray(previous.data) &&
+      "security_state" in previous.data
+        ? typeof (previous.data as Record<string, unknown>).security_state === "string"
+          ? (previous.data as Record<string, unknown>).security_state as string
+          : null
         : null;
+
     const isExplicitResolution =
       securityState !== null &&
       ["cleared", "resolved", "healthy"].includes(securityState) &&
       ["active", "degraded"].includes(previousSecurityState ?? "");
+
     const changeType = !previous
       ? "new"
       : isExplicitResolution
@@ -192,6 +202,27 @@ export async function POST(request: Request) {
         : previousFingerprint === currentFingerprint
           ? "unchanged"
           : "changed";
+
+    const normalizedEvent = normalizeSecurityEvent({
+      event_type:
+        typeof payload.eventType === "string"
+          ? payload.eventType
+          : typeof payload.event_type === "string"
+            ? payload.event_type
+            : evidenceType,
+      severity:
+        typeof payload.severity === "string"
+          ? payload.severity
+          : typeof (data as Record<string, unknown>).severity === "string"
+            ? (data as Record<string, unknown>).severity
+            : "info",
+      source,
+      title,
+      description: summary,
+      asset_id: assetId,
+      observed_at: observedAt ?? undefined,
+      indicators: Array.isArray(payload.indicators) ? payload.indicators : [],
+    });
 
     const { data: evidence, error: evidenceError } = await supabase
       .from("security_evidence")
@@ -205,6 +236,7 @@ export async function POST(request: Request) {
         data: {
           ...(data as Record<string, unknown>),
           ...(securityState ? { security_state: securityState } : {}),
+          normalized_event: normalizedEvent,
         },
         ...(observedAt ? { observed_at: observedAt } : {}),
       })
@@ -215,19 +247,55 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: evidenceError.message }, { status: 500 });
     }
 
+    const { data: securityEvent, error: eventError } = await supabase
+      .from("security_events")
+      .insert({
+        organization_id: integration.organization_id,
+        asset_id: normalizedEvent.assetId,
+        event_type: normalizedEvent.eventType,
+        severity: normalizedEvent.severity,
+        source: normalizedEvent.source,
+        title: normalizedEvent.title,
+        description: normalizedEvent.description,
+        observed_at: normalizedEvent.observedAt,
+        evidence: {
+          evidence_id: evidence.id,
+          evidence_type: evidenceType,
+          indicators: normalizedEvent.indicators,
+          change_type: changeType,
+          integration_id: integration.integration_id,
+        },
+        raw_reference:
+          typeof payload.rawReference === "string" ? payload.rawReference : evidence.id,
+      })
+      .select("id,event_type,severity,source,title,description,asset_id,observed_at,created_at")
+      .single();
+
+    if (eventError) {
+      return NextResponse.json(
+        { error: "Evidence was recorded, but the security event could not be registered." },
+        { status: 500 }
+      );
+    }
+
     let discoveredRelationships = 0;
 
     for (const item of relationships) {
       if (!item || typeof item !== "object") continue;
 
       const relationship = item as Record<string, unknown>;
-      const sourceAssetId = typeof relationship.sourceAssetId === "string" ? relationship.sourceAssetId : "";
-      const targetAssetId = typeof relationship.targetAssetId === "string" ? relationship.targetAssetId : "";
-      const relationshipType = typeof relationship.relationshipType === "string" ? relationship.relationshipType : "";
-      const confidence = typeof relationship.confidence === "number" ? relationship.confidence : 0.5;
-      const reason = typeof relationship.reason === "string"
-        ? relationship.reason
-        : "Observed relationship supplied by an authorized telemetry source.";
+      const sourceAssetId =
+        typeof relationship.sourceAssetId === "string" ? relationship.sourceAssetId : "";
+      const targetAssetId =
+        typeof relationship.targetAssetId === "string" ? relationship.targetAssetId : "";
+      const relationshipType =
+        typeof relationship.relationshipType === "string" ? relationship.relationshipType : "";
+      const confidence =
+        typeof relationship.confidence === "number" ? relationship.confidence : 0.5;
+      const reason =
+        typeof relationship.reason === "string"
+          ? relationship.reason
+          : "Observed relationship supplied by an authorized telemetry source.";
 
       if (
         !sourceAssetId ||
@@ -236,7 +304,9 @@ export async function POST(request: Request) {
         !relationshipTypes.includes(relationshipType as (typeof relationshipTypes)[number]) ||
         confidence < 0 ||
         confidence > 1
-      ) continue;
+      ) {
+        continue;
+      }
 
       const { data: assets } = await supabase
         .from("security_assets")
@@ -248,24 +318,27 @@ export async function POST(request: Request) {
 
       const { error } = await supabase
         .from("security_asset_relationships")
-        .upsert({
-          organization_id: integration.organization_id,
-          source_asset_id: sourceAssetId,
-          target_asset_id: targetAssetId,
-          relationship_type: relationshipType,
-          confidence,
-          status: "proposed",
-          evidence_source: source,
-          discovered_at: new Date().toISOString(),
-          evidence: {
-            source: "telemetry_ingestion",
-            evidence_id: evidence.id,
-            reason,
+        .upsert(
+          {
+            organization_id: integration.organization_id,
+            source_asset_id: sourceAssetId,
+            target_asset_id: targetAssetId,
+            relationship_type: relationshipType,
+            confidence,
+            status: "proposed",
+            evidence_source: source,
+            discovered_at: new Date().toISOString(),
+            evidence: {
+              source: "telemetry_ingestion",
+              evidence_id: evidence.id,
+              reason,
+            },
           },
-        }, {
-          onConflict: "source_asset_id,target_asset_id,relationship_type",
-          ignoreDuplicates: false,
-        });
+          {
+            onConflict: "source_asset_id,target_asset_id,relationship_type",
+            ignoreDuplicates: false,
+          }
+        );
 
       if (!error) discoveredRelationships += 1;
     }
@@ -273,6 +346,7 @@ export async function POST(request: Request) {
     if (changeType !== "unchanged") {
       const isChanged = changeType === "changed";
       const isResolved = changeType === "resolved";
+
       await supabase.from("security_memory").insert({
         organization_id: integration.organization_id,
         memory_type: "evidence_change",
@@ -283,13 +357,14 @@ export async function POST(request: Request) {
             ? `Evidence changed: ${title}`
             : `New evidence: ${title}`,
         summary: isResolved
-          ? `The authorized source explicitly reported a resolved or cleared state for this evidence pattern.`
+          ? "The authorized source explicitly reported a resolved or cleared state for this evidence pattern."
           : isChanged
             ? `Recorded evidence changed from the previous observed state for ${source}.`
             : (summary ?? `New ${evidenceType} evidence was received from ${source}.`),
         state: "active",
         data: {
           evidence_id: evidence.id,
+          security_event_id: securityEvent.id,
           previous_evidence_id: previous?.id ?? null,
           asset_id: assetId,
           evidence_type: evidenceType,
@@ -306,15 +381,17 @@ export async function POST(request: Request) {
               ? "evidence_state_changed"
               : "new_evidence_observed",
           security_state: securityState,
+          severity: normalizedEvent.severity,
+          event_type: normalizedEvent.eventType,
         },
-        occurred_at: evidence.observed_at ?? new Date().toISOString(),
+        occurred_at: evidence.observed_at ?? normalizedEvent.observedAt,
       });
     }
 
     if (assetId) {
       await supabase
         .from("security_assets")
-        .update({ last_seen_at: observedAt ?? new Date().toISOString() })
+        .update({ last_seen_at: normalizedEvent.observedAt })
         .eq("id", assetId)
         .eq("organization_id", integration.organization_id);
     }
@@ -329,12 +406,18 @@ export async function POST(request: Request) {
       .eq("id", integration.integration_id)
       .eq("organization_id", integration.organization_id);
 
-    return NextResponse.json({
-      accepted: true,
-      evidenceId: evidence.id,
-      discoveredRelationships,
-      message: "Telemetry accepted. Relationship candidates remain unconfirmed until reviewed.",
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        accepted: true,
+        eventId: securityEvent.id,
+        evidenceId: evidence.id,
+        event: securityEvent,
+        discoveredRelationships,
+        message:
+          "Telemetry accepted. The normalized event is now available to SentinelX security intelligence; relationship candidates remain unconfirmed until reviewed.",
+      },
+      { status: 201 }
+    );
   } catch {
     return NextResponse.json({ error: "Invalid ingestion request." }, { status: 400 });
   }
