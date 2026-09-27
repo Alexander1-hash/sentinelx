@@ -12,7 +12,7 @@ export async function GET() {
     supabase.from("ai_security_systems").select("id", { count: "exact", head: true }).eq("organization_id", org),
     supabase.from("ai_security_agents").select("id", { count: "exact", head: true }).eq("organization_id", org),
     supabase.from("ai_security_events").select("id", { count: "exact", head: true }).eq("organization_id", org),
-    supabase.from("security_assets").select("id,asset_type", { count: "exact" }).eq("organization_id", org).in("asset_type", ["AI system","AI agent"]);
+    supabase.from("security_assets").select("id,asset_type", { count: "exact" }).eq("organization_id", org).in("asset_type", ["AI system", "AI agent"]),
   ]);
   const error = systems.error ?? agents.error ?? events.error ?? assets.error;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

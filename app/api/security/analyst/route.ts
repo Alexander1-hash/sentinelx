@@ -185,7 +185,7 @@ export async function POST(request: Request) {
   .limit(300),
       supabase
         .from("security_memory")
-        .select("memory_type,subject_id,title,summary,state,data,occurred_at")
+        .select("id,memory_type,subject_id,title,summary,state,data,occurred_at")
         .eq("organization_id", organizationId)
         .order("occurred_at", { ascending: false })
         .limit(100),
@@ -198,7 +198,7 @@ export async function POST(request: Request) {
     const evidence = (evidenceResult.data ?? []) as EvidenceItem[];
     const relationships = (relationshipsResult.data ?? []) as RelationshipItem[];
     const assets = (assetsResult.data ?? []) as AssetItem[];
-    const memory = (memoryResult.data ?? []) as Array<{ memory_type: string; subject_id: string | null; title: string; summary: string; state: string; data: Record<string, unknown>; occurred_at: string }>;
+    const memory = (memoryResult.data ?? []) as Array<{ id: string; memory_type: string; subject_id: string | null; title: string; summary: string; state: string; data: Record<string, unknown>; occurred_at: string }>;
 
     let selectedFinding: FindingItem | null = null;
 

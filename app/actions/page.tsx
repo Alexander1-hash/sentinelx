@@ -15,9 +15,12 @@ type Action = {
   target_context?: {
     resourceName?: string;
     resourceType?: string;
+    stableIdentifier?: string;
+    ownership?: string;
     source?: string;
     evidence?: string;
     boundary?: string;
+    unknowns?: string[];
   };
   created_at: string;
   executed_at: string | null;
@@ -263,6 +266,26 @@ export default function SecurityActionsPage() {
                         ? action.target_context.resourceType.replaceAll("_", " ")
                         : "Resource type not verified"}
                     </p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <div className="rounded-lg border border-white/10 bg-black/10 p-2">
+                        <p className="text-[8px] uppercase tracking-wider text-slate-600">Stable identifier</p>
+                        <p className="mt-1 break-all text-[9px] text-slate-400">{action.target_context?.stableIdentifier ?? "Not verified"}</p>
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-black/10 p-2">
+                        <p className="text-[8px] uppercase tracking-wider text-slate-600">Ownership</p>
+                        <p className="mt-1 text-[9px] text-slate-400">{action.target_context?.ownership ?? "Not verified"}</p>
+                      </div>
+                    </div>
+                    {action.target_context?.unknowns?.length ? (
+                      <div className="mt-2 rounded-lg border border-amber-400/10 bg-amber-400/[0.02] p-2">
+                        <p className="text-[8px] uppercase tracking-wider text-amber-200/70">Known unknowns</p>
+                        <ul className="mt-1 space-y-1">
+                          {action.target_context.unknowns.map((item) => (
+                            <li key={item} className="text-[8px] leading-4 text-slate-600">• {item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                     {action.target_context?.evidence && (
                       <p className="mt-2 text-[9px] leading-4 text-slate-500">
                         Why this target: {action.target_context.evidence}
@@ -307,7 +330,7 @@ export default function SecurityActionsPage() {
                                   {cycle.executorType ? ` · executor: ${String(cycle.executorType)}` : ""}
                                   {cycle.evidenceCount !== undefined ? ` · ${String(cycle.evidenceCount)} evidence` : ""}
                                 </p>
-                                {cycle.executionReference && (
+                                {cycle.executionReference !== undefined && cycle.executionReference !== null && (
                                   <p className="mt-1 break-words text-[8px] text-slate-700">Reference: {String(cycle.executionReference)}</p>
                                 )}
                               </div>
@@ -373,7 +396,7 @@ export default function SecurityActionsPage() {
                           <select
                             value={outcomeStatus}
                             onChange={(event) => setOutcomeStatus(event.target.value as "completed" | "failed")}
-                            className="w-full rounded-lg border border-white/10 bg-[#071018] px-3 py-2 text-[10px] text-white"
+                            className="w-full rounded-lg border border-white/10 bg-[#071018] px-3 py-2 text-[10px] text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/30"
                           >
                             <option value="completed">Completed</option>
                             <option value="failed">Failed</option>
@@ -382,7 +405,7 @@ export default function SecurityActionsPage() {
                             value={executorType}
                             onChange={(event) => setExecutorType(event.target.value)}
                             placeholder="Executor type (e.g. manual_operator)"
-                            className="w-full rounded-lg border border-white/10 bg-[#071018] px-3 py-2 text-[10px] text-white placeholder:text-slate-700"
+                            className="w-full rounded-lg border border-white/10 bg-[#071018] px-3 py-2 text-[10px] text-white placeholder:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/30"
                           />
                           <input
                             value={executionReference}
@@ -395,7 +418,7 @@ export default function SecurityActionsPage() {
                             onChange={(event) => setOutcomeEvidence(event.target.value)}
                             placeholder="What explicit evidence did the executor return?"
                             rows={3}
-                            className="w-full resize-none rounded-lg border border-white/10 bg-[#071018] px-3 py-2 text-[10px] text-white placeholder:text-slate-700"
+                            className="w-full resize-none rounded-lg border border-white/10 bg-[#071018] px-3 py-2 text-[10px] text-white placeholder:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/30"
                           />
                           <div className="grid grid-cols-2 gap-2">
                             <button

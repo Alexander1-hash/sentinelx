@@ -114,12 +114,20 @@ export async function GET() {
     for (const memory of memories) {
       if (memory.memory_type !== "evidence_change") continue;
 
-      const changeType =
+      const rawChangeType =
         typeof memory.data.change_type === "string"
           ? memory.data.change_type
           : "new";
 
-      if (!["new", "changed", "resolved"].includes(changeType)) continue;
+      if (
+        rawChangeType !== "new" &&
+        rawChangeType !== "changed" &&
+        rawChangeType !== "resolved"
+      ) {
+        continue;
+      }
+
+      const changeType: "new" | "changed" | "resolved" = rawChangeType;
 
       const evidenceId =
         typeof memory.data.evidence_id === "string"

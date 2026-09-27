@@ -341,7 +341,7 @@ export function buildSecurityPatterns(
     if (!matched.length) continue;
 
     patterns.push({
-      id: "sequence-" + index + "-" + matched.map((item) => item.id).join("-"),
+      id: "sequence-" + definition.name + "-" + matched.map((item) => item.id).join("-"),
       pattern: "security_sequence",
       title: "Security sequence detected: " + definition.name,
       detail: definition.detail,
