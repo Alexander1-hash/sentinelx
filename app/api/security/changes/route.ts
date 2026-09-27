@@ -89,7 +89,7 @@ export async function GET() {
         .limit(100),
       supabase
         .from("security_actions")
-        .select("id,finding_id,action_type,status,result,created_at,executed_at")
+        .select("id,finding_id,action_type,status,target,result,created_at,executed_at")
         .eq("organization_id", profile.organization_id)
         .order("created_at", { ascending: false })
         .limit(100),
@@ -248,20 +248,17 @@ export async function GET() {
         });
 
         const linkedEvidence = postResponseEvidence.filter((evidence) => {
-          const targetAssetId =
-            typeof action.result?.execution_target === "object" &&
-            action.result.execution_target !== null &&
-            typeof (action.result.execution_target as Record<string, unknown>).assetId === "string"
-              ? String((action.result.execution_target as Record<string, unknown>).assetId)
-              : null;
+          const target =
+            (action.target as Record<string, unknown> | null) ?? {};
 
-          return (
-            evidence.asset_id === targetAssetId ||
-            (typeof action.result?.execution_target === "object" &&
-              action.result.execution_target !== null &&
-              typeof (action.result.execution_target as Record<string, unknown>).resourceId === "string" &&
-              evidence.asset_id === String((action.result.execution_target as Record<string, unknown>).resourceId))
-          );
+          const targetAssetId =
+            typeof target.assetId === "string"
+              ? target.assetId
+              : target.resourceType === "asset" && typeof target.resourceId === "string"
+                ? target.resourceId
+                : null;
+
+          return evidence.asset_id === targetAssetId;
         });
 
         const evidenceCount = linkedEvidence.length;
