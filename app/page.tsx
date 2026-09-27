@@ -135,6 +135,8 @@ type SecurityOverview = {
 type SecurityAttention = { items: Array<{ id: string; kind: "finding" | "event" | "action"; priority: "high" | "medium"; title: string; detail: string; observedAt: string; href: string }>; summary: { high: number; medium: number } };
 type SecurityChanges = { changes: Array<{ id: string; kind: string; title: string; detail: string; observedAt: string; state: "new" | "changed" | "remembered" | "resolved"; href: string; verificationState?: "improved" | "observed" | "uncertain" | "awaiting_evidence" }>; summary: { new: number; changed: number; remembered: number; resolved: number } };
 
+type SecurityPattern = { id: string; pattern: string; title: string; detail: string; confidence: string; memoryIds: string[]; firstObserved: string; lastObserved: string; boundary: string; sequence?: string[] };
+
 export default function DashboardPage() {
   const [user, setUser] = useState<UserState>({ email: "", displayName: "" });
   const [loading, setLoading] = useState(true);
@@ -143,6 +145,7 @@ export default function DashboardPage() {
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [attention, setAttention] = useState<SecurityAttention | null>(null);
   const [changes, setChanges] = useState<SecurityChanges | null>(null);
+  const [patterns, setPatterns] = useState<SecurityPattern[]>([]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -176,6 +179,11 @@ export default function DashboardPage() {
         if (attentionResponse.ok) setAttention((await attentionResponse.json()) as SecurityAttention);
         const changesResponse = await fetch("/api/security/changes", { cache: "no-store" });
         if (changesResponse.ok) setChanges((await changesResponse.json()) as SecurityChanges);
+        const patternsResponse = await fetch("/api/security/patterns", { cache: "no-store" });
+        if (patternsResponse.ok) {
+          const patternsData = await patternsResponse.json();
+          setPatterns(Array.isArray(patternsData.patterns) ? patternsData.patterns : []);
+        }
       } finally {
         setOverviewLoading(false);
       }
@@ -363,6 +371,32 @@ export default function DashboardPage() {
                     </span>
                   </div>
                   <p className="mt-2 text-[10px] leading-4 text-slate-500">{item.detail}</p>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {patterns.some((pattern) => pattern.pattern === "response_cycle") && (
+          <section className="mb-5 rounded-3xl border border-violet-400/10 bg-violet-400/[0.025] p-5 sm:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-violet-200">Learned security context</p>
+                <h2 className="mt-1 text-lg font-semibold text-white">Historical response signals</h2>
+                <p className="mt-1 text-[11px] text-slate-500">Recorded response cycles and gaps that SentinelX can carry into investigation and operator review.</p>
+              </div>
+              <a href="/brain" className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-violet-200 hover:text-white">Open Security Brain <ArrowRight className="h-3 w-3" /></a>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {patterns.filter((pattern) => pattern.pattern === "response_cycle").slice(0, 4).map((pattern) => (
+                <a key={pattern.id} href="/brain" className="rounded-2xl border border-white/10 bg-black/10 p-4 transition hover:bg-white/[0.04]">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-white">{pattern.title}</p>
+                    <span className="rounded-full bg-violet-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-violet-200">{pattern.confidence}</span>
+                  </div>
+                  <p className="mt-2 text-[10px] leading-4 text-slate-500">{pattern.detail}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[9px] text-slate-600"><span>{pattern.memoryIds.length} linked memory records</span><span>•</span><span>Last observed {new Date(pattern.lastObserved).toLocaleString()}</span></div>
+                  <p className="mt-3 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3 text-[9px] leading-4 text-slate-600">{pattern.boundary}</p>
                 </a>
               ))}
             </div>
