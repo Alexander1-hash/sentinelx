@@ -28,6 +28,7 @@ type Integration = {
 };
 
 type TokenNotice = {
+  integrationId: string;
   integrationName: string;
   token: string;
 };
@@ -111,7 +112,7 @@ export default function IntegrationsPage() {
       }
 
       if (data.token) {
-        setTokenNotice({ integrationName: integration.display_name, token: data.token });
+        setTokenNotice({ integrationId: integration.id, integrationName: integration.display_name, token: data.token });
         setMessage("The previous ingestion token is no longer valid.");
       }
       await loadIntegrations();
@@ -147,7 +148,7 @@ export default function IntegrationsPage() {
       setMessage("Integration registered. SentinelX is ready for an authorized connection.");
       setOpen(false);
       if (data.token && data.integration?.display_name) {
-        setTokenNotice({ integrationName: data.integration.display_name, token: data.token });
+        setTokenNotice({ integrationId: data.integration.id, integrationName: data.integration.display_name, token: data.token });
       }
       await loadIntegrations();
     } finally {
@@ -310,9 +311,34 @@ export default function IntegrationsPage() {
             >
               Copy token
             </button>
-            <p className="mt-3 text-[10px] leading-5 text-slate-600">
-              Rotating the token immediately invalidates the previous token. Never place it in client-side code, public repositories, or chat.
-            </p>
+
+            <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+              <p className="text-xs font-semibold text-white">Send your first telemetry event</p>
+              <p className="mt-1 text-[10px] leading-5 text-slate-500">
+                Use the token from your authorized server, collector, or automation. The example below is a safe connectivity check and does not claim that a real security incident occurred.
+              </p>
+              <pre className="mt-3 max-h-44 overflow-auto rounded-xl border border-white/10 bg-[#050b10] p-3 text-[9px] leading-4 text-cyan-100"><code>{`curl -X POST ${typeof window !== "undefined" ? window.location.origin : ""}/api/security/ingest \\\
+  -H "Authorization: Bearer ${tokenNotice.token}" \\\
+  -H "Content-Type: application/json" \\\
+  -d '{"evidenceType":"telemetry","source":"authorized_test","title":"SentinelX ingestion connectivity test","summary":"Authorized test event received from a configured telemetry source.","securityState":"healthy","eventType":"integration_test","severity":"info"}'`}</code></pre>
+              <button
+                onClick={() => {
+                  const command = `curl -X POST ${window.location.origin}/api/security/ingest -H "Authorization: Bearer ${tokenNotice.token}" -H "Content-Type: application/json" -d '{"evidenceType":"telemetry","source":"authorized_test","title":"SentinelX ingestion connectivity test","summary":"Authorized test event received from a configured telemetry source.","securityState":"healthy","eventType":"integration_test","severity":"info"}'`;
+                  void navigator.clipboard?.writeText(command);
+                  setMessage("Connectivity-test command copied. Run it only from an authorized telemetry environment.");
+                }}
+                className="mt-3 w-full rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-xs font-semibold text-cyan-200"
+              >
+                Copy connectivity test command
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-amber-400/10 bg-amber-400/[0.04] p-3">
+              <p className="text-[10px] font-semibold text-amber-200">Credential safety</p>
+              <p className="mt-1 text-[10px] leading-5 text-slate-500">
+                Rotating the token immediately invalidates the previous token. Never place it in client-side code, public repositories, or chat.
+              </p>
+            </div>
           </div>
         </div>
       )}
