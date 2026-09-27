@@ -291,9 +291,7 @@ export function buildSecurityPatterns(
           : sequence.types[0] === "resolved"
             ? first.memory_type === "evidence_change" &&
               ["resolved", "cleared", "healthy"].includes(stateOf(first))
-            : sequence.types[0] === "active"
-              ? ["active", "degraded", "open"].includes(stateOf(first))
-              : first.memory_type === sequence.types[0];
+            : first.memory_type === sequence.types[0];
 
       if (!firstMatches) continue;
 
