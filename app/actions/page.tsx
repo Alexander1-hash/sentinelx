@@ -736,12 +736,14 @@ function ApprovalCheck({
 }
 
 function ResponseLifecycle({ action }: { action: Action }) {
+  const responseRecorded = ["approved", "executing", "completed", "failed"].includes(action.status);
+  const outcomeRecorded = action.status === "completed" || action.status === "failed";
   const stages = [
-    { label: "Finding", state: action.finding_id ? "recorded" : "pending" },
-    { label: "Decide", state: action.status === "pending" ? "current" : "recorded" },
-    { label: "Respond", state: ["approved", "executing", "completed", "failed"].includes(action.status) ? "recorded" : "pending" },
-    { label: "Verify", state: action.status === "completed" || action.status === "failed" ? "current" : "pending" },
-    { label: "Learn", state: "pending" },
+    { label: "Finding", state: action.finding_id ? "recorded" : "pending", href: action.finding_id ? `/analyst?findingId=${encodeURIComponent(action.finding_id)}` : "/analyst" },
+    { label: "Decide", state: action.status === "pending" ? "current" : "recorded", href: action.finding_id ? `/actions?findingId=${encodeURIComponent(action.finding_id)}` : "/actions" },
+    { label: "Respond", state: responseRecorded ? "recorded" : "pending", href: "/actions" },
+    { label: "Verify", state: outcomeRecorded ? "current" : "pending", href: action.finding_id ? `/analyst?findingId=${encodeURIComponent(action.finding_id)}` : "/analyst" },
+    { label: "Learn", state: outcomeRecorded ? "recorded" : "pending", href: "/brain" },
   ] as const;
 
   return (
@@ -757,7 +759,7 @@ function ResponseLifecycle({ action }: { action: Action }) {
       </div>
       <div className="mt-3 grid grid-cols-5 gap-1.5">
         {stages.map((stage) => (
-          <div key={stage.label} className="rounded-lg border border-white/10 bg-black/10 p-2">
+          <Link href={stage.href} key={stage.label} className="rounded-lg border border-white/10 bg-black/10 p-2 transition hover:border-white/20">
             <p className="text-[8px] font-medium text-slate-300">{stage.label}</p>
             <span className={
               stage.state === "recorded"
@@ -768,7 +770,7 @@ function ResponseLifecycle({ action }: { action: Action }) {
             }>
               {stage.state}
             </span>
-          </div>
+          </Link>
         ))}
       </div>
       <p className="mt-2 text-[8px] leading-4 text-slate-600">
