@@ -148,6 +148,7 @@ export default function DashboardPage() {
   const [patterns, setPatterns] = useState<SecurityPattern[]>([]);
   const [analysisRunning, setAnalysisRunning] = useState(false);
   const [analysisMessage, setAnalysisMessage] = useState<string | null>(null);
+  const [analysisFindings, setAnalysisFindings] = useState<Array<{ id: string; title: string; severity: string }>>([]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -210,6 +211,7 @@ export default function DashboardPage() {
   async function analyzeTelemetry() {
     setAnalysisRunning(true);
     setAnalysisMessage(null);
+    setAnalysisFindings([]);
 
     try {
       const response = await fetch("/api/security/analysis", {
@@ -218,6 +220,7 @@ export default function DashboardPage() {
       });
       const data = (await response.json()) as {
         findingsCreated?: number;
+        findings?: Array<{ id: string; title: string; severity: string }>;
         message?: string;
         error?: string;
       };
@@ -227,6 +230,7 @@ export default function DashboardPage() {
         return;
       }
 
+      setAnalysisFindings(Array.isArray(data.findings) ? data.findings : []);
       setAnalysisMessage(
         data.message ??
           `${data.findingsCreated ?? 0} new finding(s) created from the available telemetry.`
@@ -672,6 +676,29 @@ export default function DashboardPage() {
           {analysisMessage ? (
             <div className="mt-4 rounded-2xl border border-cyan-300/10 bg-cyan-300/[0.035] px-4 py-3 text-xs leading-5 text-cyan-100">
               {analysisMessage}
+            </div>
+          ) : null}
+
+          {analysisFindings.length ? (
+            <div className="mt-4 rounded-2xl border border-rose-400/10 bg-rose-400/[0.025] p-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-rose-200">Findings detected</p>
+                  <p className="mt-1 text-[10px] text-slate-500">New findings created from the telemetry analysis run.</p>
+                </div>
+                <span className="rounded-full bg-rose-400/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-rose-200">{analysisFindings.length} new</span>
+              </div>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {analysisFindings.map((finding) => (
+                  <a key={finding.id} href={`/analyst?findingId=${encodeURIComponent(finding.id)}`} className="group rounded-2xl border border-white/10 bg-black/10 p-3 transition hover:border-cyan-300/20 hover:bg-white/[0.04]">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="min-w-0 truncate text-xs font-medium text-white">{finding.title}</p>
+                      <span className="shrink-0 rounded-full bg-rose-400/10 px-2 py-1 text-[8px] font-semibold uppercase tracking-wider text-rose-200">{finding.severity}</span>
+                    </div>
+                    <span className="mt-2 inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-cyan-200 group-hover:text-white">Investigate finding <ArrowRight className="h-3 w-3" /></span>
+                  </a>
+                ))}
+              </div>
             </div>
           ) : null}
 
