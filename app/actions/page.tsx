@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Clock3, Loader2, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
@@ -37,7 +37,7 @@ const ACTION_LABELS: Record<string, string> = {
   block_indicator: "Block indicator",
 };
 
-export default function SecurityActionsPage() {
+function SecurityActionsPageContent() {
   const searchParams = useSearchParams();
   const linkedFindingId = searchParams.get("findingId") ?? "";
   const [createType, setCreateType] = useState("review_finding");
@@ -619,6 +619,23 @@ export default function SecurityActionsPage() {
         </div>
       </footer>
     </main>
+  );
+}
+
+
+export default function SecurityActionsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#071018] text-slate-100">
+          <div className="mx-auto flex min-h-screen max-w-[1100px] items-center justify-center px-4">
+            <p className="text-sm text-slate-500">Loading Security Actions…</p>
+          </div>
+        </main>
+      }
+    >
+      <SecurityActionsPageContent />
+    </Suspense>
   );
 }
 
