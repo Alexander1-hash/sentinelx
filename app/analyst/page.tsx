@@ -33,6 +33,37 @@ export default function AnalystPage() {
   const [response, setResponse] = useState<AnalystResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [investigating, setInvestigating] = useState(false);
+
+  async function investigateFinding() {
+    if (!response?.topFinding) return;
+
+    setInvestigating(true);
+    setMessage("");
+
+    try {
+      const result = await fetch("/api/security/analyst", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          findingId: response.topFinding.id,
+          mode: "investigate",
+        }),
+      });
+      const data = await result.json();
+
+      if (!result.ok) {
+        setMessage(data.error ?? "The investigation could not be completed.");
+        return;
+      }
+
+      setResponse(data);
+    } catch {
+      setMessage("The investigation could not connect to the Security Brain.");
+    } finally {
+      setInvestigating(false);
+    }
+  }
 
   async function ask(event: FormEvent) {
     event.preventDefault();
@@ -142,6 +173,64 @@ export default function AnalystPage() {
                   <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Recorded remediation guidance</p>
                   <p className="mt-2 text-xs leading-5 text-slate-500">{response.topFinding.remediation ?? "No remediation guidance was recorded."}</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={investigateFinding}
+                  disabled={investigating}
+                  className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 py-2.5 text-xs font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:opacity-50"
+                >
+                  {investigating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldAlert className="h-4 w-4" />}
+                  {investigating ? "Investigating…" : "Investigate this finding"}
+                </button>
+              </section>
+            )}
+
+            {response.investigation && (
+              <section className="rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.025] p-5 sm:p-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-emerald-300">Investigation context</p>
+                    <h2 className="mt-1 text-lg font-semibold text-white">Confirmed security relationships</h2>
+                  </div>
+                  <ShieldCheck className="h-5 w-5 text-emerald-300" />
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <Stat label="Affected asset" value={response.investigation.affectedAsset ? 1 : 0} />
+                  <Stat label="Related assets" value={response.investigation.blastRadius.length} />
+                  <Stat label="Evidence matched" value={response.investigation.supportingEvidence.length} />
+                </div>
+
+                {response.investigation.affectedAsset && (
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-4">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Affected asset</p>
+                    <p className="mt-1 text-sm font-medium text-white">{response.investigation.affectedAsset.name}</p>
+                    <p className="mt-1 text-[10px] text-slate-500">{response.investigation.affectedAsset.asset_type} · {response.investigation.affectedAsset.status}</p>
+                  </div>
+                )}
+
+                {response.investigation.blastRadius.length ? (
+                  <div className="mt-4 space-y-2">
+                    {response.investigation.blastRadius.slice(0, 8).map((item) => (
+                      <div key={item.asset.id} className="flex flex-col gap-2 rounded-2xl border border-white/10 p-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-xs font-medium text-white">{item.asset.name}</p>
+                          <p className="mt-1 text-[10px] text-slate-600">{item.asset.asset_type} · {item.hops} hop{item.hops === 1 ? "" : "s"} · {(item.confidence * 100).toFixed(0)}% relationship confidence</p>
+                        </div>
+                        <span className="text-[10px] text-emerald-300">{item.chain.join(" → ")}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                {response.investigation.unknowns.length ? (
+                  <div className="mt-4 rounded-2xl border border-amber-400/10 bg-amber-400/[0.025] p-4">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-200">Known unknowns</p>
+                    <ul className="mt-2 space-y-1.5 text-[11px] leading-5 text-slate-500">
+                      {response.investigation.unknowns.map((unknown) => <li key={unknown}>• {unknown}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
               </section>
             )}
 
