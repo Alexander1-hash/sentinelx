@@ -39,6 +39,11 @@ type AnalystResponse = {
   investigation?: InvestigationContext;
   patternsReviewed?: number;
   securityPatterns?: Array<{ pattern: string; title: string; detail: string; confidence: string; firstObserved: string; lastObserved: string; sequence?: string[] }>;
+  historicalContext?: {
+    priorInvestigations: Array<{ occurred_at: string; title: string; summary: string; blast_radius_count: number | null; supporting_evidence_count: number | null }>;
+    operatorDecisions: Array<{ occurred_at: string; title: string; summary: string; state: string; action_id: string | null; action_type: string | null; authorization_state: string | null }>;
+    responseOutcomes: Array<{ occurred_at: string; title: string; summary: string; state: string; action_id: string | null; action_type: string | null; executor_type: string | null; execution_reference: string | null; evidence: Array<{ type?: string; source?: string; summary?: string; reference?: string }> }>;
+  };
 };
 
 export default function AnalystPage() {
@@ -251,6 +256,43 @@ export default function AnalystPage() {
                 ) : null}
               </section>
             )}
+
+            {response.historicalContext?.responseOutcomes?.length ? (
+              <section className="rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.025] p-5 sm:p-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-emerald-200">Response verification history</p>
+                    <p className="mt-1 text-[10px] text-slate-600">Recorded outcomes for this finding. Historical outcomes do not prove the current state.</p>
+                  </div>
+                  <ShieldCheck className="h-5 w-5 text-emerald-300" />
+                </div>
+                <div className="mt-4 space-y-3">
+                  {response.historicalContext.responseOutcomes.map((outcome, index) => (
+                    <div key={outcome.action_id ?? outcome.occurred_at + index} className="rounded-2xl border border-white/10 p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-white">{outcome.title}</p>
+                          <p className="mt-1 text-[10px] text-slate-600">{outcome.action_type?.replaceAll("_", " ") ?? "response"} · {outcome.executor_type ?? "recorded executor"}</p>
+                        </div>
+                        <span className={outcome.state === "completed" ? "rounded-full bg-emerald-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-emerald-200" : "rounded-full bg-rose-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-rose-200"}>
+                          {outcome.state}
+                        </span>
+                      </div>
+                      <p className="mt-3 text-xs leading-5 text-slate-500">{outcome.summary}</p>
+                      {outcome.execution_reference && (
+                        <p className="mt-2 text-[9px] text-slate-600">Execution reference: {outcome.execution_reference}</p>
+                      )}
+                      {outcome.evidence.length ? (
+                        <div className="mt-3 rounded-xl border border-white/10 bg-black/10 p-3">
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Recorded outcome evidence</p>
+                          <p className="mt-1 text-[10px] leading-4 text-slate-500">{outcome.evidence[0]?.summary || outcome.evidence[0]?.reference || "Explicit executor evidence recorded."}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
             {response.securityPatterns?.length ? (
               <section className="rounded-3xl border border-violet-400/10 bg-violet-400/[0.025] p-5 sm:p-6">
