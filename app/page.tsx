@@ -133,7 +133,7 @@ type SecurityOverview = {
 };
 
 type SecurityAttention = { items: Array<{ id: string; kind: "finding" | "event" | "action"; priority: "high" | "medium"; title: string; detail: string; observedAt: string; href: string }>; summary: { high: number; medium: number } };
-type SecurityChanges = { changes: Array<{ id: string; kind: string; title: string; detail: string; observedAt: string; state: "new" | "changed" | "remembered" | "resolved"; href: string }>; summary: { new: number; changed: number; remembered: number; resolved: number } };
+type SecurityChanges = { changes: Array<{ id: string; kind: string; title: string; detail: string; observedAt: string; state: "new" | "changed" | "remembered" | "resolved"; href: string; verificationState?: "improved" | "observed" | "uncertain" | "awaiting_evidence" }>; summary: { new: number; changed: number; remembered: number; resolved: number } };
 
 export default function DashboardPage() {
   const [user, setUser] = useState<UserState>({ email: "", displayName: "" });
@@ -332,6 +332,42 @@ export default function DashboardPage() {
             </div>
           )}
         </section>
+
+        {changes?.changes.some((item) => item.kind === "verification") && (
+          <section className="mb-5 rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.025] p-5 sm:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-200">Response verification</p>
+                <h2 className="mt-1 text-lg font-semibold text-white">What happened after the response?</h2>
+                <p className="mt-1 text-[11px] text-slate-500">SentinelX separates recorded execution from evidence of the resulting security state.</p>
+              </div>
+              <a href="/analyst" className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-200 hover:text-white">
+                Open Analyst <ArrowRight className="h-3 w-3" />
+              </a>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {changes.changes.filter((item) => item.kind === "verification").slice(0, 4).map((item) => (
+                <a key={item.id} href={item.href} className="rounded-2xl border border-white/10 bg-black/10 p-4 transition hover:bg-white/[0.04]">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-white">{item.title.replace("Response verification: ", "")}</p>
+                    <span className={
+                      item.verificationState === "improved"
+                        ? "rounded-full bg-emerald-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-emerald-200"
+                        : item.verificationState === "observed"
+                          ? "rounded-full bg-cyan-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-cyan-200"
+                          : item.verificationState === "uncertain"
+                            ? "rounded-full bg-rose-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-rose-200"
+                            : "rounded-full bg-amber-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-amber-200"
+                    }>
+                      {item.verificationState?.replaceAll("_", " ") ?? "pending"}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-[10px] leading-4 text-slate-500">{item.detail}</p>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section id="command-center" className="grid gap-5 xl:grid-cols-[1.55fr_0.45fr]">
           <div className="relative overflow-hidden rounded-3xl border border-cyan-400/15 bg-gradient-to-br from-cyan-400/[0.08] via-white/[0.03] to-transparent p-6 sm:p-8">
