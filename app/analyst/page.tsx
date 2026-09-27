@@ -52,6 +52,14 @@ export default function AnalystPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [investigating, setInvestigating] = useState(false);
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [verificationChanges, setVerificationChanges] = useState<Array<{
+    id: string;
+    title: string;
+    detail: string;
+    observedAt: string;
+    verificationState?: "improved" | "observed" | "uncertain" | "awaiting_evidence";
+  }>>([]);
 
   async function investigateFindingById(findingId: string) {
     setInvestigating(true);
@@ -71,10 +79,24 @@ export default function AnalystPage() {
       }
 
       setResponse(data);
+      await loadVerificationChanges(findingId);
     } catch {
       setMessage("The investigation could not connect to the Security Brain.");
     } finally {
       setInvestigating(false);
+    }
+  }
+
+  async function loadVerificationChanges(findingId: string) {
+    setVerificationLoading(true);
+    try {
+      const result = await fetch(`/api/security/changes?findingId=${encodeURIComponent(findingId)}`);
+      const data = await result.json();
+      if (result.ok) {
+        setVerificationChanges((data.changes ?? []).filter((item: { kind?: string }) => item.kind === "verification"));
+      }
+    } finally {
+      setVerificationLoading(false);
     }
   }
 
@@ -256,6 +278,44 @@ export default function AnalystPage() {
                 ) : null}
               </section>
             )}
+
+            {response.topFinding && verificationChanges.length > 0 ? (
+              <section className="rounded-3xl border border-cyan-400/10 bg-cyan-400/[0.025] p-5 sm:p-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Post-response verification</p>
+                    <p className="mt-1 text-[10px] text-slate-600">What SentinelX can currently verify after the recorded response.</p>
+                  </div>
+                  <ShieldCheck className="h-5 w-5 text-cyan-300" />
+                </div>
+                <div className="mt-4 space-y-3">
+                  {verificationChanges.map((change) => (
+                    <div key={change.id} className="rounded-2xl border border-white/10 p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm font-medium text-white">{change.title.replace("Response verification: ", "")}</p>
+                        <span className={
+                          change.verificationState === "improved"
+                            ? "rounded-full bg-emerald-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-emerald-200"
+                            : change.verificationState === "observed"
+                              ? "rounded-full bg-cyan-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-cyan-200"
+                              : change.verificationState === "uncertain"
+                                ? "rounded-full bg-rose-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-rose-200"
+                                : "rounded-full bg-amber-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-amber-200"
+                        }>
+                          {change.verificationState?.replaceAll("_", " ") ?? "pending"}
+                        </span>
+                      </div>
+                      <p className="mt-3 text-xs leading-5 text-slate-400">{change.detail}</p>
+                      <p className="mt-2 text-[9px] text-slate-600">Observed {new Date(change.observedAt).toLocaleString()}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : verificationLoading ? (
+              <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-4 text-[10px] text-slate-600">
+                Checking post-response evidence…
+              </section>
+            ) : null}
 
             {response.historicalContext?.responseOutcomes?.length ? (
               <section className="rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.025] p-5 sm:p-6">
