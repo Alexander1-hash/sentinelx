@@ -518,8 +518,13 @@ export default function SecurityBrainPage() {
                     </div>
                     <span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-emerald-200">{pattern.confidence}</span>
                   </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-emerald-200">Historical learning</span>
+                    <span className="rounded-full bg-white/5 px-2 py-1 text-[8px] uppercase tracking-wider text-slate-500">Not current-state proof</span>
+                  </div>
                   <p className="mt-3 text-[10px] leading-5 text-slate-500">{pattern.detail}</p>
                   <p className="mt-3 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3 text-[9px] leading-4 text-slate-600">{pattern.boundary}</p>
+                  <p className="mt-2 text-[9px] leading-4 text-slate-600">Use this context to understand prior response activity; verify any current condition through fresh evidence and the linked finding.</p>
                 </div>
               ))}
             </div>
