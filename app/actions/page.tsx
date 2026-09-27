@@ -380,6 +380,31 @@ function SecurityActionsPageContent() {
                         <span>Action: {ACTION_LABELS[action.action_type] ?? action.action_type.replaceAll("_", " ")}</span>
                       </div>
 
+                      {Array.isArray((action.result as Record<string, unknown>).historical_response_context) && (
+                        <div className="mt-3 rounded-lg border border-violet-400/10 bg-violet-400/[0.02] p-3">
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-violet-200">Decision context from prior responses</p>
+                          <p className="mt-1 text-[9px] leading-4 text-slate-600">
+                            Historical outcomes are shown before authorization so the operator can consider relevant context. They do not establish that a response will work now.
+                          </p>
+                          <div className="mt-2 space-y-2">
+                            {((action.result as Record<string, unknown>).historical_response_context as Array<Record<string, unknown>>).slice(0, 4).map((item, index) => (
+                              <div key={String(item.memoryId ?? index)} className="rounded-lg border border-white/10 p-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="text-[9px] font-medium text-slate-300">{String(item.actionType ?? "Recorded response").replaceAll("_", " ")}</span>
+                                  <span className="rounded-full bg-violet-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-violet-200">
+                                    {String(item.matchContext ?? "historical")}
+                                  </span>
+                                </div>
+                                <p className="mt-1 text-[8px] leading-4 text-slate-600">
+                                  {String(item.state ?? "recorded")} · {String(item.evidenceCount ?? 0)} evidence record{String(item.evidenceCount ?? 0) === "1" ? "" : "s"} · {new Date(String(item.occurredAt)).toLocaleString()}
+                                </p>
+                                <p className="mt-1 text-[8px] leading-4 text-slate-600">{String(item.summary ?? item.title ?? "Recorded response outcome.")}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {Array.isArray((action.result.response_plan as Record<string, unknown>).historicalResponseCycleContext) && (
                         <div className="mt-3 rounded-lg border border-white/10 bg-black/10 p-3">
                           <p className="text-[9px] font-semibold uppercase tracking-wider text-orange-200">Previous response history</p>
