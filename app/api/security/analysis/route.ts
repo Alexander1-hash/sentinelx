@@ -395,6 +395,7 @@ export async function POST() {
     );
 
     let findingsCreated = 0;
+    const createdFindings: Array<{ id: string; title: string; severity: string }> = [];
 
     for (const candidate of uniqueCandidates) {
       const { data: createdFinding, error } = await supabase
@@ -419,6 +420,7 @@ export async function POST() {
       }
 
       findingsCreated += 1;
+      createdFindings.push({ id: createdFinding.id, title: candidate.title, severity: candidate.severity });
 
       const { error: memoryError } = await supabase.from("security_memory").insert({
         organization_id: organizationId,
@@ -448,6 +450,7 @@ export async function POST() {
     return NextResponse.json({
       analyzed: true,
       findingsCreated,
+      findings: createdFindings,
       context: {
         securityEvents: context.events.length,
         highImpactSecurityEvents: severeEvents.length,
