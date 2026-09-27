@@ -426,6 +426,16 @@ export async function POST(request: Request) {
               execution_reference: item.data?.execution_reference ?? null,
               evidence: Array.isArray(item.data?.evidence) ? item.data.evidence : [],
             })),
+          responseLearning: relevantMemory
+            .filter((item) => item.memory_type === "response_outcome")
+            .slice(0, 8)
+            .map((item) => ({
+              occurred_at: item.occurred_at,
+              action_type: typeof item.data?.action_type === "string" ? item.data.action_type : null,
+              state: item.state,
+              evidence_count: Array.isArray(item.data?.evidence) ? item.data.evidence.length : 0,
+              summary: item.summary,
+            })),
         }
       : null;
 
