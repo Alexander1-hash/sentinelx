@@ -65,7 +65,7 @@ export default function AnalystPage() {
   return (
     <main className="min-h-screen bg-[#071018] text-slate-100">
       <header className="border-b border-white/10 bg-[#071018]/95">
-        <div className="mx-auto flex max-w-[1100px] items-center justify-between gap-3 px-4 py-4 sm:px-6">
+        <div className="mx-auto flex max-w-[1100px] flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
               <BrainCircuit className="h-5 w-5" />
@@ -98,7 +98,7 @@ export default function AnalystPage() {
             onChange={(event) => setQuestion(event.target.value)}
             placeholder="What should I investigate first? Why does this finding matter? What evidence supports the current risk?"
             rows={4}
-            className="mt-3 w-full resize-none rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white outline-none placeholder:text-slate-700 focus:border-cyan-300/30"
+            className="mt-3 w-full resize-none rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white outline-none placeholder:text-slate-700 focus:border-cyan-300/30 focus-visible:ring-2 focus-visible:ring-cyan-300/20"
           />
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[10px] text-slate-600">No unsupported conclusions. No fabricated telemetry.</p>
