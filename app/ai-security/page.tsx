@@ -435,7 +435,6 @@ export default function AiSecurityCenterPage() {
                     <ShieldCheck className="h-3 w-3" /> Review response options
                   </Link>
                 </div>
-                  {intelLoadingId === finding.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Network className="h-3 w-3" />}
 
                 {expandedFindingId === finding.id && intel && (
                   <div className="mt-3 space-y-3 rounded-2xl border border-purple-400/10 bg-purple-400/[0.025] p-4">
