@@ -133,7 +133,7 @@ type SecurityOverview = {
 };
 
 type SecurityAttention = { items: Array<{ id: string; kind: "finding" | "event" | "action"; priority: "high" | "medium"; title: string; detail: string; observedAt: string; href: string }>; summary: { high: number; medium: number } };
-type SecurityChanges = { changes: Array<{ id: string; kind: string; title: string; detail: string; observedAt: string; state: "new" | "changed" | "remembered" | "resolved"; href: string }>; summary: { new: number; changed: number; remembered: number } };
+type SecurityChanges = { changes: Array<{ id: string; kind: string; title: string; detail: string; observedAt: string; state: "new" | "changed" | "remembered" | "resolved"; href: string }>; summary: { new: number; changed: number; remembered: number; resolved: number } };
 
 export default function DashboardPage() {
   const [user, setUser] = useState<UserState>({ email: "", displayName: "" });
