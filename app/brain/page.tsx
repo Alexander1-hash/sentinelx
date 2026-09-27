@@ -493,6 +493,54 @@ export default function SecurityBrainPage() {
           )}
         </section>
 
+        <section className="mt-6 rounded-3xl border border-cyan-400/10 bg-cyan-400/[0.025] p-5 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Current security state</p>
+              <h2 className="mt-1 text-lg font-semibold text-white">What is currently recorded</h2>
+              <p className="mt-2 max-w-2xl text-[11px] leading-5 text-slate-500">
+                Current findings are separated from historical learning. This view reflects the latest finding records SentinelX has available; historical response patterns do not update this state automatically.
+              </p>
+            </div>
+            <Link href="/analyst" className="w-fit rounded-full bg-cyan-400/10 px-3 py-1.5 text-[9px] uppercase tracking-wider text-cyan-200 hover:text-white">Investigate current findings</Link>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-rose-400/10 bg-rose-400/[0.025] p-4">
+              <p className="text-[9px] uppercase tracking-wider text-slate-600">Open</p>
+              <p className="mt-2 text-2xl font-semibold text-rose-200">{findings.filter((finding) => finding.status === "open").length}</p>
+              <p className="mt-1 text-[9px] text-slate-600">Currently open findings</p>
+            </div>
+            <div className="rounded-2xl border border-amber-400/10 bg-amber-400/[0.025] p-4">
+              <p className="text-[9px] uppercase tracking-wider text-slate-600">Acknowledged</p>
+              <p className="mt-2 text-2xl font-semibold text-amber-200">{findings.filter((finding) => finding.status === "acknowledged").length}</p>
+              <p className="mt-1 text-[9px] text-slate-600">Still active records</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+              <p className="text-[9px] uppercase tracking-wider text-slate-600">Resolved / dismissed</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-300">{findings.filter((finding) => finding.status === "resolved" || finding.status === "dismissed").length}</p>
+              <p className="mt-1 text-[9px] text-slate-600">Recorded historical state</p>
+            </div>
+          </div>
+          {findings.length > 0 ? (
+            <div className="mt-5 space-y-2">
+              {findings.filter((finding) => finding.status === "open" || finding.status === "acknowledged").slice(0, 6).map((finding) => (
+                <div key={finding.id} className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white">{finding.title}</p>
+                    <p className="mt-1 text-[9px] text-slate-600">{finding.finding_type.replaceAll("_", " ")} · detected {new Date(finding.detected_at).toLocaleString()}</p>
+                  </div>
+                  <Link href={"/analyst?findingId=" + encodeURIComponent(finding.id)} className="w-fit rounded-lg border border-white/10 px-3 py-2 text-[9px] font-semibold text-slate-400 hover:text-white">Investigate</Link>
+                </div>
+              ))}
+              {findings.filter((finding) => finding.status === "open" || finding.status === "acknowledged").length === 0 && (
+                <p className="rounded-xl border border-dashed border-white/10 p-4 text-[10px] text-slate-600">No open or acknowledged findings are currently recorded. This is not proof that the environment is safe; current telemetry coverage determines what SentinelX can observe.</p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-5 rounded-xl border border-dashed border-white/10 p-4 text-[10px] text-slate-600">No findings are currently recorded in the Security Brain.</p>
+          )}
+        </section>
+
         {patterns.some((pattern) => pattern.pattern === "response_cycle") && (
           <section className="mt-6 rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.025] p-5 sm:p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
