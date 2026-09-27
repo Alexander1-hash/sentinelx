@@ -176,11 +176,14 @@ export default function DashboardPage() {
           setOverview((await response.json()) as SecurityOverview);
         }
         const attentionResponse = await fetch("/api/security/attention", { cache: "no-store" });
-        if (attentionResponse.ok) setAttention((await attentionResponse.json()) as SecurityAttention);
+        const attentionData = attentionResponse.ok
+          ? (await attentionResponse.json()) as SecurityAttention
+          : null;
+        if (attentionData) setAttention(attentionData);
         const changesResponse = await fetch("/api/security/changes", { cache: "no-store" });
         if (changesResponse.ok) setChanges((await changesResponse.json()) as SecurityChanges);
-        const activeFinding = (await attentionResponse.clone().json()).items?.find(
-          (item: SecurityAttention["items"][number]) => item.kind === "finding"
+        const activeFinding = attentionData?.items.find(
+          (item) => item.kind === "finding"
         );
         const patternsResponse = await fetch(
           activeFinding?.id
@@ -720,4 +723,3 @@ function DefenseLifecycleOverview({
     </section>
   );
 }
-
