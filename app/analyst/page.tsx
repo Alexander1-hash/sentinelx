@@ -303,6 +303,27 @@ export default function AnalystPage() {
             </section>
 
             {response.topFinding && (
+              <section className="rounded-3xl border border-cyan-400/10 bg-cyan-400/[0.025] p-5 sm:p-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Finding in focus</p>
+                    <h2 className="mt-1 truncate text-lg font-semibold text-white">{response.topFinding.title}</h2>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-wider text-slate-500">
+                      <span className="rounded-full bg-white/5 px-2 py-1">ID {response.topFinding.id}</span>
+                      <span className="rounded-full bg-white/5 px-2 py-1">{response.topFinding.severity}</span>
+                      <span className="rounded-full bg-white/5 px-2 py-1">Investigation context loaded</span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Link href={"/actions?findingId=" + encodeURIComponent(response.topFinding.id)} className="inline-flex items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-[10px] font-semibold text-slate-300 hover:bg-white/5">Review actions</Link>
+                    <Link href="/brain" className="inline-flex items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-[10px] font-semibold text-slate-300 hover:bg-white/5">Open Brain</Link>
+                  </div>
+                </div>
+                <p className="mt-4 text-[11px] leading-5 text-slate-500">This investigation is scoped to the selected finding. SentinelX keeps observed evidence, confirmed relationships, historical context, and unknowns separate so the operator can see exactly what is established.</p>
+              </section>
+            )}
+
+            {response.topFinding && (
               <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
