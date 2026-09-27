@@ -20,6 +20,7 @@ type Change = {
   observedAt: string;
   state: "new" | "changed" | "remembered" | "resolved";
   href: string;
+  verificationState?: "improved" | "observed" | "uncertain" | "awaiting_evidence";
 };
 
 function sameFindingState(memory: Memory, finding: {
@@ -39,7 +40,7 @@ function sameFindingState(memory: Memory, finding: {
   );
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient();
     const {
@@ -49,6 +50,8 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const findingIdFilter = new URL(request.url).searchParams.get("findingId");
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -108,9 +111,6 @@ export async function GET() {
     const memories = (memoryResult.data ?? []) as Memory[];
     const changes: Change[] = [];
 
-    // Evidence Change Intelligence v2:
-    // only new or changed evidence is surfaced as a change. Unchanged
-    // telemetry is intentionally quiet so repeated heartbeats do not create noise.
     for (const memory of memories) {
       if (memory.memory_type !== "evidence_change") continue;
 
@@ -146,7 +146,7 @@ export async function GET() {
           ? memory.title.replace(/^Evidence changed:\s*/i, "Changed: ")
           : changeType === "resolved"
             ? memory.title.replace(/^Evidence resolved:\s*/i, "Resolved: ")
-          : memory.title.replace(/^New evidence:\s*/i, "New evidence: "),
+            : memory.title.replace(/^New evidence:\s*/i, "New evidence: "),
         detail: changeType === "changed"
           ? `${source} reported a different recorded evidence state.`
           : changeType === "resolved"
@@ -184,8 +184,6 @@ export async function GET() {
       }
     }
 
-    // Evidence without a corresponding memory record is still surfaced as
-    // new so operators can see ingestion that predates or bypasses memory.
     const evidenceMemoryIds = new Set(
       memories
         .filter((memory) => memory.memory_type === "evidence_change")
@@ -233,10 +231,6 @@ export async function GET() {
         });
       }
 
-      // Post-response verification: when an action has an explicit execution
-      // timestamp and linked finding, compare current evidence observed after
-      // execution. This surfaces a grounded verification signal without
-      // declaring remediation or resolution from silence.
       if (
         action.finding_id &&
         action.executed_at &&
@@ -244,7 +238,7 @@ export async function GET() {
       ) {
         const postResponseEvidence = (evidenceResult.data ?? []).filter((evidence) => {
           if (!evidence.observed_at) return false;
-          return new Date(evidence.observed_at).getTime() >= new Date(action.executed_at).getTime();
+          return new Date(evidence.observed_at).getTime() >= new Date(action.executed_at!).getTime();
         });
 
         const linkedEvidence = postResponseEvidence.filter((evidence) => {
@@ -275,8 +269,7 @@ export async function GET() {
           )
           .sort(
             (a, b) =>
-              new Date(b.occurred_at).getTime() -
-              new Date(a.occurred_at).getTime()
+              new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()
           )[0];
 
         const resolvedStatuses = new Set(["resolved", "closed", "cleared", "healthy"]);
@@ -301,13 +294,12 @@ export async function GET() {
           Boolean(currentFinding && resolvedStatuses.has(currentFinding.status)) ||
           severityImproved;
 
-        const stateUnchanged =
-          Boolean(
-            currentFinding &&
-            preResponseFindingState &&
-            currentFinding.status === preResponseFindingState.state &&
-            currentFinding.severity === baselineSeverity
-          );
+        const stateUnchanged = Boolean(
+          currentFinding &&
+          preResponseFindingState &&
+          currentFinding.status === preResponseFindingState.state &&
+          currentFinding.severity === baselineSeverity
+        );
 
         const verificationState =
           action.status === "failed"
@@ -336,6 +328,7 @@ export async function GET() {
           detail: verificationDetail,
           observedAt: action.executed_at,
           state: "changed",
+          verificationState,
           href: action.finding_id
             ? `/analyst?findingId=${encodeURIComponent(action.finding_id)}`
             : "/analyst",
@@ -343,14 +336,21 @@ export async function GET() {
       }
     }
 
+    const filtered = findingIdFilter
+      ? changes.filter(
+          (change) =>
+            change.href.includes(encodeURIComponent(findingIdFilter)) ||
+            change.id === `verification-${findingIdFilter}`
+        )
+      : changes;
+
     const deduplicated = Array.from(
-      new Map(changes.map((change) => [change.id, change])).values()
+      new Map(filtered.map((change) => [change.id, change])).values()
     );
 
     deduplicated.sort(
       (a, b) =>
-        new Date(b.observedAt).getTime() -
-        new Date(a.observedAt).getTime()
+        new Date(b.observedAt).getTime() - new Date(a.observedAt).getTime()
     );
 
     const visible = deduplicated.slice(0, 20);
@@ -361,8 +361,6 @@ export async function GET() {
         new: visible.filter((item) => item.state === "new").length,
         changed: visible.filter((item) => item.state === "changed").length,
         remembered: visible.filter((item) => item.state === "remembered").length,
-        // Resolved state requires a recorded disappearance/state-transition
-        // model. SentinelX deliberately does not infer resolution from silence.
         resolved: visible.filter((item) => item.state === "resolved").length,
       },
       boundary:
