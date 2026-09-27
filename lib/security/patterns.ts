@@ -40,13 +40,9 @@ function memoryKey(memory: SecurityPatternMemory) {
   const findingId =
     str(memory.data.finding_id) ??
     (memory.memory_type === "finding_state" ? memory.subject_id : null);
-  const assetId =
-    str(memory.data.asset_id) ??
-    str(memory.data.affected_asset_id);
+  const assetId = str(memory.data.asset_id) ?? str(memory.data.affected_asset_id);
   const evidenceType = str(memory.data.evidence_type);
-  const indicator =
-    str(memory.data.indicator) ??
-    str(memory.data.category);
+  const indicator = str(memory.data.indicator) ?? str(memory.data.category);
 
   if (findingId) return "finding:" + findingId;
   if (assetId) return "asset:" + assetId;
@@ -55,9 +51,7 @@ function memoryKey(memory: SecurityPatternMemory) {
   return null;
 }
 
-export function buildSecurityPatterns(
-  memories: SecurityPatternMemory[],
-): SecurityPattern[] {
+export function buildSecurityPatterns(memories: SecurityPatternMemory[]): SecurityPattern[] {
   const patterns: SecurityPattern[] = [];
   const groups = new Map<string, SecurityPatternMemory[]>();
 
@@ -73,12 +67,9 @@ export function buildSecurityPatterns(
     if (list.length < 2) continue;
 
     const ordered = [...list].sort(
-      (a, b) =>
-        new Date(a.occurred_at).getTime() -
-        new Date(b.occurred_at).getTime(),
+      (a, b) => new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime(),
     );
     const first = ordered[0];
-    const last = ordered[ordered.length - 1];
     const ids = ordered.slice(-8).map((item) => item.id);
 
     if (key.startsWith("finding:")) {
@@ -87,62 +78,45 @@ export function buildSecurityPatterns(
         pattern: "recurrence",
         title: "Recurring finding history detected",
         detail:
-          "This finding has " +
-          list.length +
+          "This finding has " + list.length +
           " recorded security-memory event(s) across time. Previous context should be reviewed before treating the latest observation as isolated.",
         confidence: "high",
         memoryIds: ids,
         firstObserved: first.occurred_at,
-        lastObserved: last.occurred_at,
-        boundary:
-          "Recurrence is based on recorded memory, not proof that the condition is currently active.",
+        lastObserved: ordered[ordered.length - 1].occurred_at,
+        boundary: "Recurrence is based on recorded memory, not proof that the condition is currently active.",
       });
     }
-
-    const hasResolution = ordered.some(
-      (memory) =>
-        memory.memory_type === "evidence_change" &&
-        ["resolved", "cleared", "healthy"].includes(stateOf(memory)),
-    );
 
     const resolutionIndex = ordered.findIndex(
       (memory) =>
         memory.memory_type === "evidence_change" &&
         ["resolved", "cleared", "healthy"].includes(stateOf(memory)),
     );
-
     const hasLaterActive = ordered.some(
-      (memory, index) =>
-        index > resolutionIndex &&
-        ["active", "degraded", "open"].includes(stateOf(memory)),
+      (memory, index) => index > resolutionIndex && ["active", "degraded", "open"].includes(stateOf(memory)),
     );
 
-    if (hasResolution && resolutionIndex >= 0 && hasLaterActive) {
+    if (resolutionIndex >= 0 && hasLaterActive) {
       patterns.push({
         id: "reopened-" + key,
         pattern: "reopened_condition",
         title: "Condition appears to have returned after a recorded resolution",
-        detail:
-          "Historical memory contains a recorded cleared/resolved state followed by a later active/degraded/open state.",
+        detail: "Historical memory contains a recorded cleared/resolved state followed by a later active/degraded/open state.",
         confidence: "high",
         memoryIds: ids,
         firstObserved: first.occurred_at,
-        lastObserved: last.occurred_at,
-        boundary:
-          "This is a temporal pattern in recorded state transitions; current telemetry is required to establish present state.",
+        lastObserved: ordered[ordered.length - 1].occurred_at,
+        boundary: "This is a temporal pattern in recorded state transitions; current telemetry is required to establish present state.",
       });
     }
   }
 
   const evidenceGroups = new Map<string, SecurityPatternMemory[]>();
-  for (const memory of memories.filter(
-    (item) => item.memory_type === "evidence_change",
-  )) {
+  for (const memory of memories.filter((item) => item.memory_type === "evidence_change")) {
     const key =
-      (str(memory.data.source) ?? "unknown") +
-      ":" +
-      (str(memory.data.title) ?? memory.title) +
-      ":" +
+      (str(memory.data.source) ?? "unknown") + ":" +
+      (str(memory.data.title) ?? memory.title) + ":" +
       (str(memory.data.asset_id) ?? "none");
     const list = evidenceGroups.get(key) ?? [];
     list.push(memory);
@@ -155,15 +129,12 @@ export function buildSecurityPatterns(
       id: "evidence-repeat-" + key,
       pattern: "repeated_evidence_change",
       title: "Repeated evidence changes detected",
-      detail:
-        list.length +
-        " recorded evidence transitions match the same source/title/asset context.",
+      detail: list.length + " recorded evidence transitions match the same source/title/asset context.",
       confidence: "medium",
       memoryIds: list.slice(0, 8).map((item) => item.id),
       firstObserved: list[list.length - 1].occurred_at,
       lastObserved: list[0].occurred_at,
-      boundary:
-        "Repeated change is an investigation signal, not proof of compromise.",
+      boundary: "Repeated change is an investigation signal, not proof of compromise.",
     });
   }
 
@@ -172,13 +143,10 @@ export function buildSecurityPatterns(
       (memory.title + " " + memory.summary + " " + JSON.stringify(memory.data)).toLowerCase(),
     ),
   );
-
   const aiGroups = new Map<string, SecurityPatternMemory[]>();
+
   for (const memory of aiMemories) {
-    const category =
-      str(memory.data.category) ??
-      str(memory.data.indicator) ??
-      "ai-security-signal";
+    const category = str(memory.data.category) ?? str(memory.data.indicator) ?? "ai-security-signal";
     const list = aiGroups.get(category) ?? [];
     list.push(memory);
     aiGroups.set(category, list);
@@ -190,48 +158,24 @@ export function buildSecurityPatterns(
       id: "ai-repeat-" + category,
       pattern: "repeated_ai_indicator",
       title: "Repeated AI security indicator: " + category,
-      detail:
-        list.length +
-        " recorded memory event(s) contain the same AI-security indicator category.",
+      detail: list.length + " recorded memory event(s) contain the same AI-security indicator category.",
       confidence: "medium",
       memoryIds: list.slice(0, 8).map((item) => item.id),
       firstObserved: list[list.length - 1].occurred_at,
       lastObserved: list[0].occurred_at,
-      boundary:
-        "The indicator is evidence context only. It does not establish malicious behavior or compromise.",
+      boundary: "The indicator is evidence context only. It does not establish malicious behavior or compromise.",
     });
   }
 
   const chronological = [...memories].sort(
-    (a, b) =>
-      new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime(),
+    (a, b) => new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime(),
   );
 
   const sequencePatterns = [
-    {
-      name: "AI indicator → finding → investigation",
-      types: ["ai", "finding_state", "investigation"],
-      detail:
-        "Recorded memory shows an AI-security indicator followed by a finding state and a later investigation.",
-    },
-    {
-      name: "Finding → investigation → operator decision",
-      types: ["finding_state", "investigation", "operator_decision"],
-      detail:
-        "Recorded memory shows a finding followed by investigation and an operator decision.",
-    },
-    {
-      name: "Operator decision → response outcome",
-      types: ["operator_decision", "response_outcome"],
-      detail:
-        "Recorded memory shows an operator decision followed by a recorded response outcome.",
-    },
-    {
-      name: "Resolution → later active condition",
-      types: ["resolved", "active"],
-      detail:
-        "Recorded evidence history shows a resolution state followed later by an active state.",
-    },
+    { name: "AI indicator → finding → investigation", types: ["ai", "finding_state", "investigation"], detail: "Recorded memory shows an AI-security indicator followed by a finding state and a later investigation." },
+    { name: "Finding → investigation → operator decision", types: ["finding_state", "investigation", "operator_decision"], detail: "Recorded memory shows a finding followed by investigation and an operator decision." },
+    { name: "Operator decision → response outcome", types: ["operator_decision", "response_outcome"], detail: "Recorded memory shows an operator decision followed by a recorded response outcome." },
+    { name: "Resolution → later active condition", types: ["resolved", "active"], detail: "Recorded evidence history shows a resolution state followed later by an active state." },
   ] as const;
 
   const isAiMemory = (memory: SecurityPatternMemory) =>
@@ -241,43 +185,23 @@ export function buildSecurityPatterns(
 
   const contextIds = (memory: SecurityPatternMemory) => {
     const ids = new Set<string>();
-
-    const findingId =
-      str(memory.data.finding_id) ??
-      (memory.memory_type === "finding_state" ? memory.subject_id : null);
-    const assetId =
-      str(memory.data.asset_id) ??
-      str(memory.data.affected_asset_id);
+    const findingId = str(memory.data.finding_id) ?? (memory.memory_type === "finding_state" ? memory.subject_id : null);
+    const assetId = str(memory.data.asset_id) ?? str(memory.data.affected_asset_id);
     const evidenceId = str(memory.data.evidence_id) ?? str(memory.data.current_evidence_id);
     const actionId = str(memory.data.action_id);
-
     if (findingId) ids.add("finding:" + findingId);
     if (assetId) ids.add("asset:" + assetId);
     if (evidenceId) ids.add("evidence:" + evidenceId);
     if (actionId) ids.add("action:" + actionId);
-
     return ids;
   };
 
-  const sharesContext = (
-    chain: SecurityPatternMemory[],
-    candidate: SecurityPatternMemory,
-  ) => {
+  const sharesContext = (chain: SecurityPatternMemory[], candidate: SecurityPatternMemory) => {
     const chainContext = new Set<string>();
-    for (const memory of chain) {
-      for (const id of contextIds(memory)) chainContext.add(id);
-    }
-
+    for (const memory of chain) for (const id of contextIds(memory)) chainContext.add(id);
     const candidateContext = contextIds(candidate);
-
-    // Strongly prefer shared finding/asset/evidence/action context. If neither
-    // side has usable context, do not manufacture a relationship between them.
     if (chainContext.size === 0 || candidateContext.size === 0) return false;
-
-    for (const id of candidateContext) {
-      if (chainContext.has(id)) return true;
-    }
-
+    for (const id of candidateContext) if (chainContext.has(id)) return true;
     return false;
   };
 
@@ -289,10 +213,8 @@ export function buildSecurityPatterns(
         sequence.types[0] === "ai"
           ? isAiMemory(first)
           : sequence.types[0] === "resolved"
-            ? first.memory_type === "evidence_change" &&
-              ["resolved", "cleared", "healthy"].includes(stateOf(first))
+            ? first.memory_type === "evidence_change" && ["resolved", "cleared", "healthy"].includes(stateOf(first))
             : first.memory_type === sequence.types[0];
-
       if (!firstMatches) continue;
 
       const matched = [first];
@@ -300,7 +222,6 @@ export function buildSecurityPatterns(
 
       for (let step = 1; step < sequence.types.length && cursor < chronological.length; step += 1) {
         let found: SecurityPatternMemory | null = null;
-
         while (cursor < chronological.length) {
           const candidate = chronological[cursor];
           const type = sequence.types[step];
@@ -310,18 +231,14 @@ export function buildSecurityPatterns(
               : type === "active"
                 ? ["active", "degraded", "open"].includes(stateOf(candidate))
                 : type === "resolved"
-                  ? candidate.memory_type === "evidence_change" &&
-                    ["resolved", "cleared", "healthy"].includes(stateOf(candidate))
+                  ? candidate.memory_type === "evidence_change" && ["resolved", "cleared", "healthy"].includes(stateOf(candidate))
                   : candidate.memory_type === type;
-
           cursor += 1;
-
           if (matches && sharesContext(matched, candidate)) {
             found = candidate;
             break;
           }
         }
-
         if (!found) break;
         matched.push(found);
       }
@@ -347,8 +264,7 @@ export function buildSecurityPatterns(
       memoryIds: matched.map((item) => item.id),
       firstObserved: matched[0].occurred_at,
       lastObserved: matched[matched.length - 1].occurred_at,
-      boundary:
-        "This sequence connects recorded historical events. It does not prove causation, compromise, or current security state.",
+      boundary: "This sequence connects recorded historical events. It does not prove causation, compromise, or current security state.",
       sequence: matched.map((item) => {
         if (item.memory_type === "evidence_change") {
           const state = stateOf(item);
@@ -365,12 +281,8 @@ export function buildSecurityPatterns(
     });
   }
 
-  const decisions = memories.filter(
-    (memory) => memory.memory_type === "operator_decision",
-  );
-  const outcomes = memories.filter(
-    (memory) => memory.memory_type === "response_outcome",
-  );
+  const decisions = memories.filter((memory) => memory.memory_type === "operator_decision");
+  const outcomes = memories.filter((memory) => memory.memory_type === "response_outcome");
 
   const decisionGroups = new Map<string, SecurityPatternMemory[]>();
   for (const decision of decisions) {
@@ -382,58 +294,84 @@ export function buildSecurityPatterns(
   }
 
   for (const [actionId, actionDecisions] of decisionGroups) {
-    const hasOutcome = outcomes.some(
-      (outcome) => str(outcome.data.action_id) === actionId,
-    );
-
+    const hasOutcome = outcomes.some((outcome) => str(outcome.data.action_id) === actionId);
     if (!hasOutcome) {
       patterns.push({
         id: "response-pending-outcome-" + actionId,
         pattern: "response_cycle",
         title: "Authorized response has no recorded outcome",
-        detail:
-          "An operator decision is recorded for this action, but no explicit executor outcome is currently recorded for the same action.",
+        detail: "An operator decision is recorded for this action, but no explicit executor outcome is currently recorded for the same action.",
         confidence: "medium",
         memoryIds: actionDecisions.slice(0, 8).map((item) => item.id),
         firstObserved: actionDecisions[actionDecisions.length - 1].occurred_at,
         lastObserved: actionDecisions[0].occurred_at,
-        boundary:
-          "Missing outcome memory does not mean the action failed or succeeded; it means the executor result is not recorded.",
+        boundary: "Missing outcome memory does not mean the action failed or succeeded; it means the executor result is not recorded.",
       });
     }
+  }
+
+  const responseGroups = new Map<string, SecurityPatternMemory[]>();
+  for (const outcome of outcomes) {
+    const actionType = str(outcome.data.action_type);
+    const state = outcome.state || "unknown";
+    if (!actionType) continue;
+    const key = actionType + ":" + state;
+    const list = responseGroups.get(key) ?? [];
+    list.push(outcome);
+    responseGroups.set(key, list);
+  }
+
+  for (const [key, list] of responseGroups) {
+    if (list.length < 2) continue;
+    const separatorIndex = key.lastIndexOf(":");
+    const actionType = separatorIndex >= 0 ? key.slice(0, separatorIndex) : key;
+    const outcomeState = separatorIndex >= 0 ? key.slice(separatorIndex + 1) : "unknown";
+    const ordered = [...list].sort(
+      (a, b) => new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime(),
+    );
+
+    patterns.push({
+      id: "response-repeat-" + key,
+      pattern: "response_cycle",
+      title: "Repeated response outcome pattern detected",
+      detail:
+        list.length +
+        " recorded " +
+        outcomeState +
+        " outcome(s) share the same response action type (" +
+        actionType.replaceAll("_", " ") +
+        "). This history can inform future investigation and operator review.",
+      confidence: "medium",
+      memoryIds: ordered.slice(-8).map((item) => item.id),
+      firstObserved: ordered[0].occurred_at,
+      lastObserved: ordered[ordered.length - 1].occurred_at,
+      boundary: "Repeated executor outcomes describe historical response activity only. They do not establish that the same response will work now or that the current security condition is resolved.",
+    });
   }
 
   for (const outcome of outcomes) {
     const actionId = str(outcome.data.action_id);
     if (!actionId) continue;
-
     const relatedDecisions = decisions.filter(
       (decision) => (str(decision.data.action_id) ?? decision.subject_id) === actionId,
     );
-
     if (relatedDecisions.length === 0) {
       patterns.push({
         id: "response-unlinked-outcome-" + outcome.id,
         pattern: "response_cycle",
         title: "Response outcome has no linked operator decision",
-        detail:
-          "An explicit executor outcome exists, but no matching operator decision memory was found for the same action context.",
+        detail: "An explicit executor outcome exists, but no matching operator decision memory was found for the same action context.",
         confidence: "medium",
         memoryIds: [outcome.id],
         firstObserved: outcome.occurred_at,
         lastObserved: outcome.occurred_at,
-        boundary:
-          "The outcome is recorded evidence, but the missing decision link limits the historical response chain.",
+        boundary: "The outcome is recorded evidence, but the missing decision link limits the historical response chain.",
       });
     }
   }
 
   return Array.from(new Map(patterns.map((pattern) => [pattern.id, pattern])).values())
-    .sort(
-      (a, b) =>
-        new Date(b.lastObserved).getTime() -
-        new Date(a.lastObserved).getTime(),
-    )
+    .sort((a, b) => new Date(b.lastObserved).getTime() - new Date(a.lastObserved).getTime())
     .slice(0, 25);
 }
 
