@@ -267,6 +267,20 @@ export async function POST(request: Request) {
         .limit(300);
 
       const typedMemories = (memories ?? []) as SecurityPatternMemory[];
+      let findingType: string | null = null;
+      let findingAssetId: string | null = null;
+      const { data: findingContext } = await supabase
+        .from("security_findings")
+        .select("id,finding_type,asset_id")
+        .eq("id", body.findingId)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (findingContext) {
+        findingType = findingContext.finding_type;
+        findingAssetId = findingContext.asset_id;
+      }
+
       const patterns = buildSecurityPatterns(typedMemories);
       historicalPatternContext = patterns
         .map((pattern) => {
@@ -315,20 +329,6 @@ export async function POST(request: Request) {
           sequence: pattern.sequence ?? null,
           boundary: pattern.boundary,
         }));
-
-      let findingType: string | null = null;
-      let findingAssetId: string | null = null;
-      const { data: findingContext } = await supabase
-        .from("security_findings")
-        .select("id,finding_type,asset_id")
-        .eq("id", body.findingId)
-        .eq("organization_id", organizationId)
-        .maybeSingle();
-
-      if (findingContext) {
-        findingType = findingContext.finding_type;
-        findingAssetId = findingContext.asset_id;
-      }
 
       historicalResponseContext = typedMemories
         .filter((memory) => memory.memory_type === "response_outcome")
