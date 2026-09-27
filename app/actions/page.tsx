@@ -272,13 +272,6 @@ function SecurityActionsPageContent() {
             </div>
             <p className="mt-3 text-[9px] leading-4 text-slate-600">SentinelX does not silently execute, approve, or infer remediation. Current evidence and explicit authorization remain the decision boundary.</p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-
-            <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Investigation → decision</p>
-            <h2 className="mt-1 text-lg font-semibold text-white">Continue with this finding</h2>
-            <p className="mt-2 max-w-2xl text-[11px] leading-5 text-slate-500">
-              Create a controlled, pending action from the finding investigated in Security Analyst. Nothing executes automatically; every action remains subject to target validation and explicit operator authorization.
-            </p>
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <select
                 value={createType}
                 onChange={(event) => setCreateType(event.target.value)}
