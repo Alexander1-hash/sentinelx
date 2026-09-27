@@ -179,7 +179,15 @@ export default function DashboardPage() {
         if (attentionResponse.ok) setAttention((await attentionResponse.json()) as SecurityAttention);
         const changesResponse = await fetch("/api/security/changes", { cache: "no-store" });
         if (changesResponse.ok) setChanges((await changesResponse.json()) as SecurityChanges);
-        const patternsResponse = await fetch("/api/security/patterns", { cache: "no-store" });
+        const activeFinding = (await attentionResponse.clone().json()).items?.find(
+          (item: SecurityAttention["items"][number]) => item.kind === "finding"
+        );
+        const patternsResponse = await fetch(
+          activeFinding?.id
+            ? `/api/security/patterns?findingId=${encodeURIComponent(activeFinding.id)}`
+            : "/api/security/patterns",
+          { cache: "no-store" }
+        );
         if (patternsResponse.ok) {
           const patternsData = await patternsResponse.json();
           setPatterns(Array.isArray(patternsData.patterns) ? patternsData.patterns : []);
