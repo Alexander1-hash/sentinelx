@@ -244,6 +244,36 @@ export async function POST(request: Request) {
       }
     }
 
+    // Revalidate the linked finding immediately before recording an outcome so the response remains attached to the current security context.
+    if (action.finding_id) {
+      const { data: finding, error: findingError } = await supabase
+        .from("security_findings")
+        .select("id,asset_id,status,severity,title")
+        .eq("id", action.finding_id)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (findingError) {
+        return NextResponse.json({ error: findingError.message }, { status: 500 });
+      }
+
+      if (!finding) {
+        return NextResponse.json(
+          { error: "Outcome blocked: the linked finding is no longer available in this organization." },
+          { status: 409 },
+        );
+      }
+
+      result.finding_snapshot = {
+        id: finding.id,
+        asset_id: finding.asset_id,
+        status: finding.status,
+        severity: finding.severity,
+        title: finding.title,
+        captured_at: new Date().toISOString(),
+      };
+    }
+
     const { data, error } = await supabase.rpc(
       "record_security_action_outcome",
       {
