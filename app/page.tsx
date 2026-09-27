@@ -615,14 +615,49 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 px-5 py-12 text-center">
-            <Radar className="h-8 w-8 text-slate-700" />
-            <h3 className="mt-4 text-sm font-semibold text-slate-300">No security telemetry yet</h3>
-            <p className="mt-2 max-w-md text-xs leading-5 text-slate-600">
-              Connect an authorized website, cloud environment, identity provider, or other
-              protected surface. SentinelX will populate this timeline from real signals.
-            </p>
-          </div>
+          {overviewLoading ? (
+            <div className="mt-6 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-white/10 px-5 py-12 text-xs text-slate-500">
+              <RefreshCw className="h-4 w-4 animate-spin" /> Loading verified security events...
+            </div>
+          ) : overview?.latestEvents?.length ? (
+            <div className="mt-6 space-y-2">
+              {overview.latestEvents.map((event) => (
+                <div key={event.id} className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={
+                          event.severity === "critical"
+                            ? "rounded-full bg-rose-400/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-rose-200"
+                            : event.severity === "high"
+                              ? "rounded-full bg-orange-400/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-orange-200"
+                              : "rounded-full bg-cyan-400/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-cyan-200"
+                        }>
+                          {event.severity}
+                        </span>
+                        <span className="text-[9px] uppercase tracking-wider text-slate-600">{event.event_type.replaceAll("_", " ")}</span>
+                      </div>
+                      <p className="mt-2 text-sm font-medium text-white">{event.title}</p>
+                      <p className="mt-1 text-[10px] leading-5 text-slate-500">{event.description ?? "Verified security event recorded."}</p>
+                    </div>
+                    <div className="shrink-0 text-[9px] text-slate-600 sm:text-right">
+                      <p>{event.source}</p>
+                      <p className="mt-1">{new Date(event.observed_at).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 px-5 py-12 text-center">
+              <Radar className="h-8 w-8 text-slate-700" />
+              <h3 className="mt-4 text-sm font-semibold text-slate-300">No verified security telemetry yet</h3>
+              <p className="mt-2 max-w-md text-xs leading-5 text-slate-600">
+                Connect an authorized website, cloud environment, identity provider, or other
+                protected surface. SentinelX will populate this timeline from real signals.
+              </p>
+            </div>
+          )}
         </section>
 
         <footer className="mt-8 flex flex-col gap-2 border-t border-white/10 py-6 text-[10px] text-slate-600 sm:flex-row sm:items-center sm:justify-between">
