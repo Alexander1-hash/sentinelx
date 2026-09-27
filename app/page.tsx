@@ -690,13 +690,20 @@ export default function DashboardPage() {
               </div>
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 {analysisFindings.map((finding) => (
-                  <a key={finding.id} href={`/analyst?findingId=${encodeURIComponent(finding.id)}`} className="group rounded-2xl border border-white/10 bg-black/10 p-3 transition hover:border-cyan-300/20 hover:bg-white/[0.04]">
+                  <div key={finding.id} className="rounded-2xl border border-white/10 bg-black/10 p-3 transition hover:border-cyan-300/20 hover:bg-white/[0.04]">
                     <div className="flex items-center justify-between gap-2">
                       <p className="min-w-0 truncate text-xs font-medium text-white">{finding.title}</p>
                       <span className="shrink-0 rounded-full bg-rose-400/10 px-2 py-1 text-[8px] font-semibold uppercase tracking-wider text-rose-200">{finding.severity}</span>
                     </div>
-                    <span className="mt-2 inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-cyan-200 group-hover:text-white">Investigate finding <ArrowRight className="h-3 w-3" /></span>
-                  </a>
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      <a href={`/analyst?findingId=${encodeURIComponent(finding.id)}`} className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-cyan-200 hover:text-white">
+                        Investigate finding <ArrowRight className="h-3 w-3" />
+                      </a>
+                      <a href={`/actions?findingId=${encodeURIComponent(finding.id)}`} className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-slate-400 hover:text-white">
+                        Review response options
+                      </a>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
