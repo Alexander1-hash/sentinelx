@@ -338,7 +338,7 @@ export default function SecurityBrainPage() {
   return (
     <main className="min-h-screen bg-[#071018] text-slate-100">
       <header className="border-b border-white/10 bg-[#071018]/95">
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between px-4 py-4 sm:px-6">
+        <div className="mx-auto flex max-w-[1200px] flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
               <BrainCircuit className="h-5 w-5" />
@@ -348,7 +348,7 @@ export default function SecurityBrainPage() {
               <p className="text-[11px] text-slate-500">Evidence-backed Security Graph</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <button
               onClick={() => void runAnalysis()}
               disabled={analyzing || loading || !assets.length}
