@@ -428,14 +428,50 @@ export async function POST(request: Request) {
             })),
           responseLearning: relevantMemory
             .filter((item) => item.memory_type === "response_outcome")
-            .slice(0, 8)
-            .map((item) => ({
-              occurred_at: item.occurred_at,
-              action_type: typeof item.data?.action_type === "string" ? item.data.action_type : null,
-              state: item.state,
-              evidence_count: Array.isArray(item.data?.evidence) ? item.data.evidence.length : 0,
-              summary: item.summary,
-            })),
+            .map((item) => {
+              const actionType = typeof item.data?.action_type === "string" ? item.data.action_type : null;
+              const findingType = typeof item.data?.finding_type === "string" ? item.data.finding_type : null;
+              const assetId =
+                typeof item.data?.asset_id === "string"
+                  ? item.data.asset_id
+                  : typeof item.data?.affected_asset_id === "string"
+                    ? item.data.affected_asset_id
+                    : null;
+
+              const matchesAsset = Boolean(selectedFinding?.asset_id && assetId === selectedFinding.asset_id);
+              const matchesFinding = Boolean(
+                typeof item.data?.finding_id === "string" && item.data.finding_id === selectedFinding?.id
+              );
+              const matchesFindingType = Boolean(
+                findingType && findingType === selectedFinding?.finding_type
+              );
+
+              return {
+                occurred_at: item.occurred_at,
+                action_type: actionType,
+                state: item.state,
+                evidence_count: Array.isArray(item.data?.evidence) ? item.data.evidence.length : 0,
+                summary: item.summary,
+                matchContext: matchesFinding
+                  ? "same finding"
+                  : matchesAsset && matchesFindingType
+                    ? "same asset and finding type"
+                    : matchesAsset
+                      ? "same asset"
+                      : matchesFindingType
+                        ? "same finding type"
+                        : "related security history",
+              };
+            })
+            .sort((a, b) => {
+              const rank = (value: string) =>
+                value === "same finding" ? 4 :
+                value === "same asset and finding type" ? 3 :
+                value === "same asset" || value === "same finding type" ? 2 : 1;
+              return rank(b.matchContext) - rank(a.matchContext) ||
+                new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime();
+            })
+            .slice(0, 8),
         }
       : null;
 
