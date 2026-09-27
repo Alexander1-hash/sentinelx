@@ -95,7 +95,7 @@ export async function POST(request: Request) {
 
     const { data: action, error: actionLookupError } = await supabase
       .from("security_actions")
-      .select("id,action_type,status,target,authorization")
+      .select("id,finding_id,action_type,status,target,authorization")
       .eq("id", actionId)
       .eq("organization_id", organizationId)
       .maybeSingle();
@@ -131,9 +131,6 @@ export async function POST(request: Request) {
     const requirement = getExecutorRequirement(action.action_type);
     const target = targetValidation.target;
 
-    // Resource-level authorization: the outcome endpoint trusts only the target
-    // stored on the already-authorized action, then proves known SentinelX
-    // resources belong to the current organization before recording an outcome.
     if (target.assetId) {
       const { data: asset, error: assetError } = await supabase
         .from("security_assets")
@@ -244,6 +241,13 @@ export async function POST(request: Request) {
       }
     }
 
+    let resultPayload: Record<string, unknown> = {
+      ...(body.result ?? {}),
+      execution_target: targetValidation.target,
+      target_scope_verified: true,
+      target_scope_source: "authorized_security_action",
+    };
+
     // Revalidate the linked finding immediately before recording an outcome so the response remains attached to the current security context.
     if (action.finding_id) {
       const { data: finding, error: findingError } = await supabase
@@ -264,13 +268,16 @@ export async function POST(request: Request) {
         );
       }
 
-      result.finding_snapshot = {
-        id: finding.id,
-        asset_id: finding.asset_id,
-        status: finding.status,
-        severity: finding.severity,
-        title: finding.title,
-        captured_at: new Date().toISOString(),
+      resultPayload = {
+        ...resultPayload,
+        finding_snapshot: {
+          id: finding.id,
+          asset_id: finding.asset_id,
+          status: finding.status,
+          severity: finding.severity,
+          title: finding.title,
+          captured_at: new Date().toISOString(),
+        },
       };
     }
 
@@ -282,12 +289,7 @@ export async function POST(request: Request) {
         p_executor_type: executorType,
         p_execution_reference: executionReference,
         p_evidence: evidence,
-        p_result: {
-          ...(body.result ?? {}),
-          execution_target: targetValidation.target,
-          target_scope_verified: true,
-          target_scope_source: "authorized_security_action",
-        },
+        p_result: resultPayload,
       },
     );
 
