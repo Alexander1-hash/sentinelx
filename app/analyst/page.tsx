@@ -1,8 +1,20 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, BrainCircuit, Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
+
+type InvestigationContext = {
+  affectedAsset: { id: string; name: string; asset_type: string; status: string } | null;
+  blastRadius: Array<{
+    asset: { id: string; name: string; asset_type: string; status: string };
+    hops: number;
+    confidence: number;
+    chain: string[];
+  }>;
+  supportingEvidence: Array<{ id: string; title: string; source: string; observedAt: string; summary: string | null }>;
+  unknowns: string[];
+};
 
 type AnalystResponse = {
   answer: string;
@@ -24,6 +36,7 @@ type AnalystResponse = {
   }>;
   suggestedNextStep: string;
   boundary: string;
+  investigation?: InvestigationContext;
   patternsReviewed?: number;
   securityPatterns?: Array<{ pattern: string; title: string; detail: string; confidence: string; firstObserved: string; lastObserved: string; sequence?: string[] }>;
 };
@@ -35,9 +48,7 @@ export default function AnalystPage() {
   const [message, setMessage] = useState("");
   const [investigating, setInvestigating] = useState(false);
 
-  async function investigateFinding() {
-    if (!response?.topFinding) return;
-
+  async function investigateFindingById(findingId: string) {
     setInvestigating(true);
     setMessage("");
 
@@ -45,10 +56,7 @@ export default function AnalystPage() {
       const result = await fetch("/api/security/analyst", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          findingId: response.topFinding.id,
-          mode: "investigate",
-        }),
+        body: JSON.stringify({ findingId, mode: "investigate" }),
       });
       const data = await result.json();
 
@@ -64,6 +72,16 @@ export default function AnalystPage() {
       setInvestigating(false);
     }
   }
+
+  async function investigateFinding() {
+    if (!response?.topFinding) return;
+    await investigateFindingById(response.topFinding.id);
+  }
+
+  useEffect(() => {
+    const findingId = new URLSearchParams(window.location.search).get("findingId");
+    if (findingId) void investigateFindingById(findingId);
+  }, []);
 
   async function ask(event: FormEvent) {
     event.preventDefault();
