@@ -133,7 +133,7 @@ export default function AssetsPage() {
   return (
     <main className="min-h-screen bg-[#071018] text-slate-100">
       <header className="border-b border-white/10 bg-[#071018]/95">
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between px-4 py-4 sm:px-6">
+        <div className="mx-auto flex max-w-[1200px] flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
               <ShieldCheck className="h-5 w-5" />
@@ -238,7 +238,7 @@ export default function AssetsPage() {
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center">
-          <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-[#0b151f] p-6 shadow-2xl">
+          <div className="w-full max-w-lg max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-3xl border border-white/10 bg-[#0b151f] p-6 shadow-2xl">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-white">Add protected surface</h2>
