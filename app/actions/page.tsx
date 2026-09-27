@@ -416,6 +416,21 @@ export default function SecurityActionsPage() {
                     {String(action.result.message ?? "Awaiting operator decision.")}
                   </p>
 
+                  {(action.status === "completed" || action.status === "failed") && action.finding_id && (
+                    <div className="mt-4 rounded-xl border border-emerald-400/10 bg-emerald-400/[0.025] p-3">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-emerald-200">Verify and learn</p>
+                      <p className="mt-1 text-[9px] leading-4 text-slate-500">
+                        This outcome is recorded in Security Brain memory. Re-open the linked finding in Analyst to compare the recorded response with current evidence.
+                      </p>
+                      <Link
+                        href={"/analyst?findingId=" + encodeURIComponent(action.finding_id)}
+                        className="mt-3 inline-flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-[10px] font-semibold text-emerald-200"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" /> Verify in Security Analyst
+                      </Link>
+                    </div>
+                  )}
+
                   {action.status === "approved" && (
                     <div className="mt-3 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3">
                       <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-200">Executor readiness</p>
