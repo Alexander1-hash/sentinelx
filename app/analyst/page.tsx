@@ -43,7 +43,7 @@ type AnalystResponse = {
     priorInvestigations: Array<{ occurred_at: string; title: string; summary: string; blast_radius_count: number | null; supporting_evidence_count: number | null }>;
     operatorDecisions: Array<{ occurred_at: string; title: string; summary: string; state: string; action_id: string | null; action_type: string | null; authorization_state: string | null }>;
     responseOutcomes: Array<{ occurred_at: string; title: string; summary: string; state: string; action_id: string | null; action_type: string | null; executor_type: string | null; execution_reference: string | null; evidence: Array<{ type?: string; source?: string; summary?: string; reference?: string }> }>;
-    responseLearning?: Array<{ occurred_at: string; action_type: string | null; state: string; evidence_count: number; summary: string }>;
+    responseLearning?: Array<{ occurred_at: string; action_type: string | null; state: string; evidence_count: number; summary: string; matchContext: string }>;
   };
 };
 
@@ -346,9 +346,14 @@ export default function AnalystPage() {
                         <p className="text-xs font-medium text-white">
                           {item.action_type ? item.action_type.replaceAll("_", " ") : "Recorded response"}
                         </p>
-                        <span className="rounded-full bg-violet-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-violet-200">
-                          {item.state}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="rounded-full bg-violet-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-violet-200">
+                            {item.state}
+                          </span>
+                          <span className="rounded-full bg-white/5 px-2 py-1 text-[8px] uppercase tracking-wider text-slate-500">
+                            {item.matchContext}
+                          </span>
+                        </div>
                       </div>
                       <p className="mt-2 text-[10px] leading-5 text-slate-500">{item.summary}</p>
                       <p className="mt-2 text-[9px] text-slate-600">
