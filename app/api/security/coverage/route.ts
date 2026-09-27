@@ -8,7 +8,7 @@ export async function GET() {
   const { data: profile } = await supabase.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
   if (!profile?.organization_id) return NextResponse.json({ configured: false, surfaces: [] });
   const org = profile.organization_id;
-  const types = ["Website","Domain","Cloud","Identity","Business software","Database","AI system","AI agent"];
+  const types = ["website","domain","cloud","identity","endpoint","email","business_software","database","ai_system","ai_agent","api","other"];
   const { data, error } = await supabase.from("security_assets").select("asset_type,status,last_seen_at").eq("organization_id", org);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const rows = data ?? [];
@@ -16,5 +16,5 @@ export async function GET() {
     const assets = rows.filter(a => a.asset_type === type);
     return { surface: type, registered: assets.length, telemetryConnected: assets.filter(a => a.last_seen_at).length, awaitingTelemetry: assets.filter(a => !a.last_seen_at).length };
   });
-  return NextResponse.json({ configured: true, surfaces, boundary: "Coverage measures registered assets and observed telemetry timestamps only." });
+  return NextResponse.json({ configured: true, surfaces: surfaces.map((item) => ({ ...item, surface: item.surface.replaceAll("_", " ") })), boundary: "Coverage measures registered assets and observed telemetry timestamps only." });
 }
