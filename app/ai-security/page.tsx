@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   Bot,
@@ -412,14 +413,30 @@ export default function AiSecurityCenterPage() {
                     <p className="mt-1 text-[10px] leading-5 text-slate-400">{finding.remediation || "Review supporting evidence before selecting an authorized response."}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => void loadFindingIntelligence(finding.id)}
-                  disabled={intelLoadingId === finding.id}
-                  className="mt-3 inline-flex items-center gap-2 rounded-xl border border-purple-400/15 bg-purple-400/[0.04] px-3 py-2 text-[10px] font-semibold text-purple-200 disabled:opacity-50"
-                >
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => void loadFindingIntelligence(finding.id)}
+                    disabled={intelLoadingId === finding.id}
+                    className="inline-flex items-center gap-2 rounded-xl border border-purple-400/15 bg-purple-400/[0.04] px-3 py-2 text-[10px] font-semibold text-purple-200 disabled:opacity-50"
+                  >
+                    {intelLoadingId === finding.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Network className="h-3 w-3" />}
+                    {intelLoadingId === finding.id ? "Mapping blast radius…" : expandedFindingId === finding.id ? "Hide finding intelligence" : "Map blast radius & evidence"}
+                  </button>
+                  <Link
+                    href={"/analyst?findingId=" + encodeURIComponent(finding.id)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] px-3 py-2 text-[10px] font-semibold text-cyan-200 hover:bg-cyan-400/[0.08]"
+                  >
+                    <BrainCircuit className="h-3 w-3" /> Investigate in Analyst
+                  </Link>
+                  <Link
+                    href={"/actions?findingId=" + encodeURIComponent(finding.id)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-amber-400/15 bg-amber-400/[0.04] px-3 py-2 text-[10px] font-semibold text-amber-200 hover:bg-amber-400/[0.08]"
+                  >
+                    <ShieldCheck className="h-3 w-3" /> Review response options
+                  </Link>
+                </div>
                   {intelLoadingId === finding.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Network className="h-3 w-3" />}
-                  {intelLoadingId === finding.id ? "Mapping blast radius…" : expandedFindingId === finding.id ? "Hide finding intelligence" : "Map blast radius & evidence"}
-                </button>
+
                 {expandedFindingId === finding.id && intel && (
                   <div className="mt-3 space-y-3 rounded-2xl border border-purple-400/10 bg-purple-400/[0.025] p-4">
                     <div className="grid gap-2 sm:grid-cols-2">
