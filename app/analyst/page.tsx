@@ -467,6 +467,10 @@ export default function AnalystPage() {
                 <div className="mt-4 space-y-3">
                   {verificationChanges.map((change) => (
                     <div key={change.id} className="rounded-2xl border border-white/10 p-4">
+                      <div className="mb-3 flex flex-wrap items-center gap-2 text-[8px] uppercase tracking-wider text-slate-600">
+                        <span className="rounded-full border border-white/10 bg-black/10 px-2 py-1">Evidence after response</span>
+                        <span className="rounded-full border border-white/10 bg-black/10 px-2 py-1">Current finding context</span>
+                      </div>
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-sm font-medium text-white">{change.title.replace("Response verification: ", "")}</p>
                         <span className={
