@@ -61,3 +61,12 @@ a {
 @media (max-width: 639px) {
   button, a { min-height: 40px; }
 }
+
+@media (max-width: 1023px) {
+  body { padding-bottom: 5.5rem; }
+}
+
+/* Keep interactive controls readable and comfortable on touch devices. */
+@media (max-width: 639px) {
+  input, select, textarea { font-size: 16px; }
+}
