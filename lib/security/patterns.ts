@@ -26,6 +26,8 @@ export type SecurityPattern = {
   lastObserved: string;
   boundary: string;
   sequence?: string[];
+  actionType?: string;
+  outcomeState?: string;
 };
 
 const str = (value: unknown) =>
@@ -346,6 +348,8 @@ export function buildSecurityPatterns(memories: SecurityPatternMemory[]): Securi
       firstObserved: ordered[0].occurred_at,
       lastObserved: ordered[ordered.length - 1].occurred_at,
       boundary: "Repeated executor outcomes describe historical response activity only. They do not establish that the same response will work now or that the current security condition is resolved.",
+      actionType,
+      outcomeState,
     });
   }
 
