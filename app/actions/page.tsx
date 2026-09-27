@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Clock3, Loader2, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
 
@@ -37,6 +38,10 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 export default function SecurityActionsPage() {
+  const searchParams = useSearchParams();
+  const linkedFindingId = searchParams.get("findingId") ?? "";
+  const [createType, setCreateType] = useState("review_finding");
+  const [creating, setCreating] = useState(false);
   const [actions, setActions] = useState<Action[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
@@ -54,6 +59,34 @@ export default function SecurityActionsPage() {
     preview?: { steps?: string[]; requiredIntegrationTypes?: string[] };
   }>>({});
   const [readinessLoading, setReadinessLoading] = useState(true);
+
+  async function createAction() {
+    if (!linkedFindingId) return;
+    setCreating(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/security/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          actionType: createType,
+          findingId: linkedFindingId,
+          reason: "Created from Security Analyst investigation context.",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error ?? "Unable to create the security action.");
+        return;
+      }
+      setMessage(data.message ?? "Security action created for operator review.");
+      await loadActions();
+    } catch {
+      setMessage("Unable to create the security action.");
+    } finally {
+      setCreating(false);
+    }
+  }
 
   async function loadActions() {
     setLoading(true);
@@ -210,6 +243,39 @@ export default function SecurityActionsPage() {
           <Stat label="Completed" value={completed.length} />
           <Stat label="Cancelled" value={cancelled.length} />
         </div>
+
+        {linkedFindingId && (
+          <section className="mt-6 rounded-3xl border border-cyan-400/10 bg-cyan-400/[0.025] p-5 sm:p-6">
+            <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Investigation → decision</p>
+            <h2 className="mt-1 text-lg font-semibold text-white">Continue with this finding</h2>
+            <p className="mt-2 max-w-2xl text-[11px] leading-5 text-slate-500">
+              Create a controlled, pending action from the finding investigated in Security Analyst. Nothing executes automatically; every action remains subject to target validation and explicit operator authorization.
+            </p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <select
+                value={createType}
+                onChange={(event) => setCreateType(event.target.value)}
+                className="rounded-xl border border-white/10 bg-[#071018] px-3 py-3 text-xs text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/30"
+              >
+                {Object.entries(ACTION_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={creating}
+                onClick={() => void createAction()}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-xs font-semibold text-slate-950 disabled:opacity-50"
+              >
+                {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldAlert className="h-4 w-4" />}
+                {creating ? "Creating…" : "Create pending action"}
+              </button>
+            </div>
+            <p className="mt-3 text-[9px] leading-4 text-slate-600">
+              Start with the least-committal option when you only want to preserve the investigation for review. Mutating actions still require a deterministic target, provider readiness, and explicit authorization.
+            </p>
+          </section>
+        )}
 
         {message && (
           <div className="mt-5 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.03] p-4 text-sm text-cyan-200">
