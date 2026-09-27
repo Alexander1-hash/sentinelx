@@ -327,6 +327,8 @@ export async function POST(request: Request) {
           lastObserved: pattern.lastObserved,
           memoryIds: pattern.memoryIds,
           sequence: pattern.sequence ?? null,
+          actionType: pattern.actionType ?? null,
+          outcomeState: pattern.outcomeState ?? null,
           boundary: pattern.boundary,
         }));
 
