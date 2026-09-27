@@ -264,14 +264,14 @@ export default function AiSecurityCenterPage() {
   return (
     <main className="min-h-screen bg-[#071018] text-slate-100">
       <header className="sticky top-0 z-50 border-b border-white/10 bg-[#071018]/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1500px] items-center justify-between px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-[1500px] flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div><p className="text-sm font-semibold text-white">SentinelX</p><p className="text-[11px] text-slate-500">AI Security Center</p></div>
           </div>
-          <a href="/" className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-400 hover:bg-white/5 hover:text-white">Command Center</a>
+          <a href="/" className="inline-flex w-fit items-center rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-400 hover:bg-white/5 hover:text-white">Command Center</a>
         </div>
       </header>
 
