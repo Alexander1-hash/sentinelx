@@ -89,7 +89,7 @@ export async function GET() {
         .limit(100),
       supabase
         .from("security_actions")
-        .select("id,finding_id,action_type,status,result,created_at")
+        .select("id,finding_id,action_type,status,result,created_at,executed_at")
         .eq("organization_id", profile.organization_id)
         .order("created_at", { ascending: false })
         .limit(100),
@@ -227,9 +227,66 @@ export async function GET() {
           kind: "decision",
           title: `Action changed: ${action.action_type}`,
           detail: `Operator action is now ${action.status}.`,
-          observedAt: action.created_at,
+          observedAt: action.executed_at ?? action.created_at,
           state: "changed",
           href: "/actions",
+        });
+      }
+
+      // Post-response verification: when an action has an explicit execution
+      // timestamp and linked finding, compare current evidence observed after
+      // execution. This surfaces a grounded verification signal without
+      // declaring remediation or resolution from silence.
+      if (
+        action.finding_id &&
+        action.executed_at &&
+        ["completed", "failed"].includes(action.status)
+      ) {
+        const postResponseEvidence = (evidenceResult.data ?? []).filter((evidence) => {
+          if (!evidence.observed_at) return false;
+          return new Date(evidence.observed_at).getTime() >= new Date(action.executed_at).getTime();
+        });
+
+        const linkedEvidence = postResponseEvidence.filter((evidence) => {
+          const targetAssetId =
+            typeof action.result?.execution_target === "object" &&
+            action.result.execution_target !== null &&
+            typeof (action.result.execution_target as Record<string, unknown>).assetId === "string"
+              ? String((action.result.execution_target as Record<string, unknown>).assetId)
+              : null;
+
+          return (
+            evidence.asset_id === targetAssetId ||
+            (typeof action.result?.execution_target === "object" &&
+              action.result.execution_target !== null &&
+              typeof (action.result.execution_target as Record<string, unknown>).resourceId === "string" &&
+              evidence.asset_id === String((action.result.execution_target as Record<string, unknown>).resourceId))
+          );
+        });
+
+        const evidenceCount = linkedEvidence.length;
+        const verificationState =
+          action.status === "failed"
+            ? "uncertain"
+            : evidenceCount > 0
+              ? "observed"
+              : "awaiting_evidence";
+
+        changes.push({
+          id: `verification-${action.id}`,
+          kind: "verification",
+          title: `Response verification: ${action.action_type}`,
+          detail:
+            verificationState === "observed"
+              ? `${evidenceCount} evidence record(s) were observed at or after the recorded response execution.`
+              : verificationState === "uncertain"
+                ? "The recorded response failed; current security state still requires independent evidence."
+                : "The response was recorded, but no post-response evidence is available yet.",
+          observedAt: action.executed_at,
+          state: "changed",
+          href: action.finding_id
+            ? `/analyst?findingId=${encodeURIComponent(action.finding_id)}`
+            : "/analyst",
         });
       }
     }
