@@ -105,7 +105,6 @@ async function collectAnalysisContext(supabase: Awaited<ReturnType<typeof create
       .from("security_findings")
       .select("id,title,finding_type,severity,status,evidence")
       .eq("organization_id", organizationId)
-      .in("status", ["open", "acknowledged"])
       .limit(500),
     supabase
       .from("security_assets")
@@ -127,12 +126,16 @@ async function collectAnalysisContext(supabase: Awaited<ReturnType<typeof create
   const error = eventsResult.error ?? aiEventsResult.error ?? evidenceResult.error ?? relationshipsResult.error ?? findingsResult.error ?? assetsResult.error ?? agentsResult.error ?? systemsResult.error;
   if (error) throw new Error(error.message);
 
+  const allFindings = findingsResult.data ?? [];
+  const openFindings = allFindings.filter((finding) => finding.status === "open" || finding.status === "acknowledged");
+
   return {
     events: (eventsResult.data ?? []) as SecurityEvent[],
     aiEvents: (aiEventsResult.data ?? []) as AiSecurityEvent[],
     evidence: (evidenceResult.data ?? []) as EvidenceRecord[],
     relationships: relationshipsResult.data ?? [],
-    openFindings: findingsResult.data ?? [],
+    openFindings,
+    allFindings,
     assets: (assetsResult.data ?? []) as AssetRecord[],
     agents: (agentsResult.data ?? []) as AiAgentRecord[],
     systems: (systemsResult.data ?? []) as AiSystemRecord[],
@@ -244,7 +247,7 @@ export async function POST() {
       });
 
     const existingKeys = new Set(
-      context.openFindings.flatMap((finding) => {
+      context.allFindings.flatMap((finding) => {
         const evidence = finding.evidence as Record<string, unknown> | null;
         const keys: string[] = [];
         if (typeof evidence?.source_event_id === "string") keys.push(evidence.source_event_id);
