@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, Boxes, BrainCircuit, Radar, ShieldAlert } from "lucide-react";
+import { Bot, Boxes, BrainCircuit, History, Link2, MoreHorizontal, Radar, ShieldAlert, X } from "lucide-react";
 
 const items = [
   { label: "Command", href: "/", icon: Radar },
@@ -14,7 +15,14 @@ const items = [
 
 export default function MobileNavigation() {
   const pathname = usePathname();
+  const [moreOpen, setMoreOpen] = useState(false);
   if (pathname === "/login" || pathname.startsWith("/auth")) return null;
+
+  const moreItems = [
+    { label: "Security Analyst", href: "/analyst", icon: BrainCircuit },
+    { label: "Integrations", href: "/integrations", icon: Link2 },
+    { label: "Security History", href: "/history", icon: History },
+  ];
 
   return (
     <nav aria-label="Primary navigation" className="fixed inset-x-3 bottom-3 z-[70] grid grid-cols-5 gap-1 rounded-2xl border border-white/10 bg-[#0b151f] p-1.5 shadow-2xl shadow-black/40 lg:hidden">
@@ -27,6 +35,16 @@ export default function MobileNavigation() {
           </Link>
         );
       })}
+      <button
+        type="button"
+        aria-label="More security tools"
+        aria-expanded={moreOpen}
+        onClick={() => setMoreOpen((open) => !open)}
+        className={"flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[9px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60 " + (moreOpen ? "bg-cyan-400/10 text-cyan-200" : "text-slate-400 hover:bg-white/5 hover:text-white")}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+        <span>More</span>
+      </button>
     </nav>
   );
 }
