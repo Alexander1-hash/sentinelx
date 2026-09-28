@@ -390,10 +390,14 @@ export async function runSecurityAnalysis(
 
     const uniqueCandidates = Array.from(
       new Map(
-        candidates.map((candidate) => [
-          `${candidate.findingType}:${candidate.sourceEventId}:${candidate.assetId ?? "none"}`,
-          candidate,
-        ])
+        candidates.map((candidate) => {
+          const candidateKey =
+            "correlationKey" in candidate && typeof candidate.correlationKey === "string"
+              ? candidate.correlationKey
+              : `${candidate.findingType}:${candidate.sourceEventId}:${candidate.assetId ?? "none"}`;
+
+          return [candidateKey, candidate] as const;
+        })
       ).values()
     );
 
