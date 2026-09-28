@@ -124,6 +124,7 @@ export async function POST(request: Request) {
       .from("security_evidence")
       .select("id,asset_id,evidence_type,source,title,summary,data,observed_at,created_at")
       .eq("organization_id", integration.organization_id)
+      .eq("evidence_type", evidenceType)
       .eq("source", source)
       .eq("title", title)
       .order("observed_at", { ascending: false })
@@ -160,13 +161,18 @@ export async function POST(request: Request) {
         .join("");
     }
 
+    const fingerprintData = {
+      ...(data as Record<string, unknown>),
+      ...(securityState ? { security_state: securityState } : {}),
+    };
+
     const currentFingerprint = await fingerprintEvidence({
       asset_id: assetId,
       evidence_type: evidenceType,
       source,
       title,
       summary,
-      data,
+      data: fingerprintData,
     });
 
     const previous = previousEvidence?.[0] ?? null;
