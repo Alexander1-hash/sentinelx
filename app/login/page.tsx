@@ -69,7 +69,7 @@ export default function LoginPage() {
             </div>
 
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              Welcome to SentinelX
+              Welcome to Trinorin
             </h1>
 
             <p className="mt-2 text-sm text-slate-400">
@@ -153,7 +153,7 @@ export default function LoginPage() {
 
             <div className="mt-6 border-t border-slate-800 pt-6 text-center">
               <p className="text-sm text-slate-500">
-                Don&apos;t have a SentinelX account?{" "}
+                Don&apos;t have a Trinorin account?{" "}
                 <Link
                   href="/signup"
                   className="font-medium text-white hover:underline"
@@ -165,7 +165,7 @@ export default function LoginPage() {
           </div>
 
           <p className="mt-6 text-center text-xs text-slate-600">
-            SentinelX Security Intelligence
+            Trinorin Security Intelligence
           </p>
         </div>
       </div>
