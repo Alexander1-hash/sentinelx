@@ -386,7 +386,7 @@ export async function POST(request: Request) {
         typeof relationship.confidence === "number" ? relationship.confidence : 0.5;
       const reason =
         typeof relationship.reason === "string"
-          ? relationship.reason
+          ? relationship.reason.trim().slice(0, 1000)
           : "Observed relationship supplied by an authorized telemetry source.";
 
       if (
@@ -437,10 +437,10 @@ export async function POST(request: Request) {
         .upsert(
           {
             organization_id: integration.organization_id,
-            source_asset_id: sourceAssetId,
-            target_asset_id: targetAssetId,
-            relationship_type: relationshipType,
-            confidence,
+            source_asset_id: relationship.sourceAssetId,
+            target_asset_id: relationship.targetAssetId,
+            relationship_type: relationship.relationshipType,
+            confidence: relationship.confidence,
             status: "proposed",
             evidence_source: source,
             discovered_at: new Date().toISOString(),
