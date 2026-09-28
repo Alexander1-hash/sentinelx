@@ -240,6 +240,23 @@ export async function runSecurityAnalysis(
       evidence_source: string;
     }>;
 
+    // Index confirmed graph edges once so each severe AI event can traverse
+    // the same graph without repeatedly scanning the full relationship set.
+    const relationshipsBySource = new Map<string, typeof confirmedRelationships>();
+    for (const relationship of confirmedRelationships) {
+      const existing = relationshipsBySource.get(relationship.source_asset_id) ?? [];
+      existing.push(relationship);
+      relationshipsBySource.set(relationship.source_asset_id, existing);
+    }
+
+    const evidenceByAsset = new Map<string, EvidenceRecord[]>();
+    for (const item of context.evidence) {
+      if (!item.asset_id) continue;
+      const existing = evidenceByAsset.get(item.asset_id) ?? [];
+      existing.push(item);
+      evidenceByAsset.set(item.asset_id, existing);
+    }
+
     const correlatedCandidates = context.aiEvents
       .filter((event) => severeLevels.has(event.severity) && event.agent_id)
       .flatMap((event) => {
@@ -248,34 +265,41 @@ export async function runSecurityAnalysis(
         const systemAssetId = system?.asset_id ?? null;
         if (!agent || !systemAssetId) return [];
 
-        const agentCalls = confirmedRelationships.filter(
-          (relationship) =>
-            relationship.source_asset_id === systemAssetId &&
-            relationship.relationship_type === "calls"
+        const agentCalls = (relationshipsBySource.get(systemAssetId) ?? []).filter(
+          (relationship) => relationship.relationship_type === "calls"
         );
 
         const paths = agentCalls.flatMap((agentCall) =>
-          confirmedRelationships
+          (relationshipsBySource.get(agentCall.target_asset_id) ?? [])
             .filter(
               (relationship) =>
-                relationship.source_asset_id === agentCall.target_asset_id &&
-                (relationship.relationship_type === "reads_from" || relationship.relationship_type === "writes_to")
+                relationship.relationship_type === "reads_from" ||
+                relationship.relationship_type === "writes_to"
             )
             .map((dataEdge) => ({ agentCall, dataEdge }))
         );
 
         if (!paths.length) return [];
 
-        const dataAssets = paths
-          .map(({ dataEdge }) => assetMap.get(dataEdge.target_asset_id))
-          .filter((asset): asset is AssetRecord => Boolean(asset));
+        const dataAssetIds = new Set(
+          paths
+            .map(({ dataEdge }) => dataEdge.target_asset_id)
+            .filter((assetId) => assetMap.has(assetId))
+        );
 
-        const sensitiveEvidence = context.evidence.filter((item) => {
-          const severity = item.data?.severity;
-          const classification = item.data?.data_classification;
-          return dataAssets.some((asset) => asset.id === item.asset_id) &&
-            (severity === "high" || severity === "critical" || classification === "confidential" || classification === "restricted");
-        });
+        const sensitiveEvidence = Array.from(dataAssetIds).flatMap(
+          (assetId) =>
+            (evidenceByAsset.get(assetId) ?? []).filter((item) => {
+              const severity = item.data?.severity;
+              const classification = item.data?.data_classification;
+              return (
+                severity === "high" ||
+                severity === "critical" ||
+                classification === "confidential" ||
+                classification === "restricted"
+              );
+            })
+        );
 
         const pathKey = paths
           .map(({ agentCall, dataEdge }) => agentCall.target_asset_id + ":" + dataEdge.target_asset_id + ":" + dataEdge.relationship_type)
