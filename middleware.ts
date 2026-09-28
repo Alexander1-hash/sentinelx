@@ -1,21 +1,40 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+function copySupabaseResponseCookies(
+  source: NextResponse,
+  target: NextResponse
+) {
+  for (const cookie of source.cookies.getAll()) {
+    target.cookies.set(cookie);
+  }
+
+  for (const header of ["cache-control", "expires", "pragma"]) {
+    const value = source.headers.get(header);
+
+    if (value) {
+      target.headers.set(header, value);
+    }
+  }
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request,
   });
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabasePublishableKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !supabasePublishableKey) {
     return response;
   }
 
   const supabase = createServerClient(
     supabaseUrl,
-    supabaseAnonKey,
+    supabasePublishableKey,
     {
       cookies: {
         getAll() {
@@ -40,9 +59,10 @@ export async function middleware(request: NextRequest) {
   );
 
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { claims },
+  } = await supabase.auth.getClaims();
 
+  const user = claims ? { id: claims.sub } : null;
   const pathname = request.nextUrl.pathname;
 
   const isAuthRoute =
@@ -58,7 +78,10 @@ export async function middleware(request: NextRequest) {
     loginUrl.pathname = "/login";
     loginUrl.search = "";
 
-    return NextResponse.redirect(loginUrl);
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    copySupabaseResponseCookies(response, redirectResponse);
+
+    return redirectResponse;
   }
 
   if (user && (pathname === "/login" || pathname === "/signup")) {
@@ -67,13 +90,25 @@ export async function middleware(request: NextRequest) {
     dashboardUrl.pathname = "/";
     dashboardUrl.search = "";
 
-    return NextResponse.redirect(dashboardUrl);
+    const redirectResponse = NextResponse.redirect(dashboardUrl);
+    copySupabaseResponseCookies(response, redirectResponse);
+
+    return redirectResponse;
   }
 
   response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  response.headers.set(
+    "X-Frame-Options",
+    "DENY"
+  );
+  response.headers.set(
+    "Referrer-Policy",
+    "strict-origin-when-cross-origin"
+  );
+  response.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=()"
+  );
   response.headers.set("X-DNS-Prefetch-Control", "off");
 
   return response;
