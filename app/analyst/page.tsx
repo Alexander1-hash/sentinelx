@@ -61,6 +61,13 @@ type AnalystResponse = {
     operatorDecisions: Array<{ occurred_at: string; title: string; summary: string; state: string; action_id: string | null; action_type: string | null; authorization_state: string | null }>;
     responseOutcomes: Array<{ occurred_at: string; title: string; summary: string; state: string; action_id: string | null; action_type: string | null; executor_type: string | null; execution_reference: string | null; evidence: Array<{ type?: string; source?: string; summary?: string; reference?: string }> }>;
     responseLearning?: Array<{ occurred_at: string; action_type: string | null; state: string; evidence_count: number; summary: string; matchContext: string }>;
+    priorFindingStates: Array<{
+      occurred_at: string;
+      title: string;
+      summary: string;
+      previous_state: string | null;
+      current_state: string | null;
+    }>;
   };
 };
 
@@ -612,6 +619,84 @@ export default function AnalystPage() {
                 Checking post-response evidence…
               </section>
             ) : null}
+
+            {response.historicalContext && (response.historicalContext.priorFindingStates.length > 0 || response.historicalContext.priorInvestigations.length > 0) && (
+              <section className="rounded-3xl border border-orange-400/10 bg-orange-400/[0.025] p-5 sm:p-6">
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-orange-200">Recurrence context</p>
+                  <h2 className="mt-1 text-lg font-semibold text-white">What SentinelX has seen before</h2>
+                  <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                    Historical recurrence is shown alongside recorded response outcomes where available. It is context for the next decision, not proof that the same condition or response applies now.
+                  </p>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">State changes</p>
+                    <p className="mt-2 text-2xl font-semibold text-white">{response.historicalContext.priorFindingStates.length}</p>
+                    <p className="mt-1 text-[10px] text-slate-600">Recorded historical finding-state transitions.</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Investigations</p>
+                    <p className="mt-2 text-2xl font-semibold text-white">{response.historicalContext.priorInvestigations.length}</p>
+                    <p className="mt-1 text-[10px] text-slate-600">Previously recorded investigations.</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Response outcomes</p>
+                    <p className="mt-2 text-2xl font-semibold text-white">{response.historicalContext.responseOutcomes.length}</p>
+                    <p className="mt-1 text-[10px] text-slate-600">Recorded executor outcomes connected to this context.</p>
+                  </div>
+                </div>
+
+                {response.historicalContext.priorFindingStates.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {response.historicalContext.priorFindingStates.slice(0, 5).map((item, index) => (
+                      <div key={item.occurred_at + item.title + index} className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-xs font-medium text-white">{item.title}</p>
+                            <p className="mt-1 text-[9px] uppercase tracking-wider text-slate-600">Historical state transition</p>
+                          </div>
+                          <time className="text-[9px] text-slate-600">{new Date(item.occurred_at).toLocaleString()}</time>
+                        </div>
+                        <p className="mt-2 text-[10px] leading-5 text-slate-500">{item.summary}</p>
+                        {(item.previous_state || item.current_state) && (
+                          <div className="mt-3 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-wider">
+                            {item.previous_state && <span className="rounded-full bg-white/5 px-2 py-1 text-slate-500">{String(item.previous_state)}</span>}
+                            {item.previous_state && item.current_state && <span className="text-orange-300">→</span>}
+                            {item.current_state && <span className="rounded-full bg-orange-400/10 px-2 py-1 text-orange-200">{String(item.current_state)}</span>}
+                          </div>
+                        )}
+
+                        {response.historicalContext.responseOutcomes.length > 0 && (
+                          <div className="mt-4 rounded-xl border border-white/10 p-3">
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Recorded response context</p>
+                            <div className="mt-2 space-y-2">
+                              {response.historicalContext.responseOutcomes.slice(0, 2).map((outcome, outcomeIndex) => (
+                                <div key={(outcome.action_id ?? "outcome") + outcome.occurred_at + outcomeIndex} className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
+                                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                    <p className="text-[10px] font-medium text-slate-300">{outcome.title}</p>
+                                    <span className="text-[8px] uppercase tracking-wider text-slate-600">{outcome.state}</span>
+                                  </div>
+                                  <p className="mt-1 text-[9px] leading-4 text-slate-600">
+                                    {outcome.action_type?.replaceAll("_", " ") ?? "response"} · {outcome.executor_type ?? "recorded executor"} · {outcome.evidence.length} evidence record{outcome.evidence.length === 1 ? "" : "s"}
+                                  </p>
+                                  <p className="mt-1 text-[9px] leading-4 text-slate-600">{outcome.summary}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="mt-4 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3 text-[9px] leading-4 text-slate-600">
+                  SentinelX does not infer that a historical response caused a current condition, nor that a previously used action will work again. Current decisions remain grounded in current evidence and explicit authorization.
+                </p>
+              </section>
+            )}
 
             {response.historicalContext?.responseOutcomes?.length ? (
               <section className="rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.025] p-5 sm:p-6">
