@@ -82,7 +82,12 @@ export async function POST(request: Request) {
     const title = typeof payload.title === "string" ? payload.title.trim() : "";
     const summary = typeof payload.summary === "string" ? payload.summary.trim() : null;
     const assetId = typeof payload.assetId === "string" ? payload.assetId : null;
-    const observedAt = typeof payload.observedAt === "string" ? payload.observedAt : null;
+    const rawObservedAt = typeof payload.observedAt === "string" ? payload.observedAt.trim() : null;
+    const parsedObservedAt = rawObservedAt ? new Date(rawObservedAt) : null;
+    if (rawObservedAt && Number.isNaN(parsedObservedAt?.getTime())) {
+      return NextResponse.json({ error: "observedAt must be a valid ISO-8601 timestamp." }, { status: 400 });
+    }
+    const observedAt = parsedObservedAt ? parsedObservedAt.toISOString() : null;
     const data =
       payload.data && typeof payload.data === "object" && !Array.isArray(payload.data)
         ? payload.data
