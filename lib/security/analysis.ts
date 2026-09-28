@@ -152,6 +152,10 @@ export async function runSecurityAnalysis(
     const severeEvents = context.events.filter((event) => severeLevels.has(event.severity));
     const severeAiEvents = context.aiEvents.filter((event) => severeLevels.has(event.severity));
 
+    const assetMap = new Map(context.assets.map((asset) => [asset.id, asset]));
+    const agentMap = new Map(context.agents.map((agent) => [agent.id, agent]));
+    const systemMap = new Map(context.systems.map((system) => [system.id, system]));
+
     const explicitAiIndicatorCandidates = context.aiEvents
       .filter((event) => !severeLevels.has(event.severity))
       .flatMap((event) => {
@@ -197,7 +201,7 @@ export async function runSecurityAnalysis(
 
         return [{
           sourceEventId: event.id,
-          assetId: null,
+          assetId: event.system_id ? systemMap.get(event.system_id)?.asset_id ?? null : null,
           title: indicator.title,
           findingType: indicator.type,
           severity: event.severity,
@@ -225,10 +229,6 @@ export async function runSecurityAnalysis(
         return keys;
       })
     );
-
-    const assetMap = new Map(context.assets.map((asset) => [asset.id, asset]));
-    const agentMap = new Map(context.agents.map((agent) => [agent.id, agent]));
-    const systemMap = new Map(context.systems.map((system) => [system.id, system]));
 
     const confirmedRelationships = context.relationships as Array<{
       id: string;
