@@ -380,7 +380,13 @@ export async function runSecurityAnalysis(
           analysis_boundary: "observed_ai_event",
         },
       })),
-    ].filter((candidate) => !existingKeys.has(candidate.sourceEventId));
+    ].filter((candidate) => {
+      const candidateKey =
+        "correlationKey" in candidate && typeof candidate.correlationKey === "string"
+          ? candidate.correlationKey
+          : candidate.sourceEventId;
+      return !existingKeys.has(candidateKey);
+    });
 
     const uniqueCandidates = Array.from(
       new Map(
