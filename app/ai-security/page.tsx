@@ -270,7 +270,7 @@ export default function AiSecurityCenterPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
               <ShieldCheck className="h-5 w-5" />
             </div>
-            <div><p className="text-sm font-semibold text-white">SentinelX</p><p className="text-[11px] text-slate-500">AI Security Center</p></div>
+            <div><p className="text-sm font-semibold text-white">Trinorin</p><p className="text-[11px] text-slate-500">AI Security Center</p></div>
           </div>
           <a href="/" className="inline-flex w-fit items-center rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-slate-400 hover:bg-white/5 hover:text-white">Command Center</a>
         </div>
@@ -283,7 +283,7 @@ export default function AiSecurityCenterPage() {
             <div className="relative">
               <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-300"><Bot className="h-3.5 w-3.5" /> AI security layer</div>
               <h1 className="mt-5 max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-5xl">Understand what your AI can do.</h1>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">SentinelX treats AI systems and agents as first-class security assets. Inventory their providers, models, autonomy, tools, permissions and data access before reasoning about what their behavior means.</p>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">Trinorin treats AI systems and agents as first-class security assets. Inventory their providers, models, autonomy, tools, permissions and data access before reasoning about what their behavior means.</p>
               <div className="mt-7 flex flex-wrap gap-3">
                 <button onClick={() => setModal("system")} className="inline-flex items-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-200"><Plus className="h-4 w-4" /> Register AI system</button>
                 <button onClick={() => setModal("agent")} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white hover:bg-white/[0.08]"><Bot className="h-4 w-4" /> Register AI agent</button>
@@ -297,7 +297,7 @@ export default function AiSecurityCenterPage() {
           <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-6">
             <div className="flex items-center gap-2"><BrainCircuit className="h-4 w-4 text-cyan-300" /><p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Evidence boundary</p></div>
             <p className="mt-3 text-lg font-semibold text-white">No invented AI risk.</p>
-            <p className="mt-2 text-sm leading-6 text-slate-500">SentinelX will show observed indicators from registered records and telemetry. Missing telemetry is unknown — never proof that an AI system is safe.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Trinorin will show observed indicators from registered records and telemetry. Missing telemetry is unknown — never proof that an AI system is safe.</p>
           </div>
         </section>
 
@@ -376,7 +376,7 @@ export default function AiSecurityCenterPage() {
               <p className="text-xs font-semibold uppercase tracking-wider text-rose-300">06 · Security findings intelligence</p>
               <h2 className="mt-1 text-xl font-semibold text-white">Correlated findings, not isolated alerts</h2>
               <p className="mt-2 max-w-3xl text-xs leading-5 text-slate-500">
-                SentinelX converts observed high-impact events and explicit AI security indicators into reviewable findings. Confirmed graph context can enrich a finding, but an unverified relationship never becomes a finding.
+                Trinorin converts observed high-impact events and explicit AI security indicators into reviewable findings. Confirmed graph context can enrich a finding, but an unverified relationship never becomes a finding.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -513,7 +513,7 @@ export default function AiSecurityCenterPage() {
 
         <section className="mt-8 rounded-3xl border border-purple-400/10 bg-purple-400/[0.025] p-6 sm:p-7">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div><p className="text-xs font-semibold uppercase tracking-wider text-purple-300">07 · Attack-path intelligence</p><h2 className="mt-1 text-xl font-semibold text-white">AI-connected attack paths</h2><p className="mt-2 max-w-3xl text-xs leading-5 text-slate-500">SentinelX traces only confirmed graph relationships. A path shows exposure context between authorized assets; it does not establish compromise or attacker activity.</p></div>
+            <div><p className="text-xs font-semibold uppercase tracking-wider text-purple-300">07 · Attack-path intelligence</p><h2 className="mt-1 text-xl font-semibold text-white">AI-connected attack paths</h2><p className="mt-2 max-w-3xl text-xs leading-5 text-slate-500">Trinorin traces only confirmed graph relationships. A path shows exposure context between authorized assets; it does not establish compromise or attacker activity.</p></div>
             <button onClick={() => void loadAttackPaths()} disabled={pathsLoading} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-white disabled:opacity-50"><RefreshCw className={"h-3.5 w-3.5 " + (pathsLoading ? "animate-spin" : "")} /> Refresh paths</button>
           </div>
           <div className="mt-5 space-y-3">
@@ -545,7 +545,7 @@ export default function AiSecurityCenterPage() {
                 {Object.entries(posture.summary).map(([label, value]) => <div key={label} className="rounded-xl border border-white/10 p-3"><p className="text-[9px] uppercase tracking-wider text-slate-600">{label.replaceAll("_", " ")}</p><p className="mt-2 text-lg font-semibold text-white">{value}</p></div>)}
               </div>
               {posture.observations.length ? posture.observations.map((item, index) => <div key={item.title + index} className="rounded-2xl border border-white/10 bg-black/10 p-4"><div className="flex items-center justify-between gap-3"><p className="text-sm font-medium text-white">{item.title}</p><span className={"rounded-full border px-2 py-1 text-[9px] uppercase tracking-wider " + badgeTone(item.state)}>{item.state}</span></div><p className="mt-2 text-xs leading-5 text-slate-500">{item.detail}</p></div>) : <EmptyState text="No additional evidence-backed observations were produced." />}
-            </div> : <div className="mt-5 rounded-2xl border border-dashed border-white/10 p-5"><p className="text-sm font-medium text-slate-300">Run the analyzer when you want SentinelX to correlate registered AI configuration, telemetry, evidence, and confirmed graph relationships.</p><p className="mt-2 text-xs leading-5 text-slate-600">Potential observations require review. They are not proof of compromise or malicious behavior.</p></div>}
+            </div> : <div className="mt-5 rounded-2xl border border-dashed border-white/10 p-5"><p className="text-sm font-medium text-slate-300">Run the analyzer when you want Trinorin to correlate registered AI configuration, telemetry, evidence, and confirmed graph relationships.</p><p className="mt-2 text-xs leading-5 text-slate-600">Potential observations require review. They are not proof of compromise or malicious behavior.</p></div>}
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-6">
@@ -583,7 +583,7 @@ export default function AiSecurityCenterPage() {
         </section>
 
         <section className="mt-8 rounded-3xl border border-amber-400/10 bg-amber-400/[0.035] p-6">
-          <div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" /><div><h2 className="text-sm font-semibold text-white">Security boundary</h2><p className="mt-2 text-xs leading-5 text-slate-500">SentinelX can identify registered capabilities and observed AI events. It does not claim prompt injection, data leakage, malicious behavior, compromise, or unsafe tool use unless supporting telemetry or evidence is actually recorded. Response actions remain behind explicit authorization.</p></div></div>
+          <div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" /><div><h2 className="text-sm font-semibold text-white">Security boundary</h2><p className="mt-2 text-xs leading-5 text-slate-500">Trinorin can identify registered capabilities and observed AI events. It does not claim prompt injection, data leakage, malicious behavior, compromise, or unsafe tool use unless supporting telemetry or evidence is actually recorded. Response actions remain behind explicit authorization.</p></div></div>
         </section>
       </div>
 
