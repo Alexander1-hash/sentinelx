@@ -146,6 +146,7 @@ export default function DashboardPage() {
   const [attention, setAttention] = useState<SecurityAttention | null>(null);
   const [changes, setChanges] = useState<SecurityChanges | null>(null);
   const [patterns, setPatterns] = useState<SecurityPattern[]>([]);
+  const [lastSecurityRefresh, setLastSecurityRefresh] = useState<number | null>(null);
   const [analysisRunning, setAnalysisRunning] = useState(false);
   const [analysisMessage, setAnalysisMessage] = useState<string | null>(null);
   const [analysisFindings, setAnalysisFindings] = useState<Array<{ id: string; title: string; severity: string }>>([]);
@@ -198,6 +199,7 @@ export default function DashboardPage() {
           const patternsData = await patternsResponse.json();
           setPatterns(Array.isArray(patternsData.patterns) ? patternsData.patterns : []);
         }
+        setLastSecurityRefresh(Date.now());
       } finally {
         setOverviewLoading(false);
       }
@@ -238,6 +240,7 @@ export default function DashboardPage() {
           const patternsData = await patternsResponse.json();
           setPatterns(Array.isArray(patternsData.patterns) ? patternsData.patterns : []);
         }
+        setLastSecurityRefresh(Date.now());
       } catch {
         // The dashboard keeps its last verified state if a background refresh fails.
       }
@@ -554,7 +557,11 @@ export default function DashboardPage() {
             <div className="mt-6 space-y-4">
               {[
                 ["Identity", "Connected", true],
-                ["Security telemetry", "Awaiting sources", false],
+                [
+                  "Security telemetry",
+                  overview?.connected ? "Connected" : "Awaiting sources",
+                  Boolean(overview?.connected),
+                ],
                 ["Automated response", "Not armed", false],
               ].map(([label, value, ok]) => (
                 <div key={String(label)} className="flex items-center justify-between border-b border-white/5 pb-3 last:border-0">
@@ -570,6 +577,11 @@ export default function DashboardPage() {
               <p className="text-[11px] leading-5 text-slate-400">
                 SentinelX will not invent a security score or threat count. Metrics appear
                 only after verified telemetry is connected.
+              </p>
+              <p className="mt-2 text-[10px] text-slate-600">
+                {lastSecurityRefresh
+                  ? `Security state refreshed ${new Date(lastSecurityRefresh).toLocaleTimeString()}. Background refresh runs every 30 seconds.`
+                  : "Security state refresh is starting."}
               </p>
             </div>
           </div>
