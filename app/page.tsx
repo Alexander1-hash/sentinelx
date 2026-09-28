@@ -426,8 +426,30 @@ export default function DashboardPage() {
                       <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">{item.kind}</p>
                       <p className="mt-1 text-xs font-medium text-white">{item.title}</p>
                     </div>
-                    <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] uppercase tracking-wider ${item.kind === "verification" ? "bg-emerald-400/10 text-emerald-200" : item.state === "resolved" ? "bg-emerald-400/10 text-emerald-300" : item.state === "changed" ? "bg-amber-400/10 text-amber-300" : "bg-cyan-400/10 text-cyan-300"}`}>
-                      {item.kind === "verification" ? "verified signal" : item.state}
+                    <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] uppercase tracking-wider ${
+                      item.kind === "verification"
+                        ? item.verificationState === "improved"
+                          ? "bg-emerald-400/10 text-emerald-200"
+                          : item.verificationState === "observed"
+                            ? "bg-cyan-400/10 text-cyan-200"
+                            : item.verificationState === "uncertain"
+                              ? "bg-rose-400/10 text-rose-200"
+                              : "bg-amber-400/10 text-amber-200"
+                        : item.state === "resolved"
+                          ? "bg-emerald-400/10 text-emerald-300"
+                          : item.state === "changed"
+                            ? "bg-amber-400/10 text-amber-300"
+                            : "bg-cyan-400/10 text-cyan-300"
+                    }`}>
+                      {item.kind === "verification"
+                        ? item.verificationState === "improved"
+                          ? "improved"
+                          : item.verificationState === "observed"
+                            ? "observed"
+                            : item.verificationState === "uncertain"
+                              ? "uncertain"
+                              : "awaiting evidence"
+                        : item.state}
                     </span>
                   </div>
                   <p className="mt-2 text-[10px] leading-4 text-slate-500">{item.detail}</p>
