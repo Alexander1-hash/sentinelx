@@ -59,9 +59,11 @@ export async function middleware(request: NextRequest) {
   );
 
   const {
-    data: { claims },
+    data: claimsData,
+    error: claimsError,
   } = await supabase.auth.getClaims();
 
+  const claims = claimsError ? null : claimsData?.claims;
   const user = claims ? { id: claims.sub } : null;
   const pathname = request.nextUrl.pathname;
 
