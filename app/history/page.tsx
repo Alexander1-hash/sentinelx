@@ -192,7 +192,7 @@ export default function SecurityHistoryPage() {
                           </Link>
                         )}
                         {item.context.actionId && (
-                          <Link href={"/actions?findingId=" + encodeURIComponent(item.context.findingId ?? "")} className="rounded-xl border border-white/10 px-3 py-2 text-[9px] font-semibold text-slate-300 hover:bg-white/5 hover:text-white">
+                          <Link href={"/actions?actionId=" + encodeURIComponent(item.context.actionId)} className="rounded-xl border border-white/10 px-3 py-2 text-[9px] font-semibold text-slate-300 hover:bg-white/5 hover:text-white">
                             Review response
                           </Link>
                         )}
