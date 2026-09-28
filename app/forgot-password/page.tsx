@@ -130,7 +130,7 @@ export default function ForgotPasswordPage() {
           </div>
 
           <p className="mt-6 text-center text-xs text-slate-600">
-            SentinelX Security Intelligence
+            Trinorin Security Intelligence
           </p>
         </div>
       </div>
