@@ -118,7 +118,6 @@ function SecurityActionsPageContent() {
   }, [linkedActionId]);
 
   useEffect(() => {
-    useEffect(() => {
     if (!focusedActionId || loading) return;
     const timer = window.setTimeout(() => {
       document.getElementById(`action-${focusedActionId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -126,7 +125,8 @@ function SecurityActionsPageContent() {
     return () => window.clearTimeout(timer);
   }, [focusedActionId, loading, actions.length]);
 
-  async function loadReadiness() {
+  useEffect(() => {
+    async function loadReadiness() {
       try {
         const response = await fetch("/api/security/actions/readiness", { cache: "no-store" });
         const data = await response.json();
@@ -146,6 +146,7 @@ function SecurityActionsPageContent() {
         setReadinessLoading(false);
       }
     }
+
     void loadReadiness();
   }, []);
 
