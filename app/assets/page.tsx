@@ -108,7 +108,7 @@ export default function AssetsPage() {
         return;
       }
 
-      setMessage("Asset registered. SentinelX has generated the next security step from its type.");
+      setMessage("Asset registered. Trinorin has generated the next security step from its type.");
       event.currentTarget.reset();
       setSelectedType("website");
       setOpen(false);
@@ -139,7 +139,7 @@ export default function AssetsPage() {
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-semibold text-white">SentinelX</p>
+              <p className="font-semibold text-white">Trinorin</p>
               <p className="text-[11px] text-slate-500">Protected surfaces</p>
             </div>
           </div>
@@ -155,7 +155,7 @@ export default function AssetsPage() {
             <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Asset intelligence</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Your security surface</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              SentinelX does more than store an asset. It uses the asset type to determine the next evidence and telemetry needed.
+              Trinorin does more than store an asset. It uses the asset type to determine the next evidence and telemetry needed.
             </p>
           </div>
           <button onClick={() => setOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-200">
@@ -211,7 +211,7 @@ export default function AssetsPage() {
 
                   <div className="mt-4 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.03] p-3">
                     <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-cyan-300">
-                      <Sparkles className="h-3.5 w-3.5" /> SentinelX next step
+                      <Sparkles className="h-3.5 w-3.5" /> Trinorin next step
                     </div>
                     <p className="mt-2 text-xs leading-5 text-slate-400">{plan.next}</p>
                     <p className="mt-2 text-[10px] text-slate-600">Focus: {plan.focus}</p>
@@ -230,7 +230,7 @@ export default function AssetsPage() {
             <Boxes className="mx-auto h-9 w-9 text-slate-700" />
             <h2 className="mt-4 font-semibold text-slate-300">No protected surfaces yet</h2>
             <p className="mx-auto mt-2 max-w-md text-xs leading-5 text-slate-600">
-              Add your first authorized asset. SentinelX will turn it into the first node of the Security Graph and explain what evidence is missing.
+              Add your first authorized asset. Trinorin will turn it into the first node of the Security Graph and explain what evidence is missing.
             </p>
           </div>
         )}
@@ -242,7 +242,7 @@ export default function AssetsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-white">Add protected surface</h2>
-                <p className="mt-1 text-xs text-slate-500">SentinelX will determine the next security step automatically.</p>
+                <p className="mt-1 text-xs text-slate-500">Trinorin will determine the next security step automatically.</p>
               </div>
               <button onClick={() => setOpen(false)} className="rounded-lg p-2 text-slate-500 hover:text-white"><X className="h-5 w-5" /></button>
             </div>
@@ -261,10 +261,10 @@ export default function AssetsPage() {
 
               <div className="rounded-xl border border-cyan-400/10 bg-cyan-400/[0.03] p-3">
                 <div className="flex items-center gap-2 text-xs font-medium text-cyan-200">
-                  <Sparkles className="h-4 w-4" /> What SentinelX will look for
+                  <Sparkles className="h-4 w-4" /> What Trinorin will look for
                 </div>
                 <p className="mt-2 text-xs leading-5 text-slate-500">
-                  {intelligence[selectedType]?.next ?? "SentinelX will define the next evidence source after registration."}
+                  {intelligence[selectedType]?.next ?? "Trinorin will define the next evidence source after registration."}
                 </p>
               </div>
 
@@ -284,7 +284,7 @@ export default function AssetsPage() {
               </div>
 
               <div className="rounded-xl border border-white/10 bg-black/10 p-3 text-[10px] leading-5 text-slate-600">
-                SentinelX does not ask for raw passwords here. Connections will use authorized integrations, delegated access, or API credentials where supported.
+                Trinorin does not ask for raw passwords here. Connections will use authorized integrations, delegated access, or API credentials where supported.
               </div>
 
               <button disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 disabled:opacity-50">
