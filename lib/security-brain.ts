@@ -40,11 +40,11 @@ function severity(value: unknown): SecurityBrainState["signals"][number]["severi
 
 export function buildSecurityBrain(input: {
   findings: SecurityBrainRecord[];
-  evidence: RecordLike[];
-  assets: RecordLike[];
-  relationships: RecordLike[];
-  aiSystems: RecordLike[];
-  aiAgents: RecordLike[];
+  evidence: SecurityBrainRecord[];
+  assets: SecurityBrainRecord[];
+  relationships: SecurityBrainRecord[];
+  aiSystems: SecurityBrainRecord[];
+  aiAgents: SecurityBrainRecord[];
 }): SecurityBrainState {
   const signals: SecurityBrainState["signals"] = [];
 
@@ -59,7 +59,7 @@ export function buildSecurityBrain(input: {
   }
 
   for (const item of input.evidence) {
-    const s = severity(item.severity ?? (item.data as RecordLike | null)?.severity);
+    const s = severity(item.severity ?? (item.data as SecurityBrainRecord | null)?.severity);
     if (s === "critical" || s === "high") {
       signals.push({
         kind: "evidence",
