@@ -274,6 +274,65 @@ export default function IntelligencePage() {
           </div>
         </section>
 
+        <section className="mt-5 rounded-3xl border border-cyan-400/10 bg-cyan-400/[0.02] p-5 sm:p-6">
+          <div className="flex flex-col gap-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Context synthesis</p>
+            <h2 className="text-lg font-semibold text-white">Why this context is being surfaced</h2>
+            <p className="text-xs leading-5 text-slate-500">
+              SentinelX keeps the reasoning chain inspectable: current signals, historical context, response state, and verification are shown separately.
+            </p>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {[
+              {
+                label: "Current signal",
+                title: attention.length ? `${attention.length} attention signal${attention.length === 1 ? "" : "s"} recorded` : "No attention signal recorded",
+                detail: attention[0]?.detail ?? "There is no recorded attention item requiring operator review right now.",
+                href: attention[0]?.href ?? "/analyst",
+                action: attention.length ? "Inspect signal" : "Open Analyst",
+              },
+              {
+                label: "Historical context",
+                title: patterns.length ? `${patterns.length} historical pattern${patterns.length === 1 ? "" : "s"} available` : "No historical pattern established",
+                detail: patterns[0]?.detail ?? "SentinelX has no established pattern to carry into the current context.",
+                href: "/brain",
+                action: "Open Security Brain",
+              },
+              {
+                label: "Response state",
+                title: changes.some((item) => item.kind === "verification") ? "Response verification recorded" : "No response verification recorded",
+                detail: changes.find((item) => item.kind === "verification")?.detail ?? "Approval or absence of an outcome is not treated as execution or success.",
+                href: "/analyst",
+                action: "Review response state",
+              },
+              {
+                label: "Evidence boundary",
+                title: overview?.connected ? "Evidence remains the source of truth" : "Telemetry is not connected",
+                detail: overview?.connected
+                  ? "Missing evidence does not become a safety conclusion; current telemetry and recorded evidence remain authoritative."
+                  : "SentinelX will not infer security state from missing telemetry.",
+                href: overview?.connected ? "/assets" : "/integrations",
+                action: overview?.connected ? "Review assets" : "Connect telemetry",
+              },
+            ].map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="rounded-2xl border border-white/10 bg-black/10 p-4 transition hover:border-cyan-400/20 hover:bg-white/[0.04]"
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-600">{item.label}</p>
+                <h3 className="mt-2 text-sm font-semibold text-white">{loading ? "Reconstructing…" : item.title}</h3>
+                <p className="mt-2 text-[10px] leading-4 text-slate-500">{item.detail}</p>
+                <div className="mt-4 inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-cyan-200">
+                  {item.action}
+                  <ArrowRight className="h-3 w-3" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
         <section className="mt-5 grid gap-5 lg:grid-cols-2">
           <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
             <div className="flex items-center justify-between">
