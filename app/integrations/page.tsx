@@ -45,6 +45,15 @@ function syncAgeLabel(lastSyncAt: string | null) {
   return `Telemetry received ${ageDays} day${ageDays === 1 ? "" : "s"} ago.`;
 }
 
+const endpointCatalogItem = {
+    provider: "Endpoint",
+    type: "endpoint",
+    title: "Endpoint security",
+    description: "Authorized telemetry from company laptops, desktops and supported mobile devices.",
+    icon: ShieldCheck,
+    scopes: ["device_inventory", "security_events", "device_posture", "network_signals"],
+  };
+
 const catalog = [
   {
     provider: "Cloud",
@@ -89,6 +98,8 @@ export default function IntegrationsPage() {
   const [message, setMessage] = useState("");
   const [tokenNotice, setTokenNotice] = useState<TokenNotice | null>(null);
   const [rotatingId, setRotatingId] = useState<string | null>(null);
+
+  const catalogWithEndpoint = [...catalog, endpointCatalogItem];
 
   async function loadIntegrations() {
     setLoading(true);
@@ -157,7 +168,7 @@ export default function IntegrationsPage() {
         return;
       }
 
-      setMessage("Integration registered. SentinelX is ready for an authorized connection.");
+      setMessage("Integration registered. Trinorin is ready for an authorized connection.");
       setOpen(false);
       if (data.token && data.integration?.display_name) {
         setTokenNotice({ integrationId: data.integration.id, integrationName: data.integration.display_name, token: data.token });
@@ -193,7 +204,7 @@ export default function IntegrationsPage() {
             <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Evidence layer</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Connect real security signals</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              SentinelX registers the integration first. Connection methods will use authorized OAuth, delegated access, or scoped API credentials rather than raw passwords.
+              Trinorin registers the integration first. Connection methods will use authorized OAuth, delegated access, or scoped API credentials rather than raw passwords.
             </p>
           </div>
           <button onClick={() => setOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950">
@@ -214,7 +225,7 @@ export default function IntegrationsPage() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            {catalog.map((item) => {
+            {catalogWithEndpoint.map((item) => {
               const Icon = item.icon;
               return (
                 <button
@@ -313,7 +324,7 @@ export default function IntegrationsPage() {
               <Link2 className="mx-auto h-8 w-8 text-slate-700" />
               <p className="mt-4 text-sm font-semibold text-slate-300">No telemetry integrations registered</p>
               <p className="mx-auto mt-2 max-w-md text-xs leading-5 text-slate-600">
-                Register an integration to define the evidence SentinelX is authorized to receive.
+                Register an integration to define the evidence Trinorin is authorized to receive.
               </p>
             </div>
           )}
@@ -334,7 +345,7 @@ export default function IntegrationsPage() {
               </button>
             </div>
             <p className="mt-4 text-sm leading-6 text-slate-400">
-              Use this token only from an authorized telemetry source for <strong className="text-white">{tokenNotice.integrationName}</strong>. SentinelX stores only a hash and will not show this token again.
+              Use this token only from an authorized telemetry source for <strong className="text-white">{tokenNotice.integrationName}</strong>. Trinorin stores only a hash and will not show this token again.
             </p>
             <div className="mt-5 break-all rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-xs text-cyan-200">
               {tokenNotice.token}
@@ -357,10 +368,10 @@ export default function IntegrationsPage() {
               <pre className="mt-3 max-h-44 overflow-auto rounded-xl border border-white/10 bg-[#050b10] p-3 text-[9px] leading-4 text-cyan-100"><code>{`curl -X POST ${typeof window !== "undefined" ? window.location.origin : ""}/api/security/ingest \\\
   -H "Authorization: Bearer ${tokenNotice.token}" \\\
   -H "Content-Type: application/json" \\\
-  -d '{"evidenceType":"telemetry","source":"authorized_test","title":"SentinelX ingestion connectivity test","summary":"Authorized test event received from a configured telemetry source.","securityState":"healthy","eventType":"integration_test","severity":"info"}'`}</code></pre>
+  -d '{"evidenceType":"telemetry","source":"authorized_test","title":"Trinorin ingestion connectivity test","summary":"Authorized test event received from a configured telemetry source.","securityState":"healthy","eventType":"integration_test","severity":"info"}'`}</code></pre>
               <button
                 onClick={() => {
-                  const command = `curl -X POST ${window.location.origin}/api/security/ingest -H "Authorization: Bearer ${tokenNotice.token}" -H "Content-Type: application/json" -d '{"evidenceType":"telemetry","source":"authorized_test","title":"SentinelX ingestion connectivity test","summary":"Authorized test event received from a configured telemetry source.","securityState":"healthy","eventType":"integration_test","severity":"info"}'`;
+                  const command = `curl -X POST ${window.location.origin}/api/security/ingest -H "Authorization: Bearer ${tokenNotice.token}" -H "Content-Type: application/json" -d '{"evidenceType":"telemetry","source":"authorized_test","title":"Trinorin ingestion connectivity test","summary":"Authorized test event received from a configured telemetry source.","securityState":"healthy","eventType":"integration_test","severity":"info"}'`;
                   void navigator.clipboard?.writeText(command);
                   setMessage("Connectivity-test command copied. Run it only from an authorized telemetry environment.");
                 }}
@@ -395,7 +406,7 @@ export default function IntegrationsPage() {
               <select
                 value={selected.type}
                 onChange={(event) => {
-                  const next = catalog.find((item) => item.type === event.target.value);
+                  const next = catalogWithEndpoint.find((item) => item.type === event.target.value);
                   if (next) setSelected(next);
                 }}
                 className="w-full rounded-xl border border-white/10 bg-[#071018] px-4 py-3 text-sm text-white"
@@ -414,7 +425,7 @@ export default function IntegrationsPage() {
               </div>
 
               <div className="rounded-xl border border-white/10 bg-black/10 p-3 text-[10px] leading-5 text-slate-600">
-                The integration will remain <strong className="text-amber-300">planned</strong> until an authorized connection is completed. SentinelX will not fabricate telemetry, findings, or protection status.
+                The integration will remain <strong className="text-amber-300">planned</strong> until an authorized connection is completed. Trinorin will not fabricate telemetry, findings, or protection status.
               </div>
 
               <button disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 disabled:opacity-50">
