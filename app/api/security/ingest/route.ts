@@ -81,7 +81,8 @@ export async function POST(request: Request) {
     const source = typeof payload.source === "string" ? payload.source.trim() : "";
     const title = typeof payload.title === "string" ? payload.title.trim() : "";
     const summary = typeof payload.summary === "string" ? payload.summary.trim() : null;
-    const assetId = typeof payload.assetId === "string" ? payload.assetId : null;
+    let assetId = typeof payload.assetId === "string" ? payload.assetId : null;
+    const deviceId = typeof payload.deviceId === "string" ? payload.deviceId.trim() : "";
     const rawObservedAt = typeof payload.observedAt === "string" ? payload.observedAt.trim() : null;
     const parsedObservedAt = rawObservedAt ? new Date(rawObservedAt) : null;
     if (rawObservedAt && Number.isNaN(parsedObservedAt?.getTime())) {
@@ -125,6 +126,66 @@ export async function POST(request: Request) {
 
     if (Array.isArray(payload.indicators) && payload.indicators.length > 100) {
       return NextResponse.json({ error: "A maximum of 100 indicators is allowed." }, { status: 400 });
+    }
+
+    if (integration.integration_type === "endpoint") {
+      const { data: endpointIntegration } = await supabase
+        .from("security_integrations")
+        .select("configuration")
+        .eq("id", integration.integration_id)
+        .eq("organization_id", integration.organization_id)
+        .maybeSingle();
+
+      const configuration =
+        endpointIntegration?.configuration &&
+        typeof endpointIntegration.configuration === "object" &&
+        !Array.isArray(endpointIntegration.configuration)
+          ? endpointIntegration.configuration as Record<string, unknown>
+          : {};
+
+      const endpointAssetId =
+        typeof configuration.endpoint_asset_id === "string"
+          ? configuration.endpoint_asset_id
+          : "";
+
+      if (!endpointAssetId) {
+        return NextResponse.json({ error: "Endpoint integration has no bound security asset." }, { status: 409 });
+      }
+
+      if (!deviceId) {
+        return NextResponse.json({ error: "Endpoint telemetry must include deviceId." }, { status: 400 });
+      }
+
+      if (assetId && assetId !== endpointAssetId) {
+        return NextResponse.json({ error: "Endpoint credentials can only send telemetry for their bound device." }, { status: 403 });
+      }
+
+      const { data: endpointAsset } = await supabase
+        .from("security_assets")
+        .select("metadata")
+        .eq("id", endpointAssetId)
+        .eq("organization_id", integration.organization_id)
+        .maybeSingle();
+
+      const metadata =
+        endpointAsset?.metadata &&
+        typeof endpointAsset.metadata === "object" &&
+        !Array.isArray(endpointAsset.metadata)
+          ? endpointAsset.metadata as Record<string, unknown>
+          : {};
+
+      const endpoint =
+        metadata.endpoint &&
+        typeof metadata.endpoint === "object" &&
+        !Array.isArray(metadata.endpoint)
+          ? metadata.endpoint as Record<string, unknown>
+          : {};
+
+      if (endpoint.enrollment_state !== "verified" || endpoint.device_id !== deviceId) {
+        return NextResponse.json({ error: "Endpoint identity is not verified for this device." }, { status: 403 });
+      }
+
+      assetId = endpointAssetId;
     }
 
     if (assetId) {
