@@ -104,6 +104,10 @@ export async function POST(request: Request) {
       ? payload.observedRelationships
       : [];
 
+    if (relationships.length > 100) {
+      return NextResponse.json({ error: "A maximum of 100 observed relationships is allowed." }, { status: 400 });
+    }
+
     if (!evidenceTypes.includes(evidenceType as (typeof evidenceTypes)[number])) {
       return NextResponse.json({ error: "Invalid evidence type." }, { status: 400 });
     }
