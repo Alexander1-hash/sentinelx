@@ -91,7 +91,7 @@ export default function ResetPasswordPage() {
             </h1>
 
             <p className="mt-2 text-sm text-slate-400">
-              Choose a new password to secure your SentinelX account.
+              Choose a new password to secure your Trinorin account.
             </p>
           </div>
 
@@ -195,7 +195,7 @@ export default function ResetPasswordPage() {
           </div>
 
           <p className="mt-6 text-center text-xs text-slate-600">
-            SentinelX Security Intelligence
+            Trinorin Security Intelligence
           </p>
         </div>
       </div>
