@@ -222,6 +222,58 @@ export default function IntelligencePage() {
           ))}
         </section>
 
+        <section className="mt-5 rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
+          <div className="flex flex-col gap-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Intelligence map</p>
+            <h2 className="text-lg font-semibold text-white">How the current context is assembled</h2>
+            <p className="text-xs leading-5 text-slate-500">
+              SentinelX synthesizes recorded signals without turning missing data into a conclusion.
+            </p>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                label: "Attention",
+                value: attention.length,
+                detail: attention.length ? "Signals requiring operator review." : "No recorded attention signal.",
+                href: "/analyst",
+              },
+              {
+                label: "Changes",
+                value: changes.length,
+                detail: changes.length ? "Recent security-state transitions." : "No recorded state transition.",
+                href: "/brain",
+              },
+              {
+                label: "Patterns",
+                value: patterns.length,
+                detail: patterns.length ? "Historical context available." : "No established historical pattern.",
+                href: "/brain",
+              },
+              {
+                label: "Verification",
+                value: changes.filter((item) => item.kind === "verification").length,
+                detail: changes.some((item) => item.kind === "verification")
+                  ? "Response outcomes requiring context."
+                  : "No response verification record.",
+                href: "/analyst",
+              },
+            ].map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="rounded-2xl border border-white/10 bg-black/10 p-4 transition hover:border-cyan-400/20 hover:bg-white/[0.04]"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{item.label}</p>
+                  <span className="text-xl font-semibold text-white">{loading ? "—" : item.value}</span>
+                </div>
+                <p className="mt-2 text-[10px] leading-4 text-slate-600">{item.detail}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
         <section className="mt-5 grid gap-5 lg:grid-cols-2">
           <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
             <div className="flex items-center justify-between">
