@@ -170,10 +170,16 @@ export async function GET(request: Request) {
           occurredAt: memory.occurred_at,
           subject: subjectFor(memory, { findings: findingNames, assets: assetNames, evidence: evidenceNames, actions: actionNames }),
           context: {
-            findingId: stringValue(memory.data.finding_id),
+            findingId:
+              stringValue(memory.data.finding_id) ??
+              ((memory.memory_type === "finding_state" || memory.memory_type === "investigation") ? memory.subject_id : null),
             assetId: stringValue(memory.data.asset_id) ?? stringValue(memory.data.affected_asset_id),
-            evidenceId: stringValue(memory.data.evidence_id),
-            actionId: stringValue(memory.data.action_id),
+            evidenceId:
+              stringValue(memory.data.evidence_id) ??
+              (memory.memory_type === "evidence_change" ? memory.subject_id : null),
+            actionId:
+              stringValue(memory.data.action_id) ??
+              ((memory.memory_type === "operator_decision" || memory.memory_type === "response_outcome") ? memory.subject_id : null),
             changeType,
             previousState,
             currentState,
