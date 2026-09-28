@@ -16,6 +16,18 @@ type InvestigationContext = {
   unknowns: string[];
 };
 
+type MultiSignalCorrelation = {
+  findingId: string;
+  timeWindowMinutes: number;
+  signalCount: number;
+  eventSignals: Array<{ id: string; type: string; source: string; observedAt: string; assetId: string | null; title: string }>;
+  evidenceSignals: Array<{ id: string; type: string; source: string; observedAt: string; assetId: string | null; title: string }>;
+  identitySignals: Array<{ id: string; identity: string; observedAt: string; source: string }>;
+  graphContext: Array<{ sourceAssetId: string; targetAssetId: string; relationshipType: string; confidence: number | null }>;
+  timing: { findingDetectedAt: string | null; earliestObservedAt: string | null; latestObservedAt: string | null; spanMinutes: number | null };
+  correlationReasons: string[];
+};
+
 type AnalystResponse = {
   answer: string;
   topFinding: {
@@ -37,6 +49,7 @@ type AnalystResponse = {
   suggestedNextStep: string;
   boundary: string;
   investigation?: InvestigationContext;
+  multiSignalCorrelation?: MultiSignalCorrelation | null;
   patternsReviewed?: number;
   securityPatterns?: Array<{ pattern: string; title: string; detail: string; confidence: string; firstObserved: string; lastObserved: string; sequence?: string[] }>;
   historicalContext?: {
@@ -385,6 +398,73 @@ export default function AnalystPage() {
                 </div>
               </section>
             ) : null}
+
+            {response.multiSignalCorrelation && response.topFinding && (
+              <section className="rounded-3xl border border-cyan-400/10 bg-cyan-400/[0.02] p-5 sm:p-6">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Multi-signal correlation</p>
+                    <h2 className="mt-1 text-lg font-semibold text-white">One investigation context, multiple confirmed signals</h2>
+                    <p className="mt-2 max-w-2xl text-[11px] leading-5 text-slate-500">
+                      SentinelX correlates existing evidence around the finding. This layer does not create a second detector or change finding severity.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-cyan-200">
+                    {response.multiSignalCorrelation.signalCount} correlated signal{response.multiSignalCorrelation.signalCount === 1 ? "": "s"}
+                  </span>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-4">
+                  <Stat label="Events" value={response.multiSignalCorrelation.eventSignals.length} />
+                  <Stat label="Other evidence" value={response.multiSignalCorrelation.evidenceSignals.length} />
+                  <Stat label="Explicit identities" value={response.multiSignalCorrelation.identitySignals.length} />
+                  <Stat label="Confirmed graph links" value={response.multiSignalCorrelation.graphContext.length} />
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Timing window</p>
+                    <p className="mt-2 text-sm font-medium text-white">
+                      {response.multiSignalCorrelation.timing.spanMinutes === null ? "No correlated time span" : response.multiSignalCorrelation.timing.spanMinutes + " minute span"}
+                    </p>
+                    <p className="mt-1 text-[10px] text-slate-600">
+                      Correlation window: ±{response.multiSignalCorrelation.timeWindowMinutes} minutes around finding detection.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Identity boundary</p>
+                    <p className="mt-2 text-sm font-medium text-white">
+                      {response.multiSignalCorrelation.identitySignals.length ? "Explicit identity recorded" : "No explicit identity recorded"}
+                    </p>
+                    <p className="mt-1 text-[10px] leading-5 text-slate-600">
+                      Identity fields are displayed only when present in stored evidence; SentinelX does not infer attribution.
+                    </p>
+                  </div>
+                </div>
+
+                {response.multiSignalCorrelation.identitySignals.length > 0 && (
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-4">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Recorded identities</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {response.multiSignalCorrelation.identitySignals.slice(0, 8).map((item) => (
+                        <span key={item.id} className="rounded-full bg-white/5 px-2.5 py-1.5 text-[9px] text-slate-300">
+                          {item.identity} · {item.source}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {response.multiSignalCorrelation.correlationReasons.length > 0 && (
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-4">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Why these signals were correlated</p>
+                    <ul className="mt-2 space-y-1.5 text-[11px] leading-5 text-slate-500">
+                      {response.multiSignalCorrelation.correlationReasons.map((reason) => <li key={reason}>• {reason}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </section>
+            )}
 
             {response.investigation && response.topFinding && (
               <section className="rounded-3xl border border-orange-400/10 bg-orange-400/[0.025] p-5 sm:p-6">
