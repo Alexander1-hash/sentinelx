@@ -363,6 +363,14 @@ export async function POST(request: Request) {
     }
 
     let discoveredRelationships = 0;
+    const relationshipCandidates: Array<{
+      sourceAssetId: string;
+      targetAssetId: string;
+      relationshipType: (typeof relationshipTypes)[number];
+      confidence: number;
+      reason: string;
+    }> = [];
+    const relationshipAssetIds = new Set<string>();
 
     for (const item of relationships) {
       if (!item || typeof item !== "object") continue;
@@ -392,13 +400,37 @@ export async function POST(request: Request) {
         continue;
       }
 
-      const { data: assets } = await supabase
+      relationshipCandidates.push({
+        sourceAssetId,
+        targetAssetId,
+        relationshipType: relationshipType as (typeof relationshipTypes)[number],
+        confidence,
+        reason,
+      });
+      relationshipAssetIds.add(sourceAssetId);
+      relationshipAssetIds.add(targetAssetId);
+    }
+
+    const validRelationshipAssetIds = new Set<string>();
+    if (relationshipAssetIds.size > 0) {
+      const { data: relationshipAssets } = await supabase
         .from("security_assets")
         .select("id")
         .eq("organization_id", integration.organization_id)
-        .in("id", [sourceAssetId, targetAssetId]);
+        .in("id", Array.from(relationshipAssetIds));
 
-      if ((assets ?? []).length !== 2) continue;
+      for (const asset of relationshipAssets ?? []) {
+        validRelationshipAssetIds.add(asset.id);
+      }
+    }
+
+    for (const relationship of relationshipCandidates) {
+      if (
+        !validRelationshipAssetIds.has(relationship.sourceAssetId) ||
+        !validRelationshipAssetIds.has(relationship.targetAssetId)
+      ) {
+        continue;
+      }
 
       const { error } = await supabase
         .from("security_asset_relationships")
