@@ -1,12 +1,12 @@
-# sentinelx
+# trinorin
 AI-powered cybersecurity intelligence for modern businesses.
-SentinelX is a cybersecurity intelligence platform designed to help businesses discover, understand, monitor, and respond to security risks.
+Trinorin is a cybersecurity intelligence platform designed to help businesses discover, understand, monitor, and respond to security risks.
 
 The goal is simple:
 
 > Don't wait until the company gets hacked.
 
-SentinelX will continuously help organizations understand their security posture and turn technical security findings into clear, actionable recommendations.
+Trinorin will continuously help organizations understand their security posture and turn technical security findings into clear, actionable recommendations.
 
 ---
 
@@ -14,7 +14,7 @@ SentinelX will continuously help organizations understand their security posture
 
 Build an intelligent cybersecurity layer that helps businesses identify security risks before they become serious incidents.
 
-SentinelX is designed to combine:
+Trinorin is designed to combine:
 
 - Security inspection
 - Asset visibility
@@ -31,11 +31,11 @@ SentinelX is designed to combine:
 
 ### Security Inspector
 
-The first major SentinelX capability.
+The first major Trinorin capability.
 
 A business will be able to connect an authorized website, domain, or asset and run security checks against it.
 
-SentinelX will:
+Trinorin will:
 
 1. Discover authorized security information
 2. Perform appropriate security checks
@@ -46,14 +46,14 @@ SentinelX will:
 7. Track whether issues have been addressed
 8. Generate security reports
 
-All security testing must be performed only against systems that the customer owns or has explicitly authorized SentinelX to assess.
+All security testing must be performed only against systems that the customer owns or has explicitly authorized Trinorin to assess.
 
 ---
 
 ## Product Architecture
 
 ```text
-SentinelX
+Trinorin
 │
 ├── Security Dashboard
 ├── Security Inspector
@@ -63,4 +63,4 @@ SentinelX
 ├── AI Security Analyst
 ├── Security Alerts
 ├── Security Reports
-└── SentinelX API
+└── Trinorin API
