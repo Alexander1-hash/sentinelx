@@ -208,6 +208,27 @@ export default function DashboardPage() {
     void loadUser();
   }, []);
 
+  useEffect(() => {
+    const refreshSecurityState = async () => {
+      try {
+        const [overviewResponse, attentionResponse, changesResponse] = await Promise.all([
+          fetch("/api/security/overview", { cache: "no-store" }),
+          fetch("/api/security/attention", { cache: "no-store" }),
+          fetch("/api/security/changes", { cache: "no-store" }),
+        ]);
+
+        if (overviewResponse.ok) setOverview((await overviewResponse.json()) as SecurityOverview);
+        if (attentionResponse.ok) setAttention((await attentionResponse.json()) as SecurityAttention);
+        if (changesResponse.ok) setChanges((await changesResponse.json()) as SecurityChanges);
+      } catch {
+        // The dashboard keeps its last verified state if a background refresh fails.
+      }
+    };
+
+    const interval = window.setInterval(refreshSecurityState, 30000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   async function analyzeTelemetry() {
     setAnalysisRunning(true);
     setAnalysisMessage(null);
