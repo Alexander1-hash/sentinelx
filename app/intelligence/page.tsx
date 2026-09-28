@@ -206,12 +206,12 @@ export default function IntelligencePage() {
 
         <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            ["Protected assets", overview?.metrics.protectedAssets ?? 0, BoxesIcon],
-            ["Open findings", overview?.metrics.openFindings ?? 0, ShieldAlert],
-            ["Attack paths", overview?.metrics.attackPaths ?? 0, Network],
-            ["Security events", overview?.metrics.securityEvents ?? 0, Activity],
-          ].map(([label, value, Icon]) => (
-            <div key={String(label)} className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+            { label: "Protected assets", value: overview?.metrics.protectedAssets ?? 0, Icon: BoxesIcon },
+            { label: "Open findings", value: overview?.metrics.openFindings ?? 0, Icon: ShieldAlert },
+            { label: "Attack paths", value: overview?.metrics.attackPaths ?? 0, Icon: Network },
+            { label: "Security events", value: overview?.metrics.securityEvents ?? 0, Icon: Activity },
+          ].map(({ label, value, Icon }) => (
+            <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-600">{label}</p>
                 <Icon className="h-4 w-4 text-slate-500" />
