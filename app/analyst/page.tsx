@@ -18,7 +18,11 @@ type InvestigationContext = {
 
 type MultiSignalCorrelation = {
   findingId: string;
+  rootAssetId: string | null;
   timeWindowMinutes: number;
+  correlationConfidence: "strong" | "moderate" | "limited";
+  confidenceReasons: string[];
+  timeline: Array<{ observedAt: string; signalType: "event" | "evidence" | "identity"; title: string; source: string; assetId: string | null; identity: string | null }>;
   signalCount: number;
   eventSignals: Array<{ id: string; type: string; source: string; observedAt: string; assetId: string | null; title: string }>;
   evidenceSignals: Array<{ id: string; type: string; source: string; observedAt: string; assetId: string | null; title: string }>;
@@ -441,6 +445,38 @@ export default function AnalystPage() {
                     </p>
                   </div>
                 </div>
+
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Correlation confidence</p>
+                    <span className="rounded-full bg-white/5 px-2 py-1 text-[9px] uppercase tracking-wider text-cyan-200">{response.multiSignalCorrelation.correlationConfidence}</span>
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    {response.multiSignalCorrelation.confidenceReasons.map((reason) => (
+                      <p key={reason} className="rounded-xl border border-white/10 p-3 text-[10px] leading-5 text-slate-500">{reason}</p>
+                    ))}
+                  </div>
+                </div>
+
+                {response.multiSignalCorrelation.timeline.length > 0 && (
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-4">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Correlated timeline</p>
+                    <div className="mt-3 space-y-2">
+                      {response.multiSignalCorrelation.timeline.slice(0, 10).map((item, index) => (
+                        <div key={item.observedAt + item.title + index} className="flex gap-3 rounded-xl border border-white/5 p-3">
+                          <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-cyan-300" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap justify-between gap-2">
+                              <p className="text-[10px] font-medium text-white">{item.title}</p>
+                              <time className="text-[9px] text-slate-600">{new Date(item.observedAt).toLocaleString()}</time>
+                            </div>
+                            <p className="mt-1 text-[9px] text-slate-600">{item.signalType} · {item.source}{item.identity ? " · " + item.identity : ""}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {response.multiSignalCorrelation.identitySignals.length > 0 && (
                   <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-4">
