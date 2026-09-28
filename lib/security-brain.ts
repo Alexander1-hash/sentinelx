@@ -1,5 +1,14 @@
 export type SecurityBrainRecord = Record<string, unknown>;
 
+export type SecurityBrainCorrelation = {
+  findingId: string;
+  assetId: string | null;
+  connectedAssetIds: string[];
+  supportingEvidenceIds: string[];
+  autonomousAgentIds: string[];
+  notes: string[];
+};
+
 export type SecurityBrainState = {
   findings: SecurityBrainRecord[];
   evidence: SecurityBrainRecord[];
@@ -7,6 +16,7 @@ export type SecurityBrainState = {
   relationships: SecurityBrainRecord[];
   aiSystems: SecurityBrainRecord[];
   aiAgents: SecurityBrainRecord[];
+  correlations: SecurityBrainCorrelation[];
   signals: Array<{
     kind: "finding" | "evidence" | "relationship" | "ai";
     severity: "critical" | "high" | "medium" | "low" | "unknown";
@@ -62,6 +72,25 @@ export function buildSecurityBrain(input: {
     agentsBySystemId.set(systemId, current);
   }
 
+  const correlations: SecurityBrainCorrelation[] = [];
+
+  for (const finding of input.findings) {
+    const findingId = recordId(finding.id);
+    if (!findingId) continue;
+    const assetId = recordId(finding.asset_id) || null;
+    const connectedAssetIds = assetId ? Array.from(connectedAssetsByAssetId.get(assetId) ?? []) : [];
+    const supportingEvidenceIds = assetId ? evidenceByAssetId.get(assetId) ?? [] : [];
+    const autonomousAgentIds = assetId ? autonomousAgentsByAssetId.get(assetId) ?? [] : [];
+    const notes: string[] = [];
+    if (!assetId) notes.push("Finding has no linked asset.");
+    if (assetId && !assetById.has(assetId)) notes.push("Linked asset could not be resolved from the current asset set.");
+    if (connectedAssetIds.length) notes.push(`${connectedAssetIds.length} confirmed adjacent asset${connectedAssetIds.length === 1 ? "" : "s"} recorded.`);
+    if (supportingEvidenceIds.length) notes.push(`${supportingEvidenceIds.length} evidence record${supportingEvidenceIds.length === 1 ? "" : "s"} share the affected asset.`);
+    if (autonomousAgentIds.length) notes.push(`${autonomousAgentIds.length} autonomous AI agent${autonomousAgentIds.length === 1 ? "" : "s"} are linked through the affected asset.`);
+    if (!supportingEvidenceIds.length) notes.push("No evidence record is directly linked to the affected asset.");
+    correlations.push({ findingId, assetId, connectedAssetIds, supportingEvidenceIds, autonomousAgentIds, notes });
+  }
+
   for (const finding of input.findings) {
     const findingSeverity = severity(finding.severity);
     const asset = assetById.get(recordId(finding.asset_id));
@@ -75,7 +104,15 @@ export function buildSecurityBrain(input: {
       detail: [
         text(finding.summary) || "A registered security finding requires analyst review.",
         assetName ? `Affected asset: ${assetName}${assetType ? ` (${assetType})` : ""}.` : "Affected asset is not linked.",
-      ].join(" "),
+        (() => {
+          const correlation = correlations.find((item) => item.findingId === recordId(finding.id));
+          return [
+            correlation?.connectedAssetIds.length ? `Confirmed adjacent assets: ${correlation.connectedAssetIds.length}.` : "",
+            correlation?.supportingEvidenceIds.length ? `Direct supporting evidence records: ${correlation.supportingEvidenceIds.length}.` : "",
+            correlation?.autonomousAgentIds.length ? `Autonomous AI agents linked through the asset: ${correlation.autonomousAgentIds.length}.` : "",
+          ].filter(Boolean).join(" ");
+        })(),
+      ].filter(Boolean).join(" "),
       sourceId: recordId(finding.id) || null,
     });
   }
@@ -97,8 +134,26 @@ export function buildSecurityBrain(input: {
     }
   }
 
+  for (const item of input.evidence) {
+    const assetId = recordId(item.asset_id);
+    if (!assetId) continue;
+    const current = evidenceByAssetId.get(assetId) ?? [];
+    const id = recordId(item.id);
+    if (id) current.push(id);
+    evidenceByAssetId.set(assetId, current);
+  }
+
   for (const edge of input.relationships) {
     if (text(edge.status).toLowerCase() !== "confirmed") continue;
+    const sourceId = recordId(edge.source_asset_id);
+    const targetId = recordId(edge.target_asset_id);
+    if (!sourceId || !targetId) continue;
+    const sourceConnections = connectedAssetsByAssetId.get(sourceId) ?? new Set<string>();
+    sourceConnections.add(targetId);
+    connectedAssetsByAssetId.set(sourceId, sourceConnections);
+    const targetConnections = connectedAssetsByAssetId.get(targetId) ?? new Set<string>();
+    targetConnections.add(sourceId);
+    connectedAssetsByAssetId.set(targetId, targetConnections);
     const source = assetById.get(recordId(edge.source_asset_id));
     const target = assetById.get(recordId(edge.target_asset_id));
     const sourceName = text(source?.name) || recordId(edge.source_asset_id) || "source asset";
@@ -157,10 +212,12 @@ export function buildSecurityBrain(input: {
   if (!input.aiSystems.length && !input.aiAgents.length) unknowns.push("No registered AI systems or agents are available.");
   if (input.findings.some((finding) => !assetById.has(recordId(finding.asset_id)))) unknowns.push("At least one finding has no resolvable asset link.");
   if (input.aiAgents.some((agent) => text(agent.autonomy_level).toLowerCase() === "autonomous" && !systemById.has(recordId(agent.system_id)))) unknowns.push("At least one autonomous AI agent has no resolvable system link.");
+  if (input.findings.some((finding) => { const assetId = recordId(finding.asset_id); return Boolean(assetId) && !evidenceByAssetId.has(assetId); })) unknowns.push("At least one finding has no directly linked evidence record.");
   unknowns.push("Missing telemetry is unknown, not safe. Correlation does not establish compromise or attacker intent.");
 
   return {
     ...input,
+    correlations,
     signals: signals.slice(0, 100),
     unknowns,
     boundary: "Security Brain correlates organization-scoped findings, evidence, assets, confirmed relationships and AI security records. It reports observed context and uncertainty; it does not infer compromise from missing data.",
