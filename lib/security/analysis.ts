@@ -154,7 +154,30 @@ export async function runSecurityAnalysis(
 
     const assetMap = new Map(context.assets.map((asset) => [asset.id, asset]));
     const agentMap = new Map(context.agents.map((agent) => [agent.id, agent]));
+    const evidenceByAsset = new Map<string, EvidenceRecord[]>();
+    for (const item of context.evidence) {
+      if (!item.asset_id) continue;
+      const existing = evidenceByAsset.get(item.asset_id) ?? [];
+      existing.push(item);
+      evidenceByAsset.set(item.asset_id, existing);
+    }
+
     const systemMap = new Map(context.systems.map((system) => [system.id, system]));
+
+    const nearbyEvidenceForAsset = (assetId: string | null, observedAt: string) => {
+      if (!assetId) return [];
+
+      const eventTime = new Date(observedAt).getTime();
+      if (Number.isNaN(eventTime)) return [];
+
+      return (evidenceByAsset.get(assetId) ?? [])
+        .filter((item) => {
+          const evidenceTime = new Date(item.observed_at).getTime();
+          if (Number.isNaN(evidenceTime)) return false;
+          return Math.abs(eventTime - evidenceTime) <= 24 * 60 * 60 * 1000;
+        })
+        .slice(0, 8);
+    };
 
     const explicitAiIndicatorCandidates = context.aiEvents
       .filter((event) => !severeLevels.has(event.severity))
@@ -251,14 +274,6 @@ export async function runSecurityAnalysis(
       relationshipsBySource.set(relationship.source_asset_id, existing);
     }
 
-    const evidenceByAsset = new Map<string, EvidenceRecord[]>();
-    for (const item of context.evidence) {
-      if (!item.asset_id) continue;
-      const existing = evidenceByAsset.get(item.asset_id) ?? [];
-      existing.push(item);
-      evidenceByAsset.set(item.asset_id, existing);
-    }
-
     const correlatedCandidates = context.aiEvents
       .filter((event) => severeLevels.has(event.severity) && event.agent_id)
       .flatMap((event) => {
@@ -345,43 +360,74 @@ export async function runSecurityAnalysis(
     const candidates = [
       ...correlatedCandidates,
       ...explicitAiIndicatorCandidates,
-      ...severeEvents.map((event) => ({
-        sourceEventId: event.id,
-        assetId: event.asset_id,
-        title: event.title,
-        findingType: `security_event:${event.event_type}`,
-        severity: event.severity,
-        summary: event.description ?? "A high-impact security event was observed and requires investigation.",
-        remediation: "Review the source evidence, validate the affected asset, and apply an authorized remediation appropriate to the event.",
-        evidence: {
-          source: "security_event",
-          source_event_id: event.id,
-          event_type: event.event_type,
-          event_source: event.source,
-          observed_at: event.observed_at,
-          evidence: event.evidence,
-          analysis_boundary: "observed_event",
-        },
-      })),
-      ...severeAiEvents.map((event) => ({
-        sourceEventId: event.id,
-        assetId: event.system_id ? systemMap.get(event.system_id)?.asset_id ?? null : null,
-        title: event.title,
-        findingType: `ai_security_event:${event.event_type}`,
-        severity: event.severity,
-        summary: event.description ?? "A high-impact AI security event was observed and requires investigation.",
-        remediation: "Review the AI system or agent evidence, validate the behavior, and apply an authorized remediation appropriate to the event.",
-        evidence: {
-          source: "ai_security_event",
-          source_event_id: event.id,
-          system_id: event.system_id,
-          agent_id: event.agent_id,
-          event_type: event.event_type,
-          observed_at: event.observed_at,
-          evidence: event.evidence,
-          analysis_boundary: "observed_ai_event",
-        },
-      })),
+      ...severeEvents.map((event) => {
+        const nearbyEvidence = nearbyEvidenceForAsset(event.asset_id, event.observed_at);
+
+        return {
+          sourceEventId: event.id,
+          assetId: event.asset_id,
+          title: event.title,
+          findingType: `security_event:${event.event_type}`,
+          severity: event.severity,
+          summary:
+            (event.description ?? "A high-impact security event was observed and requires investigation.") +
+            (nearbyEvidence.length
+              ? ` SentinelX also found ${nearbyEvidence.length} evidence record(s) on the affected asset within 24 hours of this event; this is supporting context, not proof of causation.`
+              : ""),
+          remediation: "Review the source evidence, validate the affected asset, and apply an authorized remediation appropriate to the event.",
+          evidence: {
+            source: "security_event",
+            source_event_id: event.id,
+            event_type: event.event_type,
+            event_source: event.source,
+            observed_at: event.observed_at,
+            evidence: event.evidence,
+            nearby_evidence: nearbyEvidence.map((item) => ({
+              id: item.id,
+              evidence_type: item.evidence_type,
+              source: item.source,
+              title: item.title,
+              observed_at: item.observed_at,
+            })),
+            analysis_boundary: "observed_event_with_temporal_evidence_context",
+          },
+        };
+      }),
+      ...severeAiEvents.map((event) => {
+        const assetId = event.system_id ? systemMap.get(event.system_id)?.asset_id ?? null : null;
+        const nearbyEvidence = nearbyEvidenceForAsset(assetId, event.observed_at);
+
+        return {
+          sourceEventId: event.id,
+          assetId,
+          title: event.title,
+          findingType: `ai_security_event:${event.event_type}`,
+          severity: event.severity,
+          summary:
+            (event.description ?? "A high-impact AI security event was observed and requires investigation.") +
+            (nearbyEvidence.length
+              ? ` SentinelX also found ${nearbyEvidence.length} evidence record(s) on the affected AI asset within 24 hours of this event; this is supporting context, not proof of causation.`
+              : ""),
+          remediation: "Review the AI system or agent evidence, validate the behavior, and apply an authorized remediation appropriate to the event.",
+          evidence: {
+            source: "ai_security_event",
+            source_event_id: event.id,
+            system_id: event.system_id,
+            agent_id: event.agent_id,
+            event_type: event.event_type,
+            observed_at: event.observed_at,
+            evidence: event.evidence,
+            nearby_evidence: nearbyEvidence.map((item) => ({
+              id: item.id,
+              evidence_type: item.evidence_type,
+              source: item.source,
+              title: item.title,
+              observed_at: item.observed_at,
+            })),
+            analysis_boundary: "observed_ai_event_with_temporal_evidence_context",
+          },
+        };
+      }),
     ].filter((candidate) => {
       const candidateKey =
         "correlationKey" in candidate && typeof candidate.correlationKey === "string"
