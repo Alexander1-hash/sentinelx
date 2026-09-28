@@ -277,6 +277,7 @@ async function runGroundedAI(question: string, context: {
   investigation?: Record<string, unknown> | null;
   memory?: SecurityPatternMemory[];
   patterns?: ReturnType<typeof buildSecurityPatterns>;
+  correlation?: CorrelationContext | null;
 }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
