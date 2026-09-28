@@ -269,6 +269,7 @@ export default function IntegrationsPage() {
                     >
                       {integration.status === "connected" ? <CheckCircle2 className="h-3 w-3" /> : null}
                       {integration.status}
+                    </span>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     {integration.scopes.map((scope) => (
