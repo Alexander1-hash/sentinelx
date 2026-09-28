@@ -525,6 +525,15 @@ export async function PATCH(request: Request) {
         }
       }
 
+      if (isMutatingSecurityAction(existing.action_type)) {
+        const targetValidation = validateExecutionTarget(existing.action_type, target);
+        if (!targetValidation.valid) {
+          return NextResponse.json({
+            error: `Approval blocked: ${targetValidation.error}`,
+          }, { status: 409 });
+        }
+      }
+
       const targetAssetId =
         typeof target.assetId === "string"
           ? target.assetId
@@ -547,6 +556,32 @@ export async function PATCH(request: Request) {
         if (!asset) {
           return NextResponse.json({
             error: "Approval blocked: the target asset is no longer available in this organization.",
+          }, { status: 409 });
+        }
+      }
+
+      const targetIntegrationId =
+        typeof target.integrationId === "string"
+          ? target.integrationId
+          : target.resourceType === "integration" && typeof target.resourceId === "string"
+            ? target.resourceId
+            : null;
+
+      if (targetIntegrationId) {
+        const { data: integration, error: integrationError } = await supabase
+          .from("security_integrations")
+          .select("id")
+          .eq("id", targetIntegrationId)
+          .eq("organization_id", organizationId)
+          .maybeSingle();
+
+        if (integrationError) {
+          return NextResponse.json({ error: integrationError.message }, { status: 500 });
+        }
+
+        if (!integration) {
+          return NextResponse.json({
+            error: "Approval blocked: the target integration is no longer available in this organization.",
           }, { status: 409 });
         }
       }
