@@ -112,6 +112,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Evidence source and title are required." }, { status: 400 });
     }
 
+    if (source.length > 200 || title.length > 300 || (summary && summary.length > 5000)) {
+      return NextResponse.json(
+        { error: "Evidence source, title, or summary exceeds the allowed length." },
+        { status: 400 }
+      );
+    }
+
+    if (Array.isArray(payload.indicators) && payload.indicators.length > 100) {
+      return NextResponse.json({ error: "A maximum of 100 indicators is allowed." }, { status: 400 });
+    }
+
     if (assetId) {
       const { data: asset } = await supabase
         .from("security_assets")
