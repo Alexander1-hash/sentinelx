@@ -643,7 +643,7 @@ export default function AnalystPage() {
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
                     <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Response outcomes</p>
-                    <p className="mt-2 text-2xl font-semibold text-white">{response.historicalContext.responseOutcomes.length}</p>
+                    <p className="mt-2 text-2xl font-semibold text-white">{response.historicalContext?.responseOutcomes?.length ?? 0}</p>
                     <p className="mt-1 text-[10px] text-slate-600">Recorded executor outcomes connected to this context.</p>
                   </div>
                 </div>
@@ -668,11 +668,11 @@ export default function AnalystPage() {
                           </div>
                         )}
 
-                        {response.historicalContext.responseOutcomes.length > 0 && (
+                        {response.historicalContext?.responseOutcomes?.length ?? 0 > 0 && (
                           <div className="mt-4 rounded-xl border border-white/10 p-3">
                             <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Recorded response context</p>
                             <div className="mt-2 space-y-2">
-                              {response.historicalContext.responseOutcomes.slice(0, 2).map((outcome, outcomeIndex) => (
+                              {response.historicalContext?.responseOutcomes?.slice(0, 2).map((outcome, outcomeIndex) => (
                                 <div key={(outcome.action_id ?? "outcome") + outcome.occurred_at + outcomeIndex} className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
                                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                                     <p className="text-[10px] font-medium text-slate-300">{outcome.title}</p>
