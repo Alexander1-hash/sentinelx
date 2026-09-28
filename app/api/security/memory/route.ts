@@ -199,7 +199,7 @@ export async function GET(request: Request) {
         evidenceChanges: items.filter((item) => item.type === "evidence_change").length,
       },
       boundary:
-        "Security History is a record of what SentinelX previously observed, investigated, decided, or recorded as an outcome. Historical memory provides context but does not prove that the same condition exists now. Current evidence and telemetry remain authoritative for present-state claims. Missing telemetry is never treated as resolution.",
+        "Security History is a record of what Trinorin previously observed, investigated, decided, or recorded as an outcome. Historical memory provides context but does not prove that the same condition exists now. Current evidence and telemetry remain authoritative for present-state claims. Missing telemetry is never treated as resolution.",
     });
   } catch {
     return NextResponse.json({ error: "Security History could not be generated." }, { status: 500 });
