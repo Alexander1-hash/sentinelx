@@ -101,7 +101,7 @@ export default function SignupPage() {
             </div>
 
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              Create your SentinelX account
+              Create your Trinorin account
             </h1>
 
             <p className="mt-2 text-sm text-slate-400">
@@ -252,7 +252,7 @@ export default function SignupPage() {
 
             <div className="mt-6 border-t border-slate-800 pt-6 text-center">
               <p className="text-sm text-slate-500">
-                Already have a SentinelX account?{" "}
+                Already have a Trinorin account?{" "}
                 <Link
                   href="/login"
                   className="font-medium text-white hover:underline"
@@ -264,7 +264,7 @@ export default function SignupPage() {
           </div>
 
           <p className="mt-6 text-center text-xs text-slate-600">
-            SentinelX Security Intelligence
+            Trinorin Security Intelligence
           </p>
         </div>
       </div>
