@@ -141,9 +141,9 @@ export async function POST(request: Request) {
         ...(metadata.onboarding && typeof metadata.onboarding === "object" && !Array.isArray(metadata.onboarding)
           ? metadata.onboarding as Record<string, unknown>
           : {}),
-        state: "telemetry_connected",
+        state: "enrolled",
         next_step: "Continue sending authorized endpoint telemetry to Trinorin.",
-        telemetry: "Endpoint identity claimed and telemetry channel ready",
+        telemetry: "Endpoint identity claimed; awaiting first telemetry event",
       },
       endpoint: {
         ...endpoint,
