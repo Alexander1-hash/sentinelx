@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Activity, ArrowRight, BrainCircuit, CheckCircle2, Clock3, Network, ShieldAlert, Sparkles } from "lucide-react";
+import { Activity, ArrowRight, BrainCircuit, CheckCircle2, Clock3, Network, ShieldAlert, Sparkles, Target, Workflow } from "lucide-react";
 
 type AttentionItem = {
   id: string;
@@ -36,6 +36,14 @@ type Pattern = {
   boundary: string;
 };
 
+type Intelligence = {
+  summary: { protectedAssets: number; activeFindings: number; evidenceRecords: number; securityEvents: number; confirmedRelationships: number; memoryRecords: number; intelligenceCoverage: number };
+  priorities: Array<{ findingId: string; title: string; severity: string; score: number; asset: string | null; reasons: string[] }>;
+  coverageGaps: string[];
+  lifecycle: Record<string, number>;
+  boundary: string;
+};
+
 type Overview = {
   connected: boolean;
   metrics: {
@@ -50,6 +58,7 @@ type Overview = {
 
 export default function IntelligencePage() {
   const [overview, setOverview] = useState<Overview | null>(null);
+  const [intelligence, setIntelligence] = useState<Intelligence | null>(null);
   const [attention, setAttention] = useState<AttentionItem[]>([]);
   const [changes, setChanges] = useState<ChangeItem[]>([]);
   const [patterns, setPatterns] = useState<Pattern[]>([]);
@@ -59,11 +68,12 @@ export default function IntelligencePage() {
   async function load() {
     setLoading(true);
     try {
-      const [overviewResponse, attentionResponse, changesResponse, patternsResponse] = await Promise.all([
+      const [overviewResponse, attentionResponse, changesResponse, patternsResponse, intelligenceResponse] = await Promise.all([
         fetch("/api/security/overview", { cache: "no-store" }),
         fetch("/api/security/attention", { cache: "no-store" }),
         fetch("/api/security/changes", { cache: "no-store" }),
         fetch("/api/security/patterns", { cache: "no-store" }),
+        fetch("/api/security/intelligence", { cache: "no-store" }),
       ]);
 
       if (overviewResponse.ok) setOverview(await overviewResponse.json());
@@ -75,6 +85,7 @@ export default function IntelligencePage() {
         const data = await changesResponse.json();
         setChanges(Array.isArray(data.changes) ? data.changes : []);
       }
+      if (intelligenceResponse.ok) setIntelligence(await intelligenceResponse.json());
       if (patternsResponse.ok) {
         const data = await patternsResponse.json();
         setPatterns(Array.isArray(data.patterns) ? data.patterns : []);
@@ -102,7 +113,7 @@ export default function IntelligencePage() {
         label: "Investigation needed",
         tone: "amber",
         headline: attention[0]?.title ?? "Recorded security attention requires review.",
-        detail: attention[0]?.detail ?? "SentinelX has recorded signals that should be investigated.",
+        detail: attention[0]?.detail ?? "Trinorin has recorded signals that should be investigated.",
         href: attention[0]?.href ?? "/analyst",
         action: "Investigate signal",
       };
@@ -274,6 +285,36 @@ export default function IntelligencePage() {
           </div>
         </section>
 
+
+        <section className="mt-5 rounded-3xl border border-cyan-400/10 bg-cyan-400/[0.02] p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Decision support</p>
+              <h2 className="mt-1 text-lg font-semibold text-white">Signals requiring the most context</h2>
+              <p className="mt-2 text-xs text-slate-500">Deterministic ordering of recorded signals. It does not prove compromise or causation.</p>
+            </div>
+            <Target className="h-5 w-5 text-cyan-300" />
+          </div>
+          <div className="mt-5 space-y-3">
+            {(intelligence?.priorities ?? []).map((item, index) => (
+              <Link key={item.findingId} href={"/analyst?findingId=" + encodeURIComponent(item.findingId)} className="block rounded-2xl border border-white/10 bg-black/10 p-4 hover:bg-white/[0.04]">
+                <div className="flex items-start justify-between gap-4">
+                  <div><span className="text-[9px] font-semibold uppercase tracking-wider text-cyan-300">Priority {index + 1} · {item.severity}</span><h3 className="mt-2 text-sm font-semibold text-white">{item.title}</h3><p className="mt-1 text-[10px] text-slate-500">{item.asset ? "Affected asset: " + item.asset : "Affected asset not linked"}</p></div>
+                  <div className="text-right"><p className="text-xl font-semibold text-white">{Math.round(item.score)}</p><p className="text-[9px] uppercase tracking-wider text-slate-600">context</p></div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">{item.reasons.map((reason) => <span key={reason} className="rounded-full border border-white/10 px-2 py-1 text-[9px] text-slate-500">{reason}</span>)}</div>
+              </Link>
+            ))}
+            {!loading && !intelligence?.priorities.length && <p className="rounded-2xl border border-dashed border-white/10 p-4 text-xs text-slate-600">No active finding currently needs prioritization.</p>}
+          </div>
+        </section>
+
+        <section className="mt-5 rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
+          <div className="flex items-center gap-3"><Workflow className="h-5 w-5 text-cyan-300" /><div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Intelligence lifecycle</p><h2 className="mt-1 text-lg font-semibold text-white">The learning loop is measurable</h2></div></div>
+          <div className="mt-5 grid gap-2 sm:grid-cols-4 lg:grid-cols-7">
+            {["observe","detect","investigate","decide","respond","verify","learn"].map((key) => <div key={key} className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">{key}</p><p className="mt-2 text-xl font-semibold text-white">{loading ? "—" : intelligence?.lifecycle[key] ?? 0}</p></div>)}
+          </div>
+        </section>
         <section className="mt-5 rounded-3xl border border-cyan-400/10 bg-cyan-400/[0.02] p-5 sm:p-6">
           <div className="flex flex-col gap-1">
             <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Context synthesis</p>
