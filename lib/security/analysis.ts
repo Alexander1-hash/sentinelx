@@ -304,19 +304,20 @@ export async function runSecurityAnalysis(
             .filter((assetId) => assetMap.has(assetId))
         );
 
-        const sensitiveEvidence = Array.from(dataAssetIds).flatMap(
-          (assetId) =>
-            (evidenceByAsset.get(assetId) ?? []).filter((item) => {
-              const severity = item.data?.severity;
-              const classification = item.data?.data_classification;
-              return (
-                severity === "high" ||
-                severity === "critical" ||
-                classification === "confidential" ||
-                classification === "restricted"
-              );
-            })
-        );
+        const sensitiveEvidence = Array.from(dataAssetIds).flatMap((assetId) => {
+          const nearbyEvidence = nearbyEvidenceForAsset(assetId, event.observed_at);
+
+          return nearbyEvidence.filter((item) => {
+            const severity = item.data?.severity;
+            const classification = item.data?.data_classification;
+            return (
+              severity === "high" ||
+              severity === "critical" ||
+              classification === "confidential" ||
+              classification === "restricted"
+            );
+          });
+        });
 
         const pathKey = paths
           .map(({ agentCall, dataEdge }) => agentCall.target_asset_id + ":" + dataEdge.target_asset_id + ":" + dataEdge.relationship_type)
