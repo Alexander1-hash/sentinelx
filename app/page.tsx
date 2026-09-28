@@ -217,9 +217,27 @@ export default function DashboardPage() {
           fetch("/api/security/changes", { cache: "no-store" }),
         ]);
 
+        let attentionData: SecurityAttention | null = null;
+
         if (overviewResponse.ok) setOverview((await overviewResponse.json()) as SecurityOverview);
-        if (attentionResponse.ok) setAttention((await attentionResponse.json()) as SecurityAttention);
+        if (attentionResponse.ok) {
+          attentionData = (await attentionResponse.json()) as SecurityAttention;
+          setAttention(attentionData);
+        }
         if (changesResponse.ok) setChanges((await changesResponse.json()) as SecurityChanges);
+
+        const activeFinding = attentionData?.items.find((item) => item.kind === "finding");
+        const patternsResponse = await fetch(
+          activeFinding?.id
+            ? `/api/security/patterns?findingId=${encodeURIComponent(activeFinding.id)}`
+            : "/api/security/patterns",
+          { cache: "no-store" }
+        );
+
+        if (patternsResponse.ok) {
+          const patternsData = await patternsResponse.json();
+          setPatterns(Array.isArray(patternsData.patterns) ? patternsData.patterns : []);
+        }
       } catch {
         // The dashboard keeps its last verified state if a background refresh fails.
       }
