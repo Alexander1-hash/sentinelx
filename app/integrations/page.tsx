@@ -33,6 +33,18 @@ type TokenNotice = {
   token: string;
 };
 
+function syncAgeLabel(lastSyncAt: string | null) {
+  if (!lastSyncAt) return "No telemetry received yet.";
+  const ageMs = Math.max(0, Date.now() - new Date(lastSyncAt).getTime());
+  const ageMinutes = Math.floor(ageMs / 60_000);
+  if (ageMinutes < 1) return "Telemetry received less than a minute ago.";
+  if (ageMinutes < 60) return `Telemetry received ${ageMinutes} minute${ageMinutes === 1 ? "" : "s"} ago.`;
+  const ageHours = Math.floor(ageMinutes / 60);
+  if (ageHours < 24) return `Telemetry received ${ageHours} hour${ageHours === 1 ? "" : "s"} ago.`;
+  const ageDays = Math.floor(ageHours / 24);
+  return `Telemetry received ${ageDays} day${ageDays === 1 ? "" : "s"} ago.`;
+}
+
 const catalog = [
   {
     provider: "Cloud",
@@ -265,13 +277,18 @@ export default function IntegrationsPage() {
                   </div>
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-col gap-1">
-                      <p className="text-[10px] text-slate-600">
-                        {integration.last_sync_at
-                          ? `Last sync: ${new Date(integration.last_sync_at).toLocaleString()}`
-                          : integration.status === "connected"
-                            ? "Connected · awaiting the next telemetry event."
-                            : "Not connected · no telemetry is being claimed."}
-                      </p>
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-slate-500">
+                          {integration.last_sync_at
+                            ? `Last telemetry received: ${new Date(integration.last_sync_at).toLocaleString()}`
+                            : integration.status === "connected"
+                              ? "Connected · awaiting the next telemetry event."
+                              : "Not connected · no telemetry is being claimed."}
+                        </p>
+                        {integration.last_sync_at ? (
+                          <p className="text-[10px] text-slate-600">{syncAgeLabel(integration.last_sync_at)}</p>
+                        ) : null}
+                      </div>
                       {integration.status === "connected" ? (
                         <Link href="/" className="text-[10px] font-semibold text-cyan-300 hover:text-white">
                           Open Command Center →
