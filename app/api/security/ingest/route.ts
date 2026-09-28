@@ -204,6 +204,43 @@ export async function POST(request: Request) {
           ? "unchanged"
           : "changed";
 
+    if (changeType === "unchanged" && previous?.id) {
+      let unchangedEventQuery = supabase
+        .from("security_events")
+        .select("id,event_type,severity,source,title,description,asset_id,observed_at,created_at")
+        .eq("organization_id", integration.organization_id)
+        .eq("source", source)
+        .eq("title", title)
+        .contains("evidence", { evidence_id: previous.id })
+        .order("observed_at", { ascending: false })
+        .limit(1);
+
+      unchangedEventQuery = assetId
+        ? unchangedEventQuery.eq("asset_id", assetId)
+        : unchangedEventQuery.is("asset_id", null);
+
+      const { data: unchangedEvents } = await unchangedEventQuery;
+      const unchangedEvent = unchangedEvents?.[0];
+
+      if (unchangedEvent) {
+        return NextResponse.json(
+          {
+            accepted: true,
+            eventId: unchangedEvent.id,
+            evidenceId: previous.id,
+            event: unchangedEvent,
+            discoveredRelationships: 0,
+            analysisTriggered: false,
+            findingsCreated: 0,
+            findings: [],
+            message:
+              "Telemetry matched the previously recorded evidence state. SentinelX kept the existing event identity and did not create duplicate analysis activity.",
+          },
+          { status: 200 }
+        );
+      }
+    }
+
     const normalizedEvent = normalizeSecurityEvent({
       event_type:
         typeof payload.eventType === "string"
