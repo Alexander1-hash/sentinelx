@@ -668,7 +668,7 @@ export default function AnalystPage() {
                           </div>
                         )}
 
-                        {response.historicalContext?.responseOutcomes?.length ?? 0 > 0 && (
+                        {(response.historicalContext?.responseOutcomes?.length ?? 0) > 0 && (
                           <div className="mt-4 rounded-xl border border-white/10 p-3">
                             <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Recorded response context</p>
                             <div className="mt-2 space-y-2">
