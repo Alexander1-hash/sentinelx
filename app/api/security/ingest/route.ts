@@ -424,6 +424,11 @@ export async function POST(request: Request) {
       }
     }
 
+    const uniqueRelationshipCandidates = new Map<
+      string,
+      (typeof relationshipCandidates)[number]
+    >();
+
     for (const relationship of relationshipCandidates) {
       if (
         !validRelationshipAssetIds.has(relationship.sourceAssetId) ||
@@ -432,29 +437,117 @@ export async function POST(request: Request) {
         continue;
       }
 
-      const { error } = await supabase
+      const key = [
+        relationship.sourceAssetId,
+        relationship.targetAssetId,
+        relationship.relationshipType,
+      ].join(":");
+
+      uniqueRelationshipCandidates.set(key, relationship);
+    }
+
+    const relationshipSourceIds = Array.from(
+      new Set(
+        Array.from(uniqueRelationshipCandidates.values()).map(
+          (relationship) => relationship.sourceAssetId
+        )
+      )
+    );
+    const relationshipTargetIds = Array.from(
+      new Set(
+        Array.from(uniqueRelationshipCandidates.values()).map(
+          (relationship) => relationship.targetAssetId
+        )
+      )
+    );
+    const relationshipTypesForLookup = Array.from(
+      new Set(
+        Array.from(uniqueRelationshipCandidates.values()).map(
+          (relationship) => relationship.relationshipType
+        )
+      )
+    );
+
+    const existingRelationships = new Map<
+      string,
+      { id: string; status: "proposed" | "confirmed" | "rejected" }
+    >();
+
+    if (
+      relationshipSourceIds.length > 0 &&
+      relationshipTargetIds.length > 0 &&
+      relationshipTypesForLookup.length > 0
+    ) {
+      const { data: existing } = await supabase
         .from("security_asset_relationships")
-        .upsert(
+        .select("id,source_asset_id,target_asset_id,relationship_type,status")
+        .eq("organization_id", integration.organization_id)
+        .in("source_asset_id", relationshipSourceIds)
+        .in("target_asset_id", relationshipTargetIds)
+        .in("relationship_type", relationshipTypesForLookup);
+
+      for (const relationship of existing ?? []) {
+        existingRelationships.set(
+          [
+            relationship.source_asset_id,
+            relationship.target_asset_id,
+            relationship.relationship_type,
+          ].join(":"),
           {
-            organization_id: integration.organization_id,
-            source_asset_id: relationship.sourceAssetId,
-            target_asset_id: relationship.targetAssetId,
-            relationship_type: relationship.relationshipType,
-            confidence: relationship.confidence,
-            status: "proposed",
-            evidence_source: source,
-            discovered_at: new Date().toISOString(),
-            evidence: {
-              source: "telemetry_ingestion",
-              evidence_id: evidence.id,
-              reason: relationship.reason,
-            },
-          },
-          {
-            onConflict: "source_asset_id,target_asset_id,relationship_type",
-            ignoreDuplicates: false,
+            id: relationship.id,
+            status: relationship.status as
+              | "proposed"
+              | "confirmed"
+              | "rejected",
           }
         );
+      }
+    }
+
+    for (const relationship of uniqueRelationshipCandidates.values()) {
+      const key = [
+        relationship.sourceAssetId,
+        relationship.targetAssetId,
+        relationship.relationshipType,
+      ].join(":");
+      const existing = existingRelationships.get(key);
+      const relationshipPayload = {
+        confidence: relationship.confidence,
+        evidence_source: source,
+        discovered_at: new Date().toISOString(),
+        evidence: {
+          source: "telemetry_ingestion",
+          evidence_id: evidence.id,
+          reason: relationship.reason,
+        },
+      };
+
+      if (existing) {
+        if (existing.status === "confirmed" || existing.status === "rejected") {
+          discoveredRelationships += 1;
+          continue;
+        }
+
+        const { error } = await supabase
+          .from("security_asset_relationships")
+          .update(relationshipPayload)
+          .eq("id", existing.id)
+          .eq("organization_id", integration.organization_id);
+
+        if (!error) discoveredRelationships += 1;
+        continue;
+      }
+
+      const { error } = await supabase
+        .from("security_asset_relationships")
+        .insert({
+          organization_id: integration.organization_id,
+          source_asset_id: relationship.sourceAssetId,
+          target_asset_id: relationship.targetAssetId,
+          relationship_type: relationship.relationshipType,
+          status: "proposed",
+          ...relationshipPayload,
+        });
 
       if (!error) discoveredRelationships += 1;
     }
