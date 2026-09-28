@@ -137,6 +137,49 @@ export async function POST(request: Request) {
     }
 
     const generated = await createIngestionToken();
+    const isEndpoint = integrationType === "endpoint";
+
+    let endpointAssetId: string | null = null;
+
+    if (isEndpoint) {
+      const { data: endpointAsset, error: endpointAssetError } = await supabase
+        .from("security_assets")
+        .insert({
+          organization_id: organizationId,
+          name: displayName,
+          asset_type: "endpoint",
+          provider: "Trinorin Endpoint",
+          environment: "production",
+          criticality: "medium",
+          status: "active",
+          metadata: {
+            onboarding: {
+              state: "enrollment_pending",
+              next_step: "Install or connect the authorized Trinorin endpoint component.",
+              telemetry: "Endpoint enrollment pending",
+            },
+            endpoint: {
+              enrollment_state: "pending",
+              platform: "unknown",
+              device_id: null,
+              os_version: null,
+              agent_version: null,
+              posture: "unknown",
+              connection_state: "offline",
+              enrolled_at: null,
+              last_heartbeat_at: null,
+            },
+          },
+        })
+        .select("id")
+        .single();
+
+      if (endpointAssetError) {
+        return NextResponse.json({ error: endpointAssetError.message }, { status: 500 });
+      }
+
+      endpointAssetId = endpointAsset.id;
+    }
 
     const { data, error } = await supabase
       .from("security_integrations")
@@ -148,8 +191,17 @@ export async function POST(request: Request) {
         status: "planned",
         scopes,
         configuration: {
-          connection_state: "not_connected",
+          connection_state: isEndpoint ? "enrollment_pending" : "not_connected",
           credential_storage: "hash_only",
+          ...(endpointAssetId
+            ? {
+                endpoint_asset_id: endpointAssetId,
+                endpoint: {
+                  enrollment_state: "pending",
+                  asset_id: endpointAssetId,
+                },
+              }
+            : {}),
         },
         ingestion_token_hash: generated.hash,
         ingestion_token_prefix: generated.prefix,
@@ -158,7 +210,16 @@ export async function POST(request: Request) {
       .select("id,provider,integration_type,display_name,status,scopes,last_sync_at,created_at")
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      if (endpointAssetId) {
+        await supabase
+          .from("security_assets")
+          .delete()
+          .eq("id", endpointAssetId)
+          .eq("organization_id", organizationId);
+      }
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
     return NextResponse.json({
       integration: data,
