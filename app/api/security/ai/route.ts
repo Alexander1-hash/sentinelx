@@ -143,7 +143,7 @@ function detectThreats(events: any[], agents: any[], systems: any[], evidence: a
         state: "potential",
         category: "AI asset visibility",
         title: system.name + " is not graph linked",
-        detail: "A sensitive AI system is registered without a linked security asset. SentinelX cannot establish its confirmed relationship to infrastructure or data from this record alone.",
+        detail: "A sensitive AI system is registered without a linked security asset. Trinorin cannot establish its confirmed relationship to infrastructure or data from this record alone.",
         evidenceIds: [],
         eventIds: [],
         recommendedNextStep: "Link the AI system to the correct authorized security asset and connect telemetry.",
@@ -315,7 +315,7 @@ export async function POST(request: Request) {
         environment: typeof body.environment === "string" ? body.environment : "production",
         data_classification: typeof body.dataClassification === "string" ? body.dataClassification : "unknown",
         status: "active", capabilities: Array.isArray(body.capabilities) ? body.capabilities : [],
-        permissions: asObject(body.permissions), metadata: { registration_source: "sentinelx_ai_security_center" },
+        permissions: asObject(body.permissions), metadata: { registration_source: "trinorin_ai_security_center" },
       }).select("id,name,provider,model,system_type,environment,data_classification,status,capabilities,permissions,metadata,created_at,updated_at").single();
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       return NextResponse.json({ system: data }, { status: 201 });
