@@ -650,6 +650,52 @@ export default function AnalystPage() {
               </section>
             ) : null}
 
+            {response.historicalContext && (response.historicalContext.priorFindingStates.length > 0 || response.historicalContext.priorInvestigations.length > 0) && (
+              <section className="rounded-3xl border border-orange-400/10 bg-orange-400/[0.025] p-5 sm:p-6">
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-orange-200">Recurrence context</p>
+                  <h2 className="mt-1 text-lg font-semibold text-white">What SentinelX has seen before</h2>
+                  <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                    This is a record of prior state changes and investigations connected to the selected finding. Repetition is historical context, not proof that the same condition exists now.
+                  </p>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Recorded state changes</p>
+                    <p className="mt-2 text-2xl font-semibold text-white">{response.historicalContext.priorFindingStates.length}</p>
+                    <p className="mt-1 text-[10px] text-slate-600">Historical finding-state records in the current context.</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Prior investigations</p>
+                    <p className="mt-2 text-2xl font-semibold text-white">{response.historicalContext.priorInvestigations.length}</p>
+                    <p className="mt-1 text-[10px] text-slate-600">Previously recorded investigations for this finding.</p>
+                  </div>
+                </div>
+
+                {response.historicalContext.priorFindingStates.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {response.historicalContext.priorFindingStates.slice(0, 5).map((item, index) => (
+                      <div key={item.occurred_at + item.title + index} className="rounded-2xl border border-white/10 p-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="text-xs font-medium text-white">{item.title}</p>
+                          <time className="text-[9px] text-slate-600">{new Date(item.occurred_at).toLocaleString()}</time>
+                        </div>
+                        <p className="mt-2 text-[10px] leading-5 text-slate-500">{item.summary}</p>
+                        {(item.previous_state || item.current_state) && (
+                          <div className="mt-3 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-wider">
+                            {item.previous_state && <span className="rounded-full bg-white/5 px-2 py-1 text-slate-500">{String(item.previous_state)}</span>}
+                            {item.previous_state && item.current_state && <span className="text-orange-300">→</span>}
+                            {item.current_state && <span className="rounded-full bg-orange-400/10 px-2 py-1 text-orange-200">{String(item.current_state)}</span>}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
             {response.securityPatterns?.length ? (
               <section className="rounded-3xl border border-violet-400/10 bg-violet-400/[0.025] p-5 sm:p-6">
                 <div className="flex items-end justify-between gap-3">
