@@ -805,6 +805,24 @@ export default function DashboardPage() {
           )}
         </section>
 
+        <nav aria-label="Mobile security navigation" className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#071018]/95 px-2 py-2 backdrop-blur-xl lg:hidden">
+          <div className="mx-auto grid max-w-[520px] grid-cols-5 gap-1">
+            {navigation.slice(0, 5).map((item) => {
+              const Icon = item.icon;
+              return (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  className="flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[8px] font-medium text-slate-500 transition hover:bg-white/5 hover:text-cyan-200"
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="max-w-full truncate">{item.label === "AI Security Center" ? "AI Security" : item.label === "Security Analyst" ? "Analyst" : item.label}</span>
+                </a>
+              );
+            })}
+          </div>
+        </nav>
+
         <footer className="mt-8 flex flex-col gap-2 border-t border-white/10 py-6 text-[10px] text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <p>SentinelX · AI Security Operating System</p>
           <p>Authorized systems only · Evidence-first security</p>
