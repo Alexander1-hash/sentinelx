@@ -63,6 +63,31 @@ export function buildSecurityBrain(input: {
   const assetById = new Map(input.assets.map((asset) => [recordId(asset.id), asset]));
   const systemById = new Map(input.aiSystems.map((system) => [recordId(system.id), system]));
   const agentsBySystemId = new Map<string, SecurityBrainRecord[]>();
+  const evidenceByAssetId = new Map<string, string[]>();
+  const autonomousAgentsByAssetId = new Map<string, string[]>();
+  const connectedAssetsByAssetId = new Map<string, Set<string>>();
+
+  for (const item of input.evidence) {
+    const assetId = recordId(item.asset_id);
+    if (!assetId) continue;
+    const current = evidenceByAssetId.get(assetId) ?? [];
+    const id = recordId(item.id);
+    if (id) current.push(id);
+    evidenceByAssetId.set(assetId, current);
+  }
+
+  for (const edge of input.relationships) {
+    if (text(edge.status).toLowerCase() !== "confirmed") continue;
+    const sourceId = recordId(edge.source_asset_id);
+    const targetId = recordId(edge.target_asset_id);
+    if (!sourceId || !targetId) continue;
+    const sourceConnections = connectedAssetsByAssetId.get(sourceId) ?? new Set<string>();
+    sourceConnections.add(targetId);
+    connectedAssetsByAssetId.set(sourceId, sourceConnections);
+    const targetConnections = connectedAssetsByAssetId.get(targetId) ?? new Set<string>();
+    targetConnections.add(sourceId);
+    connectedAssetsByAssetId.set(targetId, targetConnections);
+  }
 
   for (const agent of input.aiAgents) {
     const systemId = recordId(agent.system_id);
@@ -70,6 +95,18 @@ export function buildSecurityBrain(input: {
     const current = agentsBySystemId.get(systemId) ?? [];
     current.push(agent);
     agentsBySystemId.set(systemId, current);
+  }
+
+  for (const system of input.aiSystems) {
+    const assetId = recordId(system.asset_id);
+    if (!assetId) continue;
+    for (const agent of agentsBySystemId.get(recordId(system.id)) ?? []) {
+      if (text(agent.autonomy_level).toLowerCase() !== "autonomous") continue;
+      const current = autonomousAgentsByAssetId.get(assetId) ?? [];
+      const agentId = recordId(agent.id);
+      if (agentId) current.push(agentId);
+      autonomousAgentsByAssetId.set(assetId, current);
+    }
   }
 
   const correlations: SecurityBrainCorrelation[] = [];
