@@ -229,6 +229,26 @@ export async function POST(request: Request) {
       const unchangedEvent = unchangedEvents?.[0];
 
       if (unchangedEvent) {
+        const syncTimestamp = new Date().toISOString();
+
+        await supabase
+          .from("security_integrations")
+          .update({
+            status: "connected",
+            last_sync_at: syncTimestamp,
+            ingestion_token_last_used_at: syncTimestamp,
+          })
+          .eq("id", integration.integration_id)
+          .eq("organization_id", integration.organization_id);
+
+        if (assetId) {
+          await supabase
+            .from("security_assets")
+            .update({ last_seen_at: observedAt ?? syncTimestamp })
+            .eq("id", assetId)
+            .eq("organization_id", integration.organization_id);
+        }
+
         return NextResponse.json(
           {
             accepted: true,
