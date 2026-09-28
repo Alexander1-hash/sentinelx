@@ -447,7 +447,7 @@ export async function POST(request: Request) {
             evidence: {
               source: "telemetry_ingestion",
               evidence_id: evidence.id,
-              reason,
+              reason: relationship.reason,
             },
           },
           {
