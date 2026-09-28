@@ -64,7 +64,18 @@ function severityWeight(value: string) {
 
 type CorrelationContext = {
   findingId: string;
+  rootAssetId: string | null;
   timeWindowMinutes: number;
+  correlationConfidence: "strong" | "moderate" | "limited";
+  confidenceReasons: string[];
+  timeline: Array<{
+    observedAt: string;
+    signalType: "event" | "evidence" | "identity";
+    title: string;
+    source: string;
+    assetId: string | null;
+    identity: string | null;
+  }>;
   signalCount: number;
   eventSignals: Array<{
     id: string;
@@ -219,6 +230,30 @@ function buildCorrelationContext(
 
   return {
     findingId: finding.id,
+    rootAssetId,
+    timeWindowMinutes,
+    correlationConfidence:
+      correlated.length >= 5 && graphContext.length > 0 && identitySignals.length > 0
+        ? "strong"
+        : correlated.length >= 3 && (graphContext.length > 0 || identitySignals.length > 0)
+          ? "moderate"
+          : "limited",
+    confidenceReasons: [
+      correlated.length >= 3 ? "Multiple recorded signals support the same investigation window." : "Only a limited number of recorded signals were correlated.",
+      graphContext.length > 0 ? "Confirmed graph relationships reinforce asset context." : "No confirmed graph relationship was available for additional support.",
+      identitySignals.length > 0 ? "At least one explicit identity field is recorded." : "No explicit identity field is recorded.",
+    ],
+    timeline: correlated
+      .map((item) => ({
+        observedAt: item.observed_at,
+        signalType: /event|telemetry|log|alert|activity/i.test(item.evidence_type + " " + item.source) ? "event" as const : "evidence" as const,
+        title: item.title,
+        source: item.source,
+        assetId: item.asset_id ?? null,
+        identity: explicitIdentity(item.data),
+      }))
+      .sort((a, b) => new Date(a.observedAt).getTime() - new Date(b.observedAt).getTime())
+      .slice(0, 30),
     timeWindowMinutes,
     signalCount: correlated.length,
     eventSignals,
