@@ -185,6 +185,24 @@ export default function SecurityHistoryPage() {
                         </div>
                       )}
 
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {item.context.findingId && (
+                          <Link href={"/analyst?findingId=" + encodeURIComponent(item.context.findingId)} className="rounded-xl border border-white/10 px-3 py-2 text-[9px] font-semibold text-slate-300 hover:bg-white/5 hover:text-white">
+                            Open investigation
+                          </Link>
+                        )}
+                        {item.context.actionId && (
+                          <Link href={"/actions?findingId=" + encodeURIComponent(item.context.findingId ?? "")} className="rounded-xl border border-white/10 px-3 py-2 text-[9px] font-semibold text-slate-300 hover:bg-white/5 hover:text-white">
+                            Review response
+                          </Link>
+                        )}
+                        {item.type === "evidence_change" && (
+                          <Link href="/brain" className="rounded-xl border border-white/10 px-3 py-2 text-[9px] font-semibold text-slate-300 hover:bg-white/5 hover:text-white">
+                            Open Security Brain
+                          </Link>
+                        )}
+                      </div>
+
                       <p className="mt-3 text-[10px] leading-5 text-slate-600">
                         Historical context is not current-state proof. SentinelX must rely on current evidence and telemetry for present-state claims.
                       </p>
