@@ -153,7 +153,7 @@ export function buildSecurityPatterns(memories: SecurityPatternMemory[]): Securi
       .trim()
       .toLowerCase()
       .replace(/[_-]+/g, " ")
-      .replace(/\\s+/g, " ");
+      .replace(/\s+/g, " ");
 
   const aiSubjectKey = (memory: SecurityPatternMemory) =>
     str(memory.data.finding_id) ??
