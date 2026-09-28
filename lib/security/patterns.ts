@@ -142,22 +142,42 @@ export function buildSecurityPatterns(memories: SecurityPatternMemory[]): Securi
 
   const aiMemories = memories.filter((memory) =>
     /(prompt injection|jailbreak|indirect prompt|credential|secret exposure|sensitive data|tool call|mcp|excessive permission|shadow ai)/i.test(
-      (memory.title + " " + memory.summary + " " + JSON.stringify(memory.data)).toLowerCase(),
+      memory.title + " " + memory.summary + " " + JSON.stringify(memory.data),
     ),
   );
+
+  // Group AI indicators by normalized category + security subject so repeated
+  // signals on different assets do not get collapsed into one global pattern.
+  const normalizeIndicator = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[_-]+/g, " ")
+      .replace(/\\s+/g, " ");
+
+  const aiSubjectKey = (memory: SecurityPatternMemory) =>
+    str(memory.data.finding_id) ??
+    str(memory.data.asset_id) ??
+    str(memory.data.affected_asset_id) ??
+    memory.subject_id ??
+    "organization";
   const aiGroups = new Map<string, SecurityPatternMemory[]>();
 
   for (const memory of aiMemories) {
-    const category = str(memory.data.category) ?? str(memory.data.indicator) ?? "ai-security-signal";
-    const list = aiGroups.get(category) ?? [];
+    const rawCategory = str(memory.data.category) ?? str(memory.data.indicator) ?? "ai-security-signal";
+    const category = normalizeIndicator(rawCategory);
+    const key = category + ":" + aiSubjectKey(memory);
+    const list = aiGroups.get(key) ?? [];
     list.push(memory);
     aiGroups.set(category, list);
   }
 
-  for (const [category, list] of aiGroups) {
+  for (const [groupKey, list] of aiGroups) {
     if (list.length < 2) continue;
+    const separator = groupKey.lastIndexOf(":");
+    const category = separator >= 0 ? groupKey.slice(0, separator) : groupKey;
     patterns.push({
-      id: "ai-repeat-" + category,
+      id: "ai-repeat-" + groupKey,
       pattern: "repeated_ai_indicator",
       title: "Repeated AI security indicator: " + category,
       detail: list.length + " recorded memory event(s) contain the same AI-security indicator category.",
