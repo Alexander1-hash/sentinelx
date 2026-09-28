@@ -254,7 +254,6 @@ function buildCorrelationContext(
       }))
       .sort((a, b) => new Date(a.observedAt).getTime() - new Date(b.observedAt).getTime())
       .slice(0, 30),
-    timeWindowMinutes,
     signalCount: correlated.length,
     eventSignals,
     evidenceSignals,
