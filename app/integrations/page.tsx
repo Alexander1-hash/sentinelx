@@ -246,9 +246,17 @@ export default function IntegrationsPage() {
                       <p className="font-semibold text-white">{integration.display_name}</p>
                       <p className="mt-1 text-xs text-slate-500">{integration.provider} · {integration.integration_type}</p>
                     </div>
-                    <span className="inline-flex w-fit items-center gap-1 rounded-full bg-amber-400/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-amber-300">
+                    <span
+                      className={
+                        integration.status === "connected"
+                          ? "inline-flex w-fit items-center gap-1 rounded-full bg-emerald-400/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-emerald-300"
+                          : integration.status === "error"
+                            ? "inline-flex w-fit items-center gap-1 rounded-full bg-rose-400/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-rose-300"
+                            : "inline-flex w-fit items-center gap-1 rounded-full bg-amber-400/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-amber-300"
+                      }
+                    >
+                      {integration.status === "connected" ? <CheckCircle2 className="h-3 w-3" /> : null}
                       {integration.status}
-                    </span>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     {integration.scopes.map((scope) => (
@@ -256,9 +264,20 @@ export default function IntegrationsPage() {
                     ))}
                   </div>
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-[10px] text-slate-600">
-                      {integration.last_sync_at ? `Last sync: ${new Date(integration.last_sync_at).toLocaleString()}` : "Not connected · no telemetry is being claimed."}
-                    </p>
+                    <div className="flex flex-col gap-1">
+                      <p className="text-[10px] text-slate-600">
+                        {integration.last_sync_at
+                          ? `Last sync: ${new Date(integration.last_sync_at).toLocaleString()}`
+                          : integration.status === "connected"
+                            ? "Connected · awaiting the next telemetry event."
+                            : "Not connected · no telemetry is being claimed."}
+                      </p>
+                      {integration.status === "connected" ? (
+                        <Link href="/" className="text-[10px] font-semibold text-cyan-300 hover:text-white">
+                          Open Command Center →
+                        </Link>
+                      ) : null}
+                    </div>
                     <button
                       onClick={() => void rotateToken(integration)}
                       disabled={rotatingId === integration.id}
