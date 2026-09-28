@@ -345,7 +345,7 @@ export default function DashboardPage() {
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-semibold tracking-wide text-white">SentinelX</p>
+              <p className="text-sm font-semibold tracking-wide text-white">Trinorin</p>
               <p className="text-[11px] text-slate-500">AI Security Operating System</p>
             </div>
           </div>
@@ -409,7 +409,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Change intelligence</p>
-              <p className="mt-1 text-[11px] text-slate-500">What changed against SentinelX's remembered security state.</p>
+              <p className="mt-1 text-[11px] text-slate-500">What changed against Trinorin's remembered security state.</p>
             </div>
             <div className="flex gap-2 text-[9px]">
               <span className="rounded-full bg-rose-400/10 px-2 py-1 text-rose-200">{changes?.summary.new ?? 0} new</span>
@@ -458,7 +458,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="mt-4 rounded-2xl border border-dashed border-white/10 p-4 text-[10px] text-slate-600">
-              No state changes are currently established against SentinelX memory.
+              No state changes are currently established against Trinorin memory.
             </div>
           )}
         </section>
@@ -469,7 +469,7 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-emerald-200">Response verification</p>
                 <h2 className="mt-1 text-lg font-semibold text-white">What happened after the response?</h2>
-                <p className="mt-1 text-[11px] text-slate-500">SentinelX separates recorded execution from evidence of the resulting security state.</p>
+                <p className="mt-1 text-[11px] text-slate-500">Trinorin separates recorded execution from evidence of the resulting security state.</p>
               </div>
               <a href="/analyst" className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-200 hover:text-white">
                 Open Analyst <ArrowRight className="h-3 w-3" />
@@ -505,7 +505,7 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-violet-200">Learned security context</p>
                 <h2 className="mt-1 text-lg font-semibold text-white">Historical response signals</h2>
-                <p className="mt-1 text-[11px] text-slate-500">Recorded response cycles and gaps that SentinelX can carry into investigation and operator review.</p>
+                <p className="mt-1 text-[11px] text-slate-500">Recorded response cycles and gaps that Trinorin can carry into investigation and operator review.</p>
               </div>
               <a href="/brain" className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-violet-200 hover:text-white">Open Security Brain <ArrowRight className="h-3 w-3" /></a>
             </div>
@@ -543,7 +543,7 @@ export default function DashboardPage() {
               </h1>
 
               <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">
-                SentinelX is moving beyond isolated alerts. It is being built to understand
+                Trinorin is moving beyond isolated alerts. It is being built to understand
                 your assets, their relationships, the signals around them, and the actions
                 that can reduce risk.
               </p>
@@ -597,7 +597,7 @@ export default function DashboardPage() {
 
             <div className="mt-4 rounded-2xl border border-amber-400/10 bg-amber-400/[0.04] p-3">
               <p className="text-[11px] leading-5 text-slate-400">
-                SentinelX will not invent a security score or threat count. Metrics appear
+                Trinorin will not invent a security score or threat count. Metrics appear
                 only after verified telemetry is connected.
               </p>
               <p className="mt-2 text-[10px] text-slate-600">
@@ -626,9 +626,9 @@ export default function DashboardPage() {
           <div className="mb-4 flex items-end justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">01 · Asset intelligence</p>
-              <h2 className="mt-1 text-xl font-semibold text-white">What should SentinelX protect?</h2>
+              <h2 className="mt-1 text-xl font-semibold text-white">What should Trinorin protect?</h2>
               <p className="mt-1 text-sm text-slate-500">
-                Connect authorized surfaces instead of handing SentinelX raw passwords.
+                Connect authorized surfaces instead of handing Trinorin raw passwords.
               </p>
             </div>
             <span className="hidden rounded-full border border-white/10 px-3 py-1 text-[10px] text-slate-500 sm:inline-flex">
@@ -678,7 +678,7 @@ export default function DashboardPage() {
 
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
               The Security Brain will connect assets, identities, software, data and events
-              into a security graph. This is where SentinelX can reason about context rather
+              into a security graph. This is where Trinorin can reason about context rather
               than treating every alert as an isolated problem.
             </p>
 
@@ -821,14 +821,14 @@ export default function DashboardPage() {
               <h3 className="mt-4 text-sm font-semibold text-slate-300">No verified security telemetry yet</h3>
               <p className="mt-2 max-w-md text-xs leading-5 text-slate-600">
                 Connect an authorized website, cloud environment, identity provider, or other
-                protected surface. SentinelX will populate this timeline from real signals.
+                protected surface. Trinorin will populate this timeline from real signals.
               </p>
             </div>
           )}
         </section>
 
         <footer className="mt-8 flex flex-col gap-2 border-t border-white/10 py-6 text-[10px] text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-          <p>SentinelX · AI Security Operating System</p>
+          <p>Trinorin · AI Security Operating System</p>
           <p>Authorized systems only · Evidence-first security</p>
         </footer>
       </div>
@@ -889,7 +889,7 @@ function DefenseLifecycleOverview({
           <h2 className="mt-1 text-lg font-semibold text-white">One continuous security workflow</h2>
         </div>
         <p className="text-[10px] text-slate-600">
-          SentinelX separates recorded activity from verified security state.
+          Trinorin separates recorded activity from verified security state.
         </p>
       </div>
 
