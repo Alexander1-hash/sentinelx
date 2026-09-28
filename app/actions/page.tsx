@@ -40,6 +40,7 @@ const ACTION_LABELS: Record<string, string> = {
 function SecurityActionsPageContent() {
   const searchParams = useSearchParams();
   const linkedFindingId = searchParams.get("findingId") ?? "";
+  const linkedActionId = searchParams.get("actionId") ?? "";
   const [createType, setCreateType] = useState("review_finding");
   const [creating, setCreating] = useState(false);
   const [actions, setActions] = useState<Action[]>([]);
@@ -59,6 +60,7 @@ function SecurityActionsPageContent() {
     preview?: { steps?: string[]; requiredIntegrationTypes?: string[] };
   }>>({});
   const [readinessLoading, setReadinessLoading] = useState(true);
+  const [focusedActionId, setFocusedActionId] = useState(linkedActionId);
 
   async function createAction() {
     if (!linkedFindingId) return;
@@ -99,7 +101,11 @@ function SecurityActionsPageContent() {
         return;
       }
 
-      setActions(data.actions ?? []);
+      const nextActions = data.actions ?? [];
+      setActions(nextActions);
+      if (linkedActionId && nextActions.some((action: Action) => action.id === linkedActionId)) {
+        setFocusedActionId(linkedActionId);
+      }
     } catch {
       setMessage("Security actions could not be loaded.");
     } finally {
@@ -109,10 +115,18 @@ function SecurityActionsPageContent() {
 
   useEffect(() => {
     void loadActions();
-  }, []);
+  }, [linkedActionId]);
 
   useEffect(() => {
-    async function loadReadiness() {
+    useEffect(() => {
+    if (!focusedActionId || loading) return;
+    const timer = window.setTimeout(() => {
+      document.getElementById(`action-${focusedActionId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [focusedActionId, loading, actions.length]);
+
+  async function loadReadiness() {
       try {
         const response = await fetch("/api/security/actions/readiness", { cache: "no-store" });
         const data = await response.json();
@@ -324,7 +338,15 @@ function SecurityActionsPageContent() {
           ) : (
             <div className="mt-5 space-y-3">
               {actions.map((action) => (
-                <div key={action.id} className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                <div
+                  key={action.id}
+                  id={`action-${action.id}`}
+                  className={`rounded-2xl border p-4 transition ${
+                    focusedActionId === action.id
+                      ? "border-cyan-400/30 bg-cyan-400/[0.04] ring-1 ring-cyan-400/20"
+                      : "border-white/10 bg-black/10"
+                  }`}
+                >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="text-sm font-medium text-white">
