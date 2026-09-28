@@ -1,0 +1,12 @@
+{
+  "name": "@trinorin/endpoint-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reference Trinorin endpoint agent for authorized device enrollment, heartbeat and telemetry.",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.mjs",
+    "heartbeat": "node src/index.mjs heartbeat",
+    "telemetry": "node src/index.mjs telemetry"
+  }
+}
