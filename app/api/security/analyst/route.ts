@@ -20,6 +20,7 @@ type FindingItem = {
   finding_type: string;
   severity: string;
   status: string;
+  detected_at?: string | null;
   summary: string | null;
   remediation: string | null;
   evidence: Record<string, unknown>;
@@ -59,6 +60,179 @@ async function getContext() {
 
 function severityWeight(value: string) {
   return value === "critical" ? 4 : value === "high" ? 3 : value === "medium" ? 2 : 1;
+}
+
+type CorrelationContext = {
+  findingId: string;
+  timeWindowMinutes: number;
+  signalCount: number;
+  eventSignals: Array<{
+    id: string;
+    type: string;
+    source: string;
+    observedAt: string;
+    assetId: string | null;
+    title: string;
+  }>;
+  evidenceSignals: Array<{
+    id: string;
+    type: string;
+    source: string;
+    observedAt: string;
+    assetId: string | null;
+    title: string;
+  }>;
+  identitySignals: Array<{
+    id: string;
+    identity: string;
+    observedAt: string;
+    source: string;
+  }>;
+  graphContext: Array<{
+    sourceAssetId: string;
+    targetAssetId: string;
+    relationshipType: string;
+    confidence: number | null;
+  }>;
+  timing: {
+    findingDetectedAt: string | null;
+    earliestObservedAt: string | null;
+    latestObservedAt: string | null;
+    spanMinutes: number | null;
+  };
+  correlationReasons: string[];
+};
+
+function explicitIdentity(data: Record<string, unknown>) {
+  const candidates = [
+    data.ai_identity,
+    data.identity,
+    data.principal,
+    data.actor_identity,
+    data.actor,
+    data.user_identity,
+  ];
+  return candidates.find((value): value is string => typeof value === "string" && value.trim().length > 0)?.trim() ?? null;
+}
+
+function buildCorrelationContext(
+  finding: FindingItem,
+  evidence: EvidenceItem[],
+  relationships: RelationshipItem[],
+  assets: AssetItem[],
+): CorrelationContext {
+  const rootAssetId = finding.asset_id ??
+    (typeof finding.evidence?.asset_id === "string" ? finding.evidence.asset_id : null);
+
+  const relatedAssetIds = new Set<string>();
+  if (rootAssetId) relatedAssetIds.add(rootAssetId);
+
+  for (const edge of relationships) {
+    if (edge.source_asset_id === rootAssetId || edge.target_asset_id === rootAssetId) {
+      relatedAssetIds.add(edge.source_asset_id);
+      relatedAssetIds.add(edge.target_asset_id);
+    }
+  }
+
+  const findingTime = finding.detected_at ? new Date(finding.detected_at).getTime() : null;
+  const timeWindowMinutes = 120;
+  const timeWindowMs = timeWindowMinutes * 60 * 1000;
+
+  const withinWindow = (observedAt: string) => {
+    if (findingTime === null) return true;
+    const observedTime = new Date(observedAt).getTime();
+    return Number.isFinite(observedTime) && Math.abs(observedTime - findingTime) <= timeWindowMs;
+  };
+
+  const correlated = evidence.filter((item) => {
+    const assetMatch = Boolean(item.asset_id && relatedAssetIds.has(item.asset_id));
+    const timeMatch = withinWindow(item.observed_at);
+    const findingTermMatch = [finding.title, finding.finding_type]
+      .some((term) => term && [item.title, item.summary ?? "", item.evidence_type, item.source].join(" ").toLowerCase().includes(term.toLowerCase()));
+    return assetMatch || (timeMatch && findingTermMatch);
+  });
+
+  const eventSignals = correlated
+    .filter((item) => /event|telemetry|log|alert|activity/i.test(item.evidence_type + " " + item.source))
+    .slice(0, 20)
+    .map((item) => ({
+      id: item.id,
+      type: item.evidence_type,
+      source: item.source,
+      observedAt: item.observed_at,
+      assetId: item.asset_id ?? null,
+      title: item.title,
+    }));
+
+  const evidenceSignals = correlated
+    .filter((item) => !eventSignals.some((signal) => signal.id === item.id))
+    .slice(0, 20)
+    .map((item) => ({
+      id: item.id,
+      type: item.evidence_type,
+      source: item.source,
+      observedAt: item.observed_at,
+      assetId: item.asset_id ?? null,
+      title: item.title,
+    }));
+
+  const identitySignals = correlated.flatMap((item) => {
+    const identity = explicitIdentity(item.data);
+    return identity ? [{ id: item.id, identity, observedAt: item.observed_at, source: item.source }] : [];
+  }).slice(0, 20);
+
+  const graphContext = relationships
+    .filter((edge) => relatedAssetIds.has(edge.source_asset_id) || relatedAssetIds.has(edge.target_asset_id))
+    .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
+    .slice(0, 30)
+    .map((edge) => ({
+      sourceAssetId: edge.source_asset_id,
+      targetAssetId: edge.target_asset_id,
+      relationshipType: edge.relationship_type,
+      confidence: edge.confidence,
+    }));
+
+  const times = correlated
+    .map((item) => new Date(item.observed_at).getTime())
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+
+  const spanMinutes = times.length >= 2 ? Math.round((times[times.length - 1] - times[0]) / 60000) : times.length === 1 ? 0 : null;
+
+  const correlationReasons = [
+    rootAssetId && correlated.some((item) => item.asset_id === rootAssetId)
+      ? "Evidence is directly attached to the finding's affected asset."
+      : null,
+    correlated.some((item) => withinWindow(item.observed_at))
+      ? "At least one correlated signal falls within the finding's detection time window."
+      : null,
+    identitySignals.length
+      ? "An explicit identity field is present in recorded evidence; it is preserved without inferring attribution."
+      : null,
+    graphContext.length
+      ? "Confirmed asset relationships connect the affected asset to additional recorded assets."
+      : null,
+    times.length >= 2
+      ? `Correlated signals span ${spanMinutes} minute(s), preserving temporal order for investigation.`
+      : null,
+  ].filter((value): value is string => Boolean(value));
+
+  return {
+    findingId: finding.id,
+    timeWindowMinutes,
+    signalCount: correlated.length,
+    eventSignals,
+    evidenceSignals,
+    identitySignals,
+    graphContext,
+    timing: {
+      findingDetectedAt: finding.detected_at ?? null,
+      earliestObservedAt: times.length ? new Date(times[0]).toISOString() : null,
+      latestObservedAt: times.length ? new Date(times[times.length - 1]).toISOString() : null,
+      spanMinutes,
+    },
+    correlationReasons,
+  };
 }
 
 async function runGroundedAI(question: string, context: {
@@ -109,6 +283,7 @@ async function runGroundedAI(question: string, context: {
               investigation: context.investigation ?? null,
               securityMemory: context.memory ?? [],
               securityPatterns: context.patterns ?? [],
+              multiSignalCorrelation: context.correlation ?? null,
             }),
           }],
         },
@@ -161,7 +336,7 @@ export async function POST(request: Request) {
     const [findingsResult, evidenceResult, relationshipsResult, assetsResult, memoryResult] = await Promise.all([
       supabase
         .from("security_findings")
-        .select("id,asset_id,title,finding_type,severity,status,summary,remediation,evidence")
+        .select("id,asset_id,title,finding_type,severity,status,detected_at,summary,remediation,evidence")
         .eq("organization_id", organizationId)
         .in("status", ["open", "acknowledged"])
         .order("detected_at", { ascending: false })
@@ -227,6 +402,12 @@ export async function POST(request: Request) {
       : evidence.slice(0, 20);
 
     const evidenceForAI = selectedEvidence.length ? selectedEvidence : evidence.slice(0, 20);
+
+    let correlationContext: CorrelationContext | null = null;
+
+    if (selectedFinding) {
+      correlationContext = buildCorrelationContext(selectedFinding, evidence, relationships, assets);
+    }
 
     let investigation: {
       affectedAsset: AssetItem | null;
@@ -483,6 +664,7 @@ export async function POST(request: Request) {
       investigation,
       memory: relevantMemory,
       patterns: contextualPatterns,
+      correlation: correlationContext,
     });
 
     const citedEvidence = evidenceForAI.slice(0, 10).map((item) => ({
@@ -511,6 +693,7 @@ export async function POST(request: Request) {
       memoryReviewed: relevantMemory.length,
       patternsReviewed: contextualPatterns.length,
       securityPatterns: contextualPatterns,
+      multiSignalCorrelation: correlationContext,
       historicalContext,
       temporalBoundary:
         "Historical memory can explain what SentinelX previously recorded and how state changed over time. It does not prove that a historical condition still exists. Current evidence and telemetry remain authoritative; missing telemetry is not resolution.",
