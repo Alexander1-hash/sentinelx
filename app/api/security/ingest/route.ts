@@ -280,7 +280,7 @@ export async function POST(request: Request) {
             findingsCreated: 0,
             findings: [],
             message:
-              "Telemetry matched the previously recorded evidence state. SentinelX kept the existing event identity and did not create duplicate analysis activity.",
+              "Telemetry matched the previously recorded evidence state. Trinorin kept the existing event identity and did not create duplicate analysis activity.",
           },
           { status: 200 }
         );
@@ -641,7 +641,7 @@ export async function POST(request: Request) {
         findings,
         ...(analysisError ? { analysisError } : {}),
         message:
-          "Telemetry accepted. The normalized event is now available to SentinelX security intelligence; relationship candidates remain unconfirmed until reviewed.",
+          "Telemetry accepted. The normalized event is now available to Trinorin security intelligence; relationship candidates remain unconfirmed until reviewed.",
       },
       { status: 201 }
     );
