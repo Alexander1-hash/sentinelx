@@ -1,10 +1,12 @@
+export type SecurityBrainRecord = Record<string, unknown>;
+
 export type SecurityBrainState = {
-  findings: unknown[];
-  evidence: unknown[];
-  assets: unknown[];
-  relationships: unknown[];
-  aiSystems: unknown[];
-  aiAgents: unknown[];
+  findings: SecurityBrainRecord[];
+  evidence: SecurityBrainRecord[];
+  assets: SecurityBrainRecord[];
+  relationships: SecurityBrainRecord[];
+  aiSystems: SecurityBrainRecord[];
+  aiAgents: SecurityBrainRecord[];
   signals: Array<{
     kind: "finding" | "evidence" | "relationship" | "ai";
     severity: "critical" | "high" | "medium" | "low" | "unknown";
@@ -16,7 +18,7 @@ export type SecurityBrainState = {
   boundary: string;
 };
 
-type RecordLike = Record<string, unknown>;
+
 
 const severityRank: Record<string, number> = {
   critical: 4,
@@ -37,7 +39,7 @@ function severity(value: unknown): SecurityBrainState["signals"][number]["severi
 }
 
 export function buildSecurityBrain(input: {
-  findings: RecordLike[];
+  findings: SecurityBrainRecord[];
   evidence: RecordLike[];
   assets: RecordLike[];
   relationships: RecordLike[];
