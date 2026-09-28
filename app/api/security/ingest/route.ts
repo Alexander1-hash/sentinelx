@@ -409,10 +409,14 @@ export async function POST(request: Request) {
 
     let analysisTriggered = false;
     let analysisError: string | null = null;
+    let findingsCreated = 0;
+    let findings: Array<{ id: string; title: string; severity: string }> = [];
 
     try {
-      await runSecurityAnalysis(supabase, integration.organization_id);
+      const analysisResult = await runSecurityAnalysis(supabase, integration.organization_id);
       analysisTriggered = true;
+      findingsCreated = analysisResult.findingsCreated;
+      findings = analysisResult.findings;
     } catch (error) {
       analysisError = error instanceof Error ? error.message : "Security analysis could not be completed.";
     }
@@ -425,6 +429,8 @@ export async function POST(request: Request) {
         event: securityEvent,
         discoveredRelationships,
         analysisTriggered,
+        findingsCreated,
+        findings,
         ...(analysisError ? { analysisError } : {}),
         message:
           "Telemetry accepted. The normalized event is now available to SentinelX security intelligence; relationship candidates remain unconfirmed until reviewed.",
