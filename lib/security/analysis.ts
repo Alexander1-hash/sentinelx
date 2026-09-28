@@ -166,58 +166,60 @@ export async function runSecurityAnalysis(
           JSON.stringify(event.evidence ?? {}),
         ].join(" ").toLowerCase();
 
-        const indicator =
-          /prompt.?injection|jailbreak|instruction.?override|indirect.?prompt/.test(combined)
-            ? {
-                type: "ai_prompt_injection_indicator",
-                title: event.title,
-                summary: "AI telemetry contains an explicit prompt-injection or instruction-override indicator. The record establishes an observed indicator, not successful compromise.",
-                remediation: "Review the event payload, affected agent context, authorization boundary, and any tool or data activity that followed.",
-              }
-            : /credential.?exposure|secret.?exposure|api.?key|token.?leak|credential.?leak/.test(combined)
-              ? {
-                  type: "ai_credential_exposure_indicator",
-                  title: event.title,
-                  summary: "AI telemetry contains an explicit credential or secret exposure indicator. The record does not establish whether the exposed credential was used.",
-                  remediation: "Validate the exposed secret, identify its scope, and rotate or revoke it through an authorized control if exposure is confirmed.",
-                }
-              : /sensitive.?data|data.?exfiltration|restricted.?data|confidential.?data|data.?leak/.test(combined)
-                ? {
-                    type: "ai_sensitive_data_indicator",
-                    title: event.title,
-                    summary: "AI telemetry explicitly references sensitive-data access, transfer, or leakage. Further evidence is required to determine whether unauthorized disclosure occurred.",
-                    remediation: "Inspect the affected data scope, destination, and authorization context before taking containment action.",
-                  }
-                : /permission.?escalation|privilege.?escalation|excessive.?permission|unauthorized.?access|access.?denied/.test(combined)
-                  ? {
-                      type: "ai_access_control_indicator",
-                      title: event.title,
-                      summary: "AI telemetry contains an explicit access-control or privilege indicator. The record does not establish successful privilege escalation or unauthorized access.",
-                      remediation: "Review the requested capability, identity or agent authorization, and resulting access before changing permissions.",
-                    }
-                  : null;
-
-        if (!indicator) return [];
-
-        return [{
-          sourceEventId: event.id,
-          assetId: event.system_id ? systemMap.get(event.system_id)?.asset_id ?? null : null,
-          title: indicator.title,
-          findingType: indicator.type,
-          severity: event.severity,
-          summary: indicator.summary,
-          remediation: indicator.remediation,
-          evidence: {
-            source: "ai_security_indicator",
-            source_event_id: event.id,
-            system_id: event.system_id,
-            agent_id: event.agent_id,
-            event_type: event.event_type,
-            observed_at: event.observed_at,
-            evidence: event.evidence,
-            analysis_boundary: "explicit_ai_indicator",
+        const indicatorDefinitions = [
+          {
+            matches: /prompt.?injection|jailbreak|instruction.?override|indirect.?prompt/,
+            type: "ai_prompt_injection_indicator",
+            summary: "AI telemetry contains an explicit prompt-injection or instruction-override indicator. The record establishes an observed indicator, not successful compromise.",
+            remediation: "Review the event payload, affected agent context, authorization boundary, and any tool or data activity that followed.",
           },
-        }];
+          {
+            matches: /credential.?exposure|secret.?exposure|api.?key|token.?leak|credential.?leak/,
+            type: "ai_credential_exposure_indicator",
+            summary: "AI telemetry contains an explicit credential or secret exposure indicator. The record does not establish whether the exposed credential was used.",
+            remediation: "Validate the exposed secret, identify its scope, and rotate or revoke it through an authorized control if exposure is confirmed.",
+          },
+          {
+            matches: /sensitive.?data|data.?exfiltration|restricted.?data|confidential.?data|data.?leak/,
+            type: "ai_sensitive_data_indicator",
+            summary: "AI telemetry explicitly references sensitive-data access, transfer, or leakage. Further evidence is required to determine whether unauthorized disclosure occurred.",
+            remediation: "Inspect the affected data scope, destination, and authorization context before taking containment action.",
+          },
+          {
+            matches: /permission.?escalation|privilege.?escalation|excessive.?permission|unauthorized.?access|access.?denied/,
+            type: "ai_access_control_indicator",
+            summary: "AI telemetry contains an explicit access-control or privilege indicator. The record does not establish successful privilege escalation or unauthorized access.",
+            remediation: "Review the requested capability, identity or agent authorization, and resulting access before changing permissions.",
+          },
+        ].filter((indicator) => indicator.matches.test(combined));
+
+        const assetId = event.system_id ? systemMap.get(event.system_id)?.asset_id ?? null : null;
+
+        return indicatorDefinitions.map((indicator) => {
+          const correlationKey = "ai-indicator:" + event.id + ":" + indicator.type;
+
+          return {
+            correlationKey,
+            sourceEventId: event.id,
+            assetId,
+            title: event.title,
+            findingType: indicator.type,
+            severity: event.severity,
+            summary: indicator.summary,
+            remediation: indicator.remediation,
+            evidence: {
+              source: "ai_security_indicator",
+              source_event_id: event.id,
+              correlation_key: correlationKey,
+              system_id: event.system_id,
+              agent_id: event.agent_id,
+              event_type: event.event_type,
+              observed_at: event.observed_at,
+              evidence: event.evidence,
+              analysis_boundary: "explicit_ai_indicator",
+            },
+          };
+        });
       });
 
     const existingKeys = new Set(
@@ -363,7 +365,7 @@ export async function runSecurityAnalysis(
       })),
       ...severeAiEvents.map((event) => ({
         sourceEventId: event.id,
-        assetId: null,
+        assetId: event.system_id ? systemMap.get(event.system_id)?.asset_id ?? null : null,
         title: event.title,
         findingType: `ai_security_event:${event.event_type}`,
         severity: event.severity,
