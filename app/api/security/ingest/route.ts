@@ -384,7 +384,7 @@ export async function POST(request: Request) {
         typeof relationship.relationshipType === "string" ? relationship.relationshipType : "";
       const confidence =
         typeof relationship.confidence === "number" ? relationship.confidence : 0.5;
-      const reason =
+      const relationshipReason =
         typeof relationship.reason === "string"
           ? relationship.reason.trim().slice(0, 1000)
           : "Observed relationship supplied by an authorized telemetry source.";
@@ -405,7 +405,7 @@ export async function POST(request: Request) {
         targetAssetId,
         relationshipType: relationshipType as (typeof relationshipTypes)[number],
         confidence,
-        reason,
+        reason: relationshipReason,
       });
       relationshipAssetIds.add(sourceAssetId);
       relationshipAssetIds.add(targetAssetId);
