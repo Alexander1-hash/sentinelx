@@ -103,7 +103,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         token: generated.token,
-        message: "New ingestion token created. Store it securely; SentinelX will not show it again.",
+        message: "New ingestion token created. Store it securely; Trinorin will not show it again.",
       });
     }
 
@@ -163,7 +163,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       integration: data,
       token: generated.token,
-      message: "Integration registered. A one-time ingestion token was created. Store it securely; SentinelX will not show it again.",
+      message: "Integration registered. A one-time ingestion token was created. Store it securely; Trinorin will not show it again.",
     }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Invalid integration request." }, { status: 400 });
