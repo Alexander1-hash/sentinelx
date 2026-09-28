@@ -171,26 +171,11 @@ export function buildSecurityBrain(input: {
     }
   }
 
-  for (const item of input.evidence) {
-    const assetId = recordId(item.asset_id);
-    if (!assetId) continue;
-    const current = evidenceByAssetId.get(assetId) ?? [];
-    const id = recordId(item.id);
-    if (id) current.push(id);
-    evidenceByAssetId.set(assetId, current);
-  }
-
   for (const edge of input.relationships) {
     if (text(edge.status).toLowerCase() !== "confirmed") continue;
     const sourceId = recordId(edge.source_asset_id);
     const targetId = recordId(edge.target_asset_id);
     if (!sourceId || !targetId) continue;
-    const sourceConnections = connectedAssetsByAssetId.get(sourceId) ?? new Set<string>();
-    sourceConnections.add(targetId);
-    connectedAssetsByAssetId.set(sourceId, sourceConnections);
-    const targetConnections = connectedAssetsByAssetId.get(targetId) ?? new Set<string>();
-    targetConnections.add(sourceId);
-    connectedAssetsByAssetId.set(targetId, targetConnections);
     const source = assetById.get(recordId(edge.source_asset_id));
     const target = assetById.get(recordId(edge.target_asset_id));
     const sourceName = text(source?.name) || recordId(edge.source_asset_id) || "source asset";
