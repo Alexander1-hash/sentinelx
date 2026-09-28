@@ -210,7 +210,7 @@ export async function POST(request: Request) {
         }
       } else {
         return NextResponse.json(
-          { error: "The authorized resource target type cannot be verified by SentinelX." },
+          { error: "The authorized resource target type cannot be verified by Trinorin." },
           { status: 409 },
         );
       }
