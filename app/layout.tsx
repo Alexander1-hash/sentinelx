@@ -7,14 +7,14 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   ),
   title: {
-    default: "SentinelX",
-    template: "%s | SentinelX",
+    default: "Trinorin",
+    template: "%s | Trinorin",
   },
   description:
-    "SentinelX is an AI-powered cybersecurity intelligence platform for monitoring threats, protecting assets, and improving security operations.",
-  applicationName: "SentinelX",
+    "Trinorin is an AI-powered cybersecurity intelligence platform for monitoring threats, protecting assets, and improving security operations.",
+  applicationName: "Trinorin",
   keywords: [
-    "SentinelX",
+    "Trinorin",
     "cybersecurity",
     "AI cybersecurity",
     "security intelligence",
@@ -25,11 +25,11 @@ export const metadata: Metadata = {
   ],
   authors: [
     {
-      name: "SentinelX",
+      name: "Trinorin",
     },
   ],
-  creator: "SentinelX",
-  publisher: "SentinelX",
+  creator: "Trinorin",
+  publisher: "Trinorin",
   robots: {
     index: true,
     follow: true,
