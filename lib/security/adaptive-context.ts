@@ -61,6 +61,16 @@ export type AdaptiveResponseLearning = {
   evidence_count: number;
   summary: string;
   matchContext: string;
+  learningSignal?: "resolved" | "persisting" | "returned" | "unknown";
+};
+
+export type AdaptiveLearningState = {
+  state: "resolved" | "persisting" | "returned" | "unknown" | null;
+  occurredAt: string | null;
+  actionType: string | null;
+  evidenceCount: number;
+  learningSignal: "de_escalate" | "reinvestigate" | "recurrence_review" | "evidence_gap" | "none";
+  rationale: string;
 };
 
 export type AdaptiveInvestigationContext = {
@@ -232,7 +242,7 @@ export function buildAdaptiveInvestigationContext(input: {
   const verifications = relevantMemory.filter((memory) => memory.memory_type === "verification");
 
   const latestVerification = [...verifications]
-    .sort((a, b) => asTime(b.occurred_at)! - asTime(a.occurred_at)!)
+    .sort((a, b) => (asTime(b.occurred_at) ?? 0) - (asTime(a.occurred_at) ?? 0))
     .map((memory) => {
       const state = typeof memory.data?.state === "string"
         ? memory.data.state
@@ -242,6 +252,56 @@ export function buildAdaptiveInvestigationContext(input: {
           : memory.state;
       return { state, occurredAt: memory.occurred_at };
     })[0] ?? null;
+
+  const latestVerificationMemory = [...verifications]
+    .sort((a, b) => (asTime(b.occurred_at) ?? 0) - (asTime(a.occurred_at) ?? 0))[0] ?? null;
+
+  const latestVerificationState =
+    latestVerification?.state === "resolved" ||
+    latestVerification?.state === "persisting" ||
+    latestVerification?.state === "returned" ||
+    latestVerification?.state === "unknown"
+      ? latestVerification.state
+      : null;
+
+  const latestVerificationData = latestVerificationMemory?.data ?? {};
+  const latestVerificationEvidenceCount = Array.isArray(latestVerificationData.evidence)
+    ? latestVerificationData.evidence.length
+    : Array.isArray((latestVerificationData.verification as Record<string, unknown> | undefined)?.evidence)
+      ? ((latestVerificationData.verification as Record<string, unknown>).evidence as unknown[]).length
+      : 0;
+
+  const learningState: AdaptiveLearningState = {
+    state: latestVerificationState,
+    occurredAt: latestVerification?.occurredAt ?? null,
+    actionType:
+      typeof latestVerificationData.action_type === "string"
+        ? latestVerificationData.action_type
+        : typeof latestVerificationData.actionType === "string"
+          ? latestVerificationData.actionType
+          : null,
+    evidenceCount: latestVerificationEvidenceCount,
+    learningSignal:
+      latestVerificationState === "persisting"
+        ? "reinvestigate"
+        : latestVerificationState === "returned"
+          ? "recurrence_review"
+          : latestVerificationState === "unknown"
+            ? "evidence_gap"
+            : latestVerificationState === "resolved"
+              ? "de_escalate"
+              : "none",
+    rationale:
+      latestVerificationState === "persisting"
+        ? "The latest explicit verification says the condition persists; Trinorin should prioritize fresh evidence and review whether the authorized response changed the current state."
+        : latestVerificationState === "returned"
+          ? "The latest explicit verification says the condition returned; Trinorin should prioritize recurrence evidence and compare the current state with the prior response outcome."
+          : latestVerificationState === "unknown"
+            ? "The latest explicit verification is inconclusive; Trinorin should request evidence rather than infer resolution."
+            : latestVerificationState === "resolved"
+              ? "The latest explicit verification reports resolution; this is historical response learning, not proof that the current finding is resolved."
+              : "No explicit verification learning is available yet.",
+  };
 
   const contradictions: string[] = [];
 
@@ -263,6 +323,13 @@ export function buildAdaptiveInvestigationContext(input: {
     correlatedEvents.length === 0 ? "No correlated security events were found in the current investigation window." : null,
     confirmedEdges.length === 0 ? "No confirmed first-hop asset relationship is available." : null,
     latestVerification === null ? "No explicit post-response verification is recorded." : null,
+    latestVerificationState === "unknown" ? "The latest verification is inconclusive, so response effectiveness remains unknown." : null,
+    latestVerificationState === "persisting" && correlatedEvidence.length === 0
+      ? "The latest verification says the condition persists, but current correlated evidence is absent; response effectiveness cannot be independently checked."
+      : null,
+    latestVerificationState === "returned" && correlatedEvidence.length === 0
+      ? "The latest verification says the condition returned, but current correlated evidence is absent; recurrence cannot be independently characterized."
+      : null,
     "The available records do not establish attacker attribution, successful exploitation, or compromise unless explicit evidence says so.",
   ].filter((value): value is string => Boolean(value));
 
@@ -273,6 +340,18 @@ export function buildAdaptiveInvestigationContext(input: {
       : null,
     latestVerification === null && outcomes.length > 0
       ? "Record explicit post-response evidence before treating the response as verified."
+      : null,
+    latestVerificationState === "persisting"
+      ? "Collect fresh evidence from the affected asset and review whether the prior response changed the observed condition."
+      : null,
+    latestVerificationState === "returned"
+      ? "Collect recurrence evidence, compare it with the prior response evidence, and investigate what changed before deciding on another response."
+      : null,
+    latestVerificationState === "unknown"
+      ? "Obtain fresh telemetry and an explicit verification result; do not infer resolution from missing telemetry."
+      : null,
+    latestVerificationState === "resolved" && input.finding.status === "open"
+      ? "Reconcile the active finding with the resolved verification using current evidence before changing the finding state."
       : null,
     contradictions.length > 0 ? "Reconcile the contradictory state using current evidence and timestamps." : null,
     confirmedEdges.length === 0 && rootAssetId
@@ -292,8 +371,20 @@ export function buildAdaptiveInvestigationContext(input: {
       ? `${confirmedReachability.length} downstream asset(s) are reachable through confirmed relationships.`
       : "No confirmed downstream reachability was established.",
     latestVerification
-      ? `Latest explicit verification state is ${latestVerification.state}.`
+      ? `Latest explicit verification state is ${latestVerification.state}; adaptive learning signal is ${learningState.learningSignal}.`
       : "No explicit verification state is available.",
+    learningState.learningSignal === "reinvestigate"
+      ? "Prior response learning indicates the condition persisted, so the next investigation should prioritize current evidence and response effectiveness."
+      : null,
+    learningState.learningSignal === "recurrence_review"
+      ? "Prior response learning indicates recurrence, so the next investigation should compare the current state with the previous response and look for changed conditions."
+      : null,
+    learningState.learningSignal === "evidence_gap"
+      ? "Prior response learning is inconclusive, so the next investigation should close the evidence gap before any conclusion."
+      : null,
+    learningState.learningSignal === "de_escalate"
+      ? "Prior response learning reports resolution; Trinorin keeps that as historical context and still checks current evidence before treating an active finding as resolved."
+      : null,
   ];
 
   const confidence: AdaptiveInvestigationContext["confidence"] =
@@ -329,11 +420,15 @@ export function buildAdaptiveInvestigationContext(input: {
       verifications: verifications.length,
       latestVerification,
     },
-    responseLearning: input.responseLearning ?? [],
+    responseLearning: (input.responseLearning ?? []).map((item) => ({
+      ...item,
+      learningSignal: latestVerificationState ?? undefined,
+    })),
     confirmedReachability,
     contradictions,
     unknowns,
     nextEvidenceNeeded,
     reasoning,
+    learningState,
   };
 }
