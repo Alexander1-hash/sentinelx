@@ -196,45 +196,10 @@ export async function POST(request: Request) {
       memory?: Record<string, unknown>;
     };
 
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
-    }
-
-    const { data: memory, error: memoryError } = await supabase
-      .from("security_memory")
-      .insert({
-        organization_id: organizationId,
-        memory_type: "verification",
-        subject_id: action.id,
-        title:
-          state === "resolved"
-            ? "Security response verified as resolved"
-            : state === "persisting"
-              ? "Security condition verified as persisting"
-              : state === "returned"
-                ? "Security condition verified as returned"
-                : "Security response verification recorded",
-        summary,
-        state,
-        data: {
-          action_id: action.id,
-          finding_id: action.finding_id,
-          action_type: action.action_type,
-          verification,
-          memory_reason:
-            "Created from explicit post-response verification evidence; it is part of the existing security_memory timeline.",
-        },
-        occurred_at: new Date().toISOString(),
-      })
-      .select("id,memory_type,subject_id,title,summary,state,data,occurred_at")
-      .single();
-
-    if (memoryError) {
-      return NextResponse.json({ error: memoryError.message }, { status: 500 });
-    }
-
     return NextResponse.json({
-      verification,
-      memory,
+      verification: result.verification ?? verification,
+      action: result.action ?? null,
+      memory: result.memory ?? null,
       message:
         "Post-response verification recorded in the existing Trinorin security memory.",
     });
