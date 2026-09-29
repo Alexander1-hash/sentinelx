@@ -61,7 +61,6 @@ export type AdaptiveResponseLearning = {
   evidence_count: number;
   summary: string;
   matchContext: string;
-  learningSignal?: "resolved" | "persisting" | "returned" | "unknown";
 };
 
 export type AdaptiveLearningState = {
@@ -421,10 +420,8 @@ export function buildAdaptiveInvestigationContext(input: {
       verifications: verifications.length,
       latestVerification,
     },
-    responseLearning: (input.responseLearning ?? []).map((item) => ({
-      ...item,
-      learningSignal: latestVerificationState ?? undefined,
-    })),
+    responseLearning: input.responseLearning ?? [],
+    learningState,
     confirmedReachability,
     contradictions,
     unknowns,
