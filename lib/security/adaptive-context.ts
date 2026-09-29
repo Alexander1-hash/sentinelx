@@ -426,7 +426,7 @@ export function buildAdaptiveInvestigationContext(input: {
     contradictions,
     unknowns,
     nextEvidenceNeeded,
-    reasoning,
+    reasoning: reasoning.filter((item): item is string => item !== null),
     learningState,
   };
 }
