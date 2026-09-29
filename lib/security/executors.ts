@@ -45,7 +45,7 @@ export const MANUAL_OPERATOR_EXECUTOR: ExecutorAdapter = {
   mode: "manual",
   enabled: true,
   boundary:
-    "Manual Operator records an operator-performed result. SentinelX does not call or control the external provider.",
+    "Manual Operator records an operator-performed result. Trinorin does not call or control the external provider.",
 };
 
 export function getExecutorAdapters(): ExecutorAdapter[] {
@@ -65,7 +65,7 @@ export function getExecutorAdapter(
 }
 
 /**
- * SentinelX deliberately separates:
+ * Trinorin deliberately separates:
  * 1. operator authorization,
  * 2. provider connectivity,
  * 3. provider-specific execution.
@@ -96,7 +96,7 @@ const REQUIREMENTS: Record<SecurityActionType, ExecutorRequirement> = {
     actionType: "disable_integration",
     requiredIntegrationTypes: ["business_application", "cloud_security"],
     readiness: "provider_executor_not_configured",
-    boundary: "Disabling a provider connection is not executed by the generic SentinelX action endpoint.",
+    boundary: "Disabling a provider connection is not executed by the generic Trinorin action endpoint.",
   },
   revoke_access: {
     actionType: "revoke_access",
