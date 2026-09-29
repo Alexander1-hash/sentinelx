@@ -58,8 +58,16 @@ export async function GET() {
     const adaptiveContexts: Record<string, ReturnType<typeof buildAdaptiveInvestigationContext>> = {};
     for (const finding of findings.data ?? []) {
       adaptiveContexts[finding.id] = buildAdaptiveInvestigationContext({
-        finding,
-        evidence: evidence.data ?? [],
+        finding: {
+          ...finding,
+          finding_type: finding.finding_type ?? "unknown",
+          summary: finding.summary ?? null,
+        },
+        evidence: (evidence.data ?? []).map((item) => ({
+          ...item,
+          source: item.source ?? "unknown",
+          title: item.title ?? "Security evidence",
+        })),
         events: events.data ?? [],
         relationships: relationships.data ?? [],
         assets: assets.data ?? [],
