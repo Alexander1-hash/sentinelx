@@ -32,6 +32,34 @@ type MultiSignalCorrelation = {
   correlationReasons: string[];
 };
 
+type AdaptiveInvestigationContext = {
+  confidence: "strong" | "moderate" | "limited";
+  currentState: {
+    findingStatus: string;
+    severity: string;
+    affectedAsset: { id: string; name: string; asset_type: string; status: string } | null;
+    latestEvidenceAt: string | null;
+    evidenceFreshnessMinutes: number | null;
+    correlatedEvidenceCount: number;
+    correlatedEventCount: number;
+    confirmedConnectedAssets: number;
+  };
+  historicalState: {
+    priorFindingStates: Array<{ occurredAt: string; previousState: string | null; currentState: string | null; summary: string }>;
+    priorInvestigations: number;
+    priorOperatorDecisions: number;
+    responseOutcomes: number;
+    verifications: number;
+    latestVerification: { state: string; occurredAt: string } | null;
+  };
+  responseLearning: Array<{ occurred_at: string; action_type: string | null; state: string; evidence_count: number; summary: string; matchContext: string }>;
+  confirmedReachability: Array<{ asset: { id: string; name: string; asset_type: string; status: string }; hops: number; confidence: number; chain: string[] }>;
+  contradictions: string[];
+  unknowns: string[];
+  nextEvidenceNeeded: string[];
+  reasoning: string[];
+};
+
 type AnalystResponse = {
   answer: string;
   topFinding: {
@@ -56,6 +84,7 @@ type AnalystResponse = {
   multiSignalCorrelation?: MultiSignalCorrelation | null;
   patternsReviewed?: number;
   securityPatterns?: Array<{ pattern: string; title: string; detail: string; confidence: string; firstObserved: string; lastObserved: string; sequence?: string[] }>;
+  adaptiveInvestigationContext?: AdaptiveInvestigationContext | null;
   historicalContext?: {
     priorInvestigations: Array<{ occurred_at: string; title: string; summary: string; blast_radius_count: number | null; supporting_evidence_count: number | null }>;
     operatorDecisions: Array<{ occurred_at: string; title: string; summary: string; state: string; action_id: string | null; action_type: string | null; authorization_state: string | null }>;
@@ -207,7 +236,7 @@ export default function AnalystPage() {
           key: "verify",
           label: "Verify",
           description: verificationChanges.length
-            ? "SentinelX has post-response evidence or a recorded verification state to review."
+            ? "Trinorin has post-response evidence or a recorded verification state to review."
             : "Verification is waiting for a recorded response and post-response evidence.",
           state: verificationChanges.length ? "recorded" : "pending",
         },
@@ -245,7 +274,7 @@ export default function AnalystPage() {
         <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Security intelligence</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Ask the Security Brain</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          Ask questions about the security data SentinelX has actually observed. Answers stay inside the organization&apos;s stored evidence and findings.
+          Ask questions about the security data Trinorin has actually observed. Answers stay inside the organization&apos;s stored evidence and findings.
         </p>
 
         <form onSubmit={ask} className="mt-7 rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
@@ -284,7 +313,7 @@ export default function AnalystPage() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Defense lifecycle</p>
                     <h2 className="mt-1 text-lg font-semibold text-white">From finding to verified learning</h2>
                   </div>
-                  <p className="text-[10px] text-slate-600">SentinelX never treats an unverified step as completed.</p>
+                  <p className="text-[10px] text-slate-600">Trinorin never treats an unverified step as completed.</p>
                 </div>
                 <div className="mt-5 grid gap-2 md:grid-cols-6">
                   {lifecycleSteps.map((step, index) => (
@@ -343,7 +372,7 @@ export default function AnalystPage() {
                     <Link href="/brain" className="inline-flex items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-[10px] font-semibold text-slate-300 hover:bg-white/5">Open Brain</Link>
                   </div>
                 </div>
-                <p className="mt-4 text-[11px] leading-5 text-slate-500">This investigation is scoped to the selected finding. SentinelX keeps observed evidence, confirmed relationships, historical context, and unknowns separate so the operator can see exactly what is established.</p>
+                <p className="mt-4 text-[11px] leading-5 text-slate-500">This investigation is scoped to the selected finding. Trinorin keeps observed evidence, confirmed relationships, historical context, and unknowns separate so the operator can see exactly what is established.</p>
               </section>
             )}
 
@@ -417,7 +446,7 @@ export default function AnalystPage() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Multi-signal correlation</p>
                     <h2 className="mt-1 text-lg font-semibold text-white">One investigation context, multiple confirmed signals</h2>
                     <p className="mt-2 max-w-2xl text-[11px] leading-5 text-slate-500">
-                      SentinelX correlates existing evidence around the finding. This layer does not create a second detector or change finding severity.
+                      Trinorin correlates existing evidence around the finding. This layer does not create a second detector or change finding severity.
                     </p>
                   </div>
                   <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-cyan-200">
@@ -448,7 +477,7 @@ export default function AnalystPage() {
                       {response.multiSignalCorrelation.identitySignals.length ? "Explicit identity recorded" : "No explicit identity recorded"}
                     </p>
                     <p className="mt-1 text-[10px] leading-5 text-slate-600">
-                      Identity fields are displayed only when present in stored evidence; SentinelX does not infer attribution.
+                      Identity fields are displayed only when present in stored evidence; Trinorin does not infer attribution.
                     </p>
                   </div>
                 </div>
@@ -583,7 +612,7 @@ export default function AnalystPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Post-response verification</p>
-                    <p className="mt-1 text-[10px] text-slate-600">What SentinelX can currently verify after the recorded response.</p>
+                    <p className="mt-1 text-[10px] text-slate-600">What Trinorin can currently verify after the recorded response.</p>
                   </div>
                   <ShieldCheck className="h-5 w-5 text-cyan-300" />
                 </div>
@@ -624,7 +653,7 @@ export default function AnalystPage() {
               <section className="rounded-3xl border border-orange-400/10 bg-orange-400/[0.025] p-5 sm:p-6">
                 <div className="flex flex-col gap-1">
                   <p className="text-xs font-semibold uppercase tracking-wider text-orange-200">Recurrence context</p>
-                  <h2 className="mt-1 text-lg font-semibold text-white">What SentinelX has seen before</h2>
+                  <h2 className="mt-1 text-lg font-semibold text-white">What Trinorin has seen before</h2>
                   <p className="mt-2 text-[11px] leading-5 text-slate-500">
                     Historical recurrence is shown alongside recorded response outcomes where available. It is context for the next decision, not proof that the same condition or response applies now.
                   </p>
@@ -693,7 +722,7 @@ export default function AnalystPage() {
                 )}
 
                 <p className="mt-4 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3 text-[9px] leading-4 text-slate-600">
-                  SentinelX does not infer that a historical response caused a current condition, nor that a previously used action will work again. Current decisions remain grounded in current evidence and explicit authorization.
+                  Trinorin does not infer that a historical response caused a current condition, nor that a previously used action will work again. Current decisions remain grounded in current evidence and explicit authorization.
                 </p>
               </section>
             )}
@@ -739,7 +768,7 @@ export default function AnalystPage() {
               <section className="rounded-3xl border border-orange-400/10 bg-orange-400/[0.025] p-5 sm:p-6">
                 <div className="flex flex-col gap-1">
                   <p className="text-xs font-semibold uppercase tracking-wider text-orange-200">Recurrence context</p>
-                  <h2 className="mt-1 text-lg font-semibold text-white">What SentinelX has seen before</h2>
+                  <h2 className="mt-1 text-lg font-semibold text-white">What Trinorin has seen before</h2>
                   <p className="mt-2 text-[11px] leading-5 text-slate-500">
                     This is a record of prior state changes and investigations connected to the selected finding. Repetition is historical context, not proof that the same condition exists now.
                   </p>
@@ -820,6 +849,72 @@ export default function AnalystPage() {
                 <p className="mt-4 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3 text-[9px] leading-4 text-slate-600">Pattern context describes recorded history. It does not prove current compromise or current security state.</p>
               </section>
             ) : null}
+
+            {response.adaptiveInvestigationContext && response.topFinding && (
+              <section className="rounded-3xl border border-cyan-400/10 bg-cyan-400/[0.02] p-5 sm:p-6">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Adaptive investigation context</p>
+                    <h2 className="mt-1 text-lg font-semibold text-white">Trinorin continuously re-frames the investigation</h2>
+                    <p className="mt-2 max-w-2xl text-[11px] leading-5 text-slate-500">
+                      Current evidence, historical state, confirmed reachability, response learning, contradictions, and missing evidence are evaluated together.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-cyan-200">
+                    {response.adaptiveInvestigationContext.confidence} confidence
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  <Stat label="Correlated evidence" value={response.adaptiveInvestigationContext.currentState.correlatedEvidenceCount} />
+                  <Stat label="Event signals" value={response.adaptiveInvestigationContext.currentState.correlatedEventCount} />
+                  <Stat label="Confirmed reachability" value={response.adaptiveInvestigationContext.confirmedReachability.length} />
+                  <Stat label="Verified responses" value={response.adaptiveInvestigationContext.historicalState.verifications} />
+                </div>
+
+                {response.adaptiveInvestigationContext.contradictions.length > 0 && (
+                  <div className="mt-4 rounded-2xl border border-rose-400/10 bg-rose-400/[0.03] p-4">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-rose-200">State contradictions requiring reconciliation</p>
+                    <div className="mt-2 space-y-2">
+                      {response.adaptiveInvestigationContext.contradictions.map((item) => (
+                        <p key={item} className="text-[10px] leading-5 text-rose-100/70">{item}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-200">What Trinorin knows</p>
+                    <div className="mt-3 space-y-2">
+                      {response.adaptiveInvestigationContext.reasoning.map((item) => (
+                        <p key={item} className="text-[10px] leading-5 text-slate-400">• {item}</p>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-200">What Trinorin needs next</p>
+                    <div className="mt-3 space-y-2">
+                      {(response.adaptiveInvestigationContext.nextEvidenceNeeded.length
+                        ? response.adaptiveInvestigationContext.nextEvidenceNeeded
+                        : ["No immediate evidence gap was identified from the current records."]
+                      ).map((item) => (
+                        <p key={item} className="text-[10px] leading-5 text-slate-400">• {item}</p>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-4">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">Known boundaries</p>
+                  <div className="mt-2 space-y-2">
+                    {response.adaptiveInvestigationContext.unknowns.map((item) => (
+                      <p key={item} className="text-[10px] leading-5 text-slate-500">• {item}</p>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            )}
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Supporting evidence</p>
