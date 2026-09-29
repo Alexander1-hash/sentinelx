@@ -60,6 +60,8 @@ function SecurityActionsPageContent() {
     preview?: { steps?: string[]; requiredIntegrationTypes?: string[] };
   }>>({});
   const [readinessLoading, setReadinessLoading] = useState(true);
+  const [focusedDecision, setFocusedDecision] = useState<{ confidence?: string; contradictions?: string[]; nextEvidenceNeeded?: string[]; latestVerification?: { state: string; occurredAt: string } | null; responseLearning?: Array<{ occurred_at: string; action_type: string | null; state: string; summary: string }>; } | null>(null);
+
   const [focusedActionId, setFocusedActionId] = useState(linkedActionId);
 
   async function createAction() {
@@ -131,6 +133,9 @@ function SecurityActionsPageContent() {
         const response = await fetch(`/api/security/actions/readiness${linkedFindingId ? `?findingId=${encodeURIComponent(linkedFindingId)}` : ""}`, { cache: "no-store" });
         const data = await response.json();
         if (!response.ok) return;
+        const adaptive = data.adaptiveInvestigationContext;
+        setFocusedDecision(adaptive ? { confidence: adaptive.confidence, contradictions: adaptive.contradictions ?? [], nextEvidenceNeeded: adaptive.nextEvidenceNeeded ?? [], latestVerification: adaptive.historicalState?.latestVerification ?? null, responseLearning: adaptive.responseLearning ?? [] } : null);
+
         const map: typeof readiness = {};
         for (const item of data.requirements ?? []) {
           map[item.actionType] = {
