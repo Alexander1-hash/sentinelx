@@ -64,3 +64,27 @@ Trinorin
 ├── Security Alerts
 ├── Security Reports
 └── Trinorin API
+
+
+## Provider-backed response execution
+
+Trinorin now supports an explicit provider execution adapter through HTTPS webhooks.
+
+Required deployment environment variables:
+
+- `TRINORIN_EXECUTOR_WEBHOOK_SECRET` — signing secret shared with the provider executor.
+- `TRINORIN_EXECUTOR_WEBHOOK_HOSTS` — comma-separated exact hostnames allowed to receive execution requests.
+
+For a connected integration, use **Integrations → Configure provider executor** and provide the provider's HTTPS execution endpoint. Trinorin sends a signed `security_action.execute` request only after the security action is approved and explicitly operator-authorized. The provider response is recorded as an execution outcome and still requires post-response verification.
+
+The provider endpoint should validate:
+
+- `x-trinorin-signature` using HMAC-SHA256 over the exact JSON request body.
+- `x-trinorin-action-id` and the organization-scoped target.
+- The action type and provider-specific authorization on the provider side.
+
+The executor does not treat connectivity as authorization and does not infer successful remediation from missing telemetry.
+
+## Vercel build-rate resilience
+
+Trinorin includes `.github/workflows/trinorin-ci.yml`, which validates TypeScript and the production build in GitHub Actions and deploys the resulting Vercel prebuilt artifact. Configure the repository secret `VERCEL_TOKEN` before enabling the deployment job. This separates application builds from Vercel's remote Git build queue.
