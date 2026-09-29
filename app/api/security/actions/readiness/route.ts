@@ -136,9 +136,11 @@ export async function GET(request: Request) {
                   configuration && typeof configuration === "object" && !Array.isArray(configuration)
                     ? (configuration as Record<string, unknown>).execution
                     : null;
-                return (
-                  Boolean(typeof webhookUrl === "string" && webhookUrl.trim())
-                );
+                const webhookUrl =
+                  execution && typeof execution === "object" && !Array.isArray(execution)
+                    ? (execution as Record<string, unknown>).webhook_url
+                    : null;
+                return Boolean(typeof webhookUrl === "string" && webhookUrl.trim());
               }),
         boundary:
           requirement.readiness === "not_required"
@@ -170,6 +172,10 @@ export async function GET(request: Request) {
             const execution =
               configuration && typeof configuration === "object" && !Array.isArray(configuration)
                 ? (configuration as Record<string, unknown>).execution
+                : null;
+            const webhookUrl =
+              execution && typeof execution === "object" && !Array.isArray(execution)
+                ? (execution as Record<string, unknown>).webhook_url
                 : null;
             return Boolean(typeof webhookUrl === "string" && webhookUrl.trim());
           }),
