@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildSecurityPatterns, type SecurityPatternMemory } from "@/lib/security/patterns";
+import { buildAdaptiveInvestigationContext } from "@/lib/security/adaptive-context";
 
 type EvidenceItem = {
   id: string;
@@ -278,6 +279,7 @@ async function runGroundedAI(question: string, context: {
   memory?: SecurityPatternMemory[];
   patterns?: ReturnType<typeof buildSecurityPatterns>;
   correlation?: CorrelationContext | null;
+  adaptiveContext?: ReturnType<typeof buildAdaptiveInvestigationContext> | null;
 }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
@@ -319,6 +321,7 @@ async function runGroundedAI(question: string, context: {
               securityMemory: context.memory ?? [],
               securityPatterns: context.patterns ?? [],
               multiSignalCorrelation: context.correlation ?? null,
+              adaptiveInvestigationContext: context.adaptiveContext ?? null,
             }),
           }],
         },
@@ -368,7 +371,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const [findingsResult, evidenceResult, relationshipsResult, assetsResult, memoryResult] = await Promise.all([
+    const [findingsResult, evidenceResult, relationshipsResult, assetsResult, memoryResult, eventsResult] = await Promise.all([
       supabase
         .from("security_findings")
         .select("id,asset_id,title,finding_type,severity,status,detected_at,summary,remediation,evidence")
@@ -399,9 +402,15 @@ export async function POST(request: Request) {
         .eq("organization_id", organizationId)
         .order("occurred_at", { ascending: false })
         .limit(100),
+      supabase
+        .from("security_events")
+        .select("id,asset_id,severity,observed_at")
+        .eq("organization_id", organizationId)
+        .order("observed_at", { ascending: false })
+        .limit(300),
     ]);
 
-    const error = findingsResult.error ?? evidenceResult.error ?? relationshipsResult.error ?? assetsResult.error ?? memoryResult.error;
+    const error = findingsResult.error ?? evidenceResult.error ?? relationshipsResult.error ?? assetsResult.error ?? memoryResult.error ?? eventsResult.error;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const findings = (findingsResult.data ?? []) as FindingItem[];
@@ -409,6 +418,7 @@ export async function POST(request: Request) {
     const relationships = (relationshipsResult.data ?? []) as RelationshipItem[];
     const assets = (assetsResult.data ?? []) as AssetItem[];
     const memory = (memoryResult.data ?? []) as Array<{ id: string; memory_type: string; subject_id: string | null; title: string; summary: string; state: string; data: Record<string, unknown>; occurred_at: string }>;
+    const securityEvents = (eventsResult.data ?? []) as Array<{ id: string; asset_id: string | null; severity: string | null; observed_at: string }>;
 
     let selectedFinding: FindingItem | null = null;
 
@@ -691,6 +701,30 @@ export async function POST(request: Request) {
         }
       : null;
 
+    const adaptiveResponseLearning = relevantMemory
+      .filter((item) => item.memory_type === "response_outcome")
+      .map((item) => ({
+        occurred_at: item.occurred_at,
+        action_type: typeof item.data?.action_type === "string" ? item.data.action_type : null,
+        state: item.state,
+        evidence_count: Array.isArray(item.data?.evidence) ? item.data.evidence.length : 0,
+        summary: item.summary,
+        matchContext: "related security history",
+      }))
+      .slice(0, 8);
+
+    const adaptiveContext = selectedFinding
+      ? buildAdaptiveInvestigationContext({
+          finding: selectedFinding,
+          evidence,
+          events: securityEvents,
+          relationships,
+          assets,
+          memories: memory,
+          responseLearning: adaptiveResponseLearning,
+        })
+      : null;
+
     const aiAnswer = await runGroundedAI(question, {
       findings: rankedFindings,
       evidence: evidenceForAI,
@@ -700,6 +734,7 @@ export async function POST(request: Request) {
       memory: relevantMemory,
       patterns: contextualPatterns,
       correlation: correlationContext,
+      adaptiveContext,
     });
 
     const citedEvidence = evidenceForAI.slice(0, 10).map((item) => ({
@@ -729,6 +764,7 @@ export async function POST(request: Request) {
       patternsReviewed: contextualPatterns.length,
       securityPatterns: contextualPatterns,
       multiSignalCorrelation: correlationContext,
+      adaptiveInvestigationContext: adaptiveContext,
       historicalContext,
       temporalBoundary:
         "Historical memory can explain what Trinorin previously recorded and how state changed over time. It does not prove that a historical condition still exists. Current evidence and telemetry remain authoritative; missing telemetry is not resolution.",
