@@ -132,10 +132,38 @@ type SecurityOverview = {
   }>;
 };
 
-type SecurityAttention = { items: Array<{ id: string; kind: "finding" | "event" | "action"; priority: "high" | "medium"; title: string; detail: string; observedAt: string; href: string }>; summary: { high: number; medium: number } };
+type SecurityAttention = { items: Array<{ id: string; kind: "finding" | "event" | "action"; priority: "high" | "medium"; title: string; detail: string; observedAt: string; href: string; adaptiveContext?: { confidence: "strong" | "moderate" | "limited"; evidenceFreshnessMinutes: number | null; contradictions: string[]; latestVerification: { state: string; occurredAt: string } | null; nextEvidenceNeeded: string[] } | null }>; summary: { high: number; medium: number } };
 type SecurityChanges = { changes: Array<{ id: string; kind: string; title: string; detail: string; observedAt: string; state: "new" | "changed" | "remembered" | "resolved"; href: string; verificationState?: "improved" | "observed" | "uncertain" | "awaiting_evidence" }>; summary: { new: number; changed: number; remembered: number; resolved: number } };
 
 type SecurityPattern = { id: string; pattern: string; title: string; detail: string; confidence: string; memoryIds: string[]; firstObserved: string; lastObserved: string; boundary: string; sequence?: string[] };
+type SecurityIntelligence = {
+  priorities: Array<{
+    findingId: string;
+    title: string;
+    severity: string;
+    score: number;
+    asset: string | null;
+    assetId: string | null;
+    evidenceCount: number;
+    eventCount: number;
+    connectedAssets: number;
+    historicalRecords: number;
+    responseLearning: unknown;
+    adaptiveContext?: {
+      confidence: "strong" | "moderate" | "limited";
+      evidenceFreshnessMinutes: number | null;
+      correlatedEvidenceCount: number;
+      correlatedEventCount: number;
+      confirmedReachability: number;
+      contradictions: string[];
+      latestVerification: { state: string; occurredAt: string } | null;
+      nextEvidenceNeeded: string[];
+    } | null;
+    reasons: string[];
+  }>;
+  summary: { protectedAssets: number; activeFindings: number; evidenceRecords: number; securityEvents: number; confirmedRelationships: number; memoryRecords: number; intelligenceCoverage: number };
+  boundary: string;
+};
 
 export default function DashboardPage() {
   const [user, setUser] = useState<UserState>({ email: "", displayName: "" });
@@ -144,6 +172,7 @@ export default function DashboardPage() {
   const [overview, setOverview] = useState<SecurityOverview | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [attention, setAttention] = useState<SecurityAttention | null>(null);
+  const [intelligence, setIntelligence] = useState<SecurityIntelligence | null>(null);
   const [changes, setChanges] = useState<SecurityChanges | null>(null);
   const [patterns, setPatterns] = useState<SecurityPattern[]>([]);
   const [lastSecurityRefresh, setLastSecurityRefresh] = useState<number | null>(null);
@@ -179,6 +208,8 @@ export default function DashboardPage() {
         if (response.ok) {
           setOverview((await response.json()) as SecurityOverview);
         }
+        const intelligenceResponse = await fetch("/api/security/intelligence", { cache: "no-store" });
+        if (intelligenceResponse.ok) setIntelligence((await intelligenceResponse.json()) as SecurityIntelligence);
         const attentionResponse = await fetch("/api/security/attention", { cache: "no-store" });
         const attentionData = attentionResponse.ok
           ? (await attentionResponse.json()) as SecurityAttention
@@ -213,8 +244,9 @@ export default function DashboardPage() {
   useEffect(() => {
     const refreshSecurityState = async () => {
       try {
-        const [overviewResponse, attentionResponse, changesResponse] = await Promise.all([
+        const [overviewResponse, intelligenceResponse, attentionResponse, changesResponse] = await Promise.all([
           fetch("/api/security/overview", { cache: "no-store" }),
+          fetch("/api/security/intelligence", { cache: "no-store" }),
           fetch("/api/security/attention", { cache: "no-store" }),
           fetch("/api/security/changes", { cache: "no-store" }),
         ]);
@@ -222,6 +254,7 @@ export default function DashboardPage() {
         let attentionData: SecurityAttention | null = null;
 
         if (overviewResponse.ok) setOverview((await overviewResponse.json()) as SecurityOverview);
+        if (intelligenceResponse.ok) setIntelligence((await intelligenceResponse.json()) as SecurityIntelligence);
         if (attentionResponse.ok) {
           attentionData = (await attentionResponse.json()) as SecurityAttention;
           setAttention(attentionData);
@@ -278,13 +311,15 @@ export default function DashboardPage() {
           `${data.findingsCreated ?? 0} new finding(s) created from the available telemetry.`
       );
 
-      const [overviewResponse, attentionResponse, changesResponse] = await Promise.all([
+      const [overviewResponse, intelligenceResponse, attentionResponse, changesResponse] = await Promise.all([
         fetch("/api/security/overview", { cache: "no-store" }),
+        fetch("/api/security/intelligence", { cache: "no-store" }),
         fetch("/api/security/attention", { cache: "no-store" }),
         fetch("/api/security/changes", { cache: "no-store" }),
       ]);
 
       if (overviewResponse.ok) setOverview((await overviewResponse.json()) as SecurityOverview);
+      if (intelligenceResponse.ok) setIntelligence((await intelligenceResponse.json()) as SecurityIntelligence);
       if (attentionResponse.ok) setAttention((await attentionResponse.json()) as SecurityAttention);
       if (changesResponse.ok) setChanges((await changesResponse.json()) as SecurityChanges);
     } catch {
@@ -397,6 +432,39 @@ export default function DashboardPage() {
       </header>
 
       <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 sm:py-8">
+        <section className="mb-5 rounded-3xl border border-violet-400/10 bg-violet-400/[0.025] p-5 sm:p-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-violet-200">Intelligence priorities</p>
+              <h2 className="mt-1 text-lg font-semibold text-white">Context-aware decision support</h2>
+              <p className="mt-1 text-[11px] text-slate-500">Priorities use the same adaptive investigation context as Analyst: evidence freshness, history, verification, contradictions and confirmed reachability.</p>
+            </div>
+            <span className="rounded-full bg-violet-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-violet-200">{intelligence?.summary.intelligenceCoverage ?? 0}% coverage</span>
+          </div>
+          {intelligence?.priorities.length ? (
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {intelligence.priorities.slice(0, 4).map((item) => (
+                <a key={item.findingId} href={`/analyst?findingId=${encodeURIComponent(item.findingId)}`} className="rounded-2xl border border-white/10 bg-black/10 p-4 transition hover:border-violet-300/20 hover:bg-white/[0.04]">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="min-w-0 truncate text-sm font-medium text-white">{item.title}</p>
+                    <span className="shrink-0 rounded-full bg-violet-400/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-violet-200">{item.score}</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2 text-[9px] uppercase tracking-wider text-slate-600">
+                    <span>{item.severity}</span>
+                    {item.adaptiveContext?.confidence ? <span>context {item.adaptiveContext.confidence}</span> : null}
+                    {item.adaptiveContext?.latestVerification ? <span>verified {item.adaptiveContext.latestVerification.state}</span> : null}
+                    {item.adaptiveContext?.confirmedReachability ? <span>{item.adaptiveContext.confirmedReachability} reachable</span> : null}
+                  </div>
+                  <p className="mt-3 text-[10px] leading-5 text-slate-500">{item.adaptiveContext?.contradictions[0] ?? item.adaptiveContext?.nextEvidenceNeeded[0] ?? item.reasons[0]}</p>
+                  <p className="mt-2 text-[9px] font-semibold uppercase tracking-wider text-violet-200">Investigate with full context →</p>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-2xl border border-dashed border-white/10 p-4 text-[10px] text-slate-600">No active finding has enough recorded context to create an intelligence priority.</div>
+          )}
+        </section>
+
         <section className="mb-5 rounded-3xl border border-amber-400/10 bg-amber-400/[0.025] p-5 sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <div><p className="text-xs font-semibold uppercase tracking-wider text-amber-200">Continuous security attention</p><p className="mt-1 text-[11px] text-slate-500">Recorded signals requiring human review.</p></div>
