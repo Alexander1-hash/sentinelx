@@ -85,7 +85,7 @@ export async function GET(request: Request) {
         .limit(200),
       supabase
         .from("security_findings")
-        .select("id,title,finding_type,severity,status,summary,updated_at,detected_at")
+        .select("id,asset_id,title,finding_type,severity,status,summary,updated_at,detected_at")
         .eq("organization_id", profile.organization_id)
         .order("updated_at", { ascending: false })
         .limit(100),
