@@ -144,8 +144,6 @@ export async function POST(request: Request) {
       summary,
       current_security_state: body.currentSecurityState?.trim() || null,
       evidence,
-      verified_at: new Date().toISOString(),
-      verified_by: user.id,
       finding_snapshot: findingSnapshot.data
         ? {
             id: findingSnapshot.data.id,
@@ -155,24 +153,50 @@ export async function POST(request: Request) {
             status: findingSnapshot.data.status,
           }
         : null,
-      boundary:
-        "Verification records what explicit current evidence showed after an authorized response. It does not infer resolution from the absence of telemetry.",
       ...(body.result ?? {}),
     };
 
-    const { error: updateError } = await supabase
-      .from("security_actions")
-      .update({
-        result: {
-          ...(action.result ?? {}),
-          verification,
-        },
-      })
-      .eq("id", action.id)
-      .eq("organization_id", organizationId);
+    const { data, error } = await supabase.rpc(
+      "record_security_action_verification",
+      {
+        p_action_id: action.id,
+        p_state: state,
+        p_summary: summary,
+        p_evidence: evidence,
+        p_verification: verification,
+      },
+    );
 
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    if (error) {
+      if (error.code === "42501") {
+        return NextResponse.json({ error: error.message }, { status: 401 });
+      }
+
+      if (error.code === "P0002") {
+        return NextResponse.json({ error: error.message }, { status: 404 });
+      }
+
+      if (error.code === "55000") {
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
+
+      if (error.code === "22023") {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+
+      return NextResponse.json(
+        { error: "Security response verification could not be recorded.", details: error.message },
+        { status: 500 },
+      );
+    }
+
+    const result = data as {
+      verification?: Record<string, unknown>;
+      action?: Record<string, unknown>;
+      memory?: Record<string, unknown>;
+    };
+
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
     const { data: memory, error: memoryError } = await supabase
