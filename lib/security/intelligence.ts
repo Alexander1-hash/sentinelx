@@ -214,6 +214,7 @@ export function synthesizeSecurityIntelligence(input: {
             confirmedReachability: adaptiveContext.confirmedReachability.length,
             contradictions: adaptiveContext.contradictions,
             latestVerification: adaptiveContext.historicalState.latestVerification,
+            learningState: adaptiveContext.learningState,
             nextEvidenceNeeded: adaptiveContext.nextEvidenceNeeded.slice(0, 3),
           }
         : null,
@@ -247,6 +248,9 @@ export function synthesizeSecurityIntelligence(input: {
         neighborCount ? neighborCount + " confirmed connected asset" + (neighborCount === 1 ? "" : "s") : "no confirmed asset connection",
         recurrence ? recurrence + " historical memory record" + (recurrence === 1 ? "" : "s") : "no historical memory for this finding",
         learning?.lastVerificationState ? "latest verified response state: " + learning.lastVerificationState : "no verified response learning linked to this finding",
+        adaptiveContext?.learningState?.learningSignal && adaptiveContext.learningState.learningSignal !== "none"
+          ? "adaptive learning signal: " + adaptiveContext.learningState.learningSignal
+          : "no adaptive response learning signal available",
         adaptiveContext?.confidence ? `adaptive context confidence: ${adaptiveContext.confidence}` : "no adaptive investigation context available",
         adaptiveContext?.contradictions.length ? `${adaptiveContext.contradictions.length} context contradiction(s) require reconciliation` : "no recorded adaptive contradictions",
         adaptiveContext?.nextEvidenceNeeded[0] ? `next evidence: ${adaptiveContext.nextEvidenceNeeded[0]}` : "no additional evidence request recorded",
