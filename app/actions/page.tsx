@@ -59,7 +59,7 @@ function SecurityActionsPageContent() {
   const [verificationReference, setVerificationReference] = useState("");
   const [readiness, setReadiness] = useState<Record<string, {
     readiness?: string;
-    connectedIntegrations?: Array<{ displayName: string; provider: string; integrationType: string }>;
+    connectedIntegrations?: Array<{ displayName: string; provider: string; integrationType: string; providerExecutionReady?: boolean }>;
     executorReady?: boolean;
     boundary?: string;
     preview?: { steps?: string[]; requiredIntegrationTypes?: string[] };
@@ -199,6 +199,35 @@ function SecurityActionsPageContent() {
       await loadActions();
     } catch {
       setMessage("Unable to record the execution outcome.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function executeProvider(id: string) {
+    setBusyId(id);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/security/actions/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actionId: id }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error ?? "Automated provider execution could not be completed.");
+        return;
+      }
+
+      setMessage(
+        data.message ??
+          `Provider execution completed. Reference: ${data.executionReference ?? "recorded"}`,
+      );
+      await loadActions();
+    } catch {
+      setMessage("Automated provider execution could not be completed.");
     } finally {
       setBusyId("");
     }
@@ -750,9 +779,22 @@ function SecurityActionsPageContent() {
                         {readinessLoading
                           ? "Checking configured executor readiness..."
                           : readiness[action.action_type]?.executorReady
-                            ? "This action has a configured readiness path. External execution still requires the provider-specific executor and authorization controls."
-                            : "No provider-specific executor is currently configured for this action. Approval alone does not execute it."}
+                            ? "A provider-backed execution path is configured. The action remains blocked until explicit operator authorization and target validation are satisfied."
+                            : "No provider-backed execution endpoint is configured for this action. Approval alone does not execute it."}
                       </p>
+                      {!readinessLoading &&
+                        readiness[action.action_type]?.executorReady &&
+                        ["contain_asset", "disable_integration", "revoke_access", "isolate_endpoint", "block_indicator"].includes(action.action_type) && (
+                          <button
+                            type="button"
+                            disabled={busyId === action.id}
+                            onClick={() => void executeProvider(action.id)}
+                            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-[10px] font-semibold text-emerald-200 transition hover:bg-emerald-400/15 disabled:opacity-50"
+                          >
+                            {busyId === action.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                            Execute through provider
+                          </button>
+                        )}
                       <p className="mt-2 text-[8px] leading-4 text-slate-600">
                         {readiness[action.action_type]?.boundary ?? "Executor readiness is separate from authorization and telemetry connectivity."}
                       </p>
@@ -778,7 +820,7 @@ function SecurityActionsPageContent() {
                         <div>
                           <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-200">Record executor outcome</p>
                           <p className="mt-1 text-[9px] leading-4 text-slate-600">
-                            Record only an explicit result from the connected or manually operated executor. This does not trigger the external action.
+                            Record only an explicit result from a provider or manual operator. Automated provider execution is available above when a configured provider executor is ready.
                           </p>
                         </div>
                         <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-cyan-200">Approved</span>
