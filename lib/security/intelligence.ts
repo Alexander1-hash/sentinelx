@@ -217,6 +217,30 @@ export function synthesizeSecurityIntelligence(input: {
             nextEvidenceNeeded: adaptiveContext.nextEvidenceNeeded.slice(0, 3),
           }
         : null,
+      decisionSupport: {
+        state:
+          adaptiveContext?.contradictions.length
+            ? "reconcile_context"
+            : adaptiveContext?.nextEvidenceNeeded.length
+              ? "collect_evidence"
+              : learning?.lastVerificationState === "persisting" || learning?.lastVerificationState === "returned"
+                ? "review_response"
+                : "human_review",
+        humanDecisionRequired: true,
+        recommendedNextStep:
+          adaptiveContext?.contradictions[0]
+            ?? adaptiveContext?.nextEvidenceNeeded[0]
+            ?? (learning?.lastVerificationState === "persisting" || learning?.lastVerificationState === "returned"
+              ? "Review the latest response outcome and determine whether further action is warranted."
+              : "Review the finding, supporting evidence, affected asset and available response options."),
+        evidenceSufficiency:
+          adaptiveContext?.confidence === "strong" && !adaptiveContext.contradictions.length
+            ? "strong"
+            : adaptiveContext?.confidence === "moderate"
+              ? "moderate"
+              : "limited",
+        authorizationState: "not_authorized",
+      },
       reasons: [
         finding.severity + " severity",
         evidenceCount ? evidenceCount + " linked evidence record" + (evidenceCount === 1 ? "" : "s") : "no directly linked evidence",
