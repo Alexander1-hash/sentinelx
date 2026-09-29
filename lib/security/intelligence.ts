@@ -45,6 +45,8 @@ export type IntelligenceAsset = {
   status: string;
 };
 
+import type { AdaptiveInvestigationContext } from "@/lib/security/adaptive-context";
+
 export type IntelligenceResponseLearning = {
   findingId: string;
   responseOutcomes: number;
@@ -82,6 +84,7 @@ export function synthesizeSecurityIntelligence(input: {
   memories: IntelligenceMemory[];
   assets: IntelligenceAsset[];
   now?: number;
+  adaptiveContexts?: Record<string, AdaptiveInvestigationContext>;
 }) {
   const now = input.now ?? Date.now();
   const assetMap = new Map(input.assets.map((asset) => [asset.id, asset]));
@@ -188,22 +191,41 @@ export function synthesizeSecurityIntelligence(input: {
     const neighborCount = finding.asset_id ? neighbors.get(finding.asset_id)?.size ?? 0 : 0;
     const recurrence = input.memories.filter((memory) => memory.subject_id === finding.id || memory.data.finding_id === finding.id).length;
     const learning = responseLearningByFinding.get(finding.id);
+    const adaptiveContext = input.adaptiveContexts?.[finding.id] ?? null;
     const verificationSignal = learning?.lastVerificationState === "persisting" || learning?.lastVerificationState === "returned" ? 6 : 0;
+    const adaptiveVerificationSignal = adaptiveContext?.historicalState.latestVerification?.state === "persisting" || adaptiveContext?.historicalState.latestVerification?.state === "returned" ? 4 : 0;
+    const contradictionSignal = adaptiveContext?.contradictions.length ? 4 : 0;
+    const freshnessSignal = adaptiveContext?.currentState.evidenceFreshnessMinutes !== null && adaptiveContext?.currentState.evidenceFreshnessMinutes !== undefined && adaptiveContext.currentState.evidenceFreshnessMinutes <= 60 ? 3 : 0;
     const score = Math.min(100,
       (severityWeight[finding.severity.toLowerCase()] ?? 0) + recencyWeight(finding.detected_at, now) +
       Math.min(15, evidenceCount * 3) + Math.min(10, eventCount * 2) + Math.min(10, neighborCount * 2) +
-      Math.min(10, recurrence * 2) + verificationSignal,
+      Math.min(10, recurrence * 2) + verificationSignal + adaptiveVerificationSignal + contradictionSignal + freshnessSignal,
     );
     const asset = finding.asset_id ? assetMap.get(finding.asset_id) : null;
     return {
       findingId: finding.id, title: finding.title, severity: finding.severity, score, asset: asset?.name ?? null, assetId: finding.asset_id,
       evidenceCount, eventCount, connectedAssets: neighborCount, historicalRecords: recurrence, responseLearning: learning ?? null,
+      adaptiveContext: adaptiveContext
+        ? {
+            confidence: adaptiveContext.confidence,
+            evidenceFreshnessMinutes: adaptiveContext.currentState.evidenceFreshnessMinutes,
+            correlatedEvidenceCount: adaptiveContext.currentState.correlatedEvidenceCount,
+            correlatedEventCount: adaptiveContext.currentState.correlatedEventCount,
+            confirmedReachability: adaptiveContext.confirmedReachability.length,
+            contradictions: adaptiveContext.contradictions,
+            latestVerification: adaptiveContext.historicalState.latestVerification,
+            nextEvidenceNeeded: adaptiveContext.nextEvidenceNeeded.slice(0, 3),
+          }
+        : null,
       reasons: [
         finding.severity + " severity",
         evidenceCount ? evidenceCount + " linked evidence record" + (evidenceCount === 1 ? "" : "s") : "no directly linked evidence",
         neighborCount ? neighborCount + " confirmed connected asset" + (neighborCount === 1 ? "" : "s") : "no confirmed asset connection",
         recurrence ? recurrence + " historical memory record" + (recurrence === 1 ? "" : "s") : "no historical memory for this finding",
         learning?.lastVerificationState ? "latest verified response state: " + learning.lastVerificationState : "no verified response learning linked to this finding",
+        adaptiveContext?.confidence ? `adaptive context confidence: ${adaptiveContext.confidence}` : "no adaptive investigation context available",
+        adaptiveContext?.contradictions.length ? `${adaptiveContext.contradictions.length} context contradiction(s) require reconciliation` : "no recorded adaptive contradictions",
+        adaptiveContext?.nextEvidenceNeeded[0] ? `next evidence: ${adaptiveContext.nextEvidenceNeeded[0]}` : "no additional evidence request recorded",
       ],
     };
   }).sort((a, b) => b.score - a.score).slice(0, 8);
