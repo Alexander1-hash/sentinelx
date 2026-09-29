@@ -149,6 +149,13 @@ type SecurityIntelligence = {
     connectedAssets: number;
     historicalRecords: number;
     responseLearning: unknown;
+    decisionSupport: {
+      state: "reconcile_context" | "collect_evidence" | "review_response" | "human_review";
+      humanDecisionRequired: boolean;
+      recommendedNextStep: string;
+      evidenceSufficiency: "strong" | "moderate" | "limited";
+      authorizationState: "not_authorized";
+    };
     adaptiveContext?: {
       confidence: "strong" | "moderate" | "limited";
       evidenceFreshnessMinutes: number | null;
@@ -458,6 +465,20 @@ export default function DashboardPage() {
                     {item.adaptiveContext?.confirmedReachability ? <span>{item.adaptiveContext.confirmedReachability} reachable</span> : null}
                   </div>
                   <p className="mt-3 text-[10px] leading-5 text-slate-500">{item.adaptiveContext?.contradictions[0] ?? item.adaptiveContext?.nextEvidenceNeeded[0] ?? item.reasons[0]}</p>
+                  <p className="mt-2 text-[10px] leading-5 text-slate-400">
+                    {item.decisionSupport.recommendedNextStep}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-[8px] uppercase tracking-wider">
+                    <span className="rounded-full bg-white/5 px-2 py-1 text-slate-500">
+                      evidence {item.decisionSupport.evidenceSufficiency}
+                    </span>
+                    <span className="rounded-full bg-amber-400/10 px-2 py-1 text-amber-200">
+                      human decision required
+                    </span>
+                    <span className="rounded-full bg-white/5 px-2 py-1 text-slate-500">
+                      not authorized
+                    </span>
+                  </div>
                   <p className="mt-2 text-[9px] font-semibold uppercase tracking-wider text-violet-200">Investigate with full context →</p>
                 </a>
               ))}
