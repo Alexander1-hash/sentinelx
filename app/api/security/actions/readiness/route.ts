@@ -111,6 +111,10 @@ export async function GET(request: Request) {
             configuration && typeof configuration === "object" && !Array.isArray(configuration)
               ? (configuration as Record<string, unknown>).execution
               : null;
+          const webhookUrl =
+            execution && typeof execution === "object" && !Array.isArray(execution)
+              ? (execution as Record<string, unknown>).webhook_url
+              : null;
           return {
             id: integration.id,
             provider: integration.provider,
@@ -119,11 +123,7 @@ export async function GET(request: Request) {
             status: integration.status,
             lastSyncAt: integration.last_sync_at,
             providerExecutionReady: Boolean(
-              execution &&
-                typeof execution === "object" &&
-                !Array.isArray(execution) &&
-                typeof (execution as Record<string, unknown>).webhook_url === "string" &&
-                (execution as Record<string, unknown>).webhook_url.trim(),
+              typeof webhookUrl === "string" && webhookUrl.trim(),
             ),
           };
         }),
@@ -137,13 +137,7 @@ export async function GET(request: Request) {
                     ? (configuration as Record<string, unknown>).execution
                     : null;
                 return (
-                  Boolean(
-                    execution &&
-                      typeof execution === "object" &&
-                      !Array.isArray(execution) &&
-                      typeof (execution as Record<string, unknown>).webhook_url === "string" &&
-                      (execution as Record<string, unknown>).webhook_url.trim(),
-                  )
+                  Boolean(typeof webhookUrl === "string" && webhookUrl.trim())
                 );
               }),
         boundary:
@@ -177,13 +171,7 @@ export async function GET(request: Request) {
               configuration && typeof configuration === "object" && !Array.isArray(configuration)
                 ? (configuration as Record<string, unknown>).execution
                 : null;
-            return Boolean(
-              execution &&
-                typeof execution === "object" &&
-                !Array.isArray(execution) &&
-                typeof (execution as Record<string, unknown>).webhook_url === "string" &&
-                (execution as Record<string, unknown>).webhook_url.trim(),
-            );
+            return Boolean(typeof webhookUrl === "string" && webhookUrl.trim());
           }),
       })),
       connectedIntegrations: connected.map((integration) => ({
