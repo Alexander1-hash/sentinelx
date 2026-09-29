@@ -10,7 +10,8 @@ export type SecurityActionType =
 export type ExecutorReadiness =
   | "not_required"
   | "awaiting_integration"
-  | "provider_executor_not_configured";
+  | "provider_executor_not_configured"
+  | "provider_executor_ready";
 
 export type ExecutorRequirement = {
   actionType: SecurityActionType;
@@ -27,6 +28,23 @@ export type ExecutorAdapter = {
   mode: "manual" | "provider";
   enabled: boolean;
   boundary: string;
+};
+
+export const PROVIDER_WEBHOOK_EXECUTOR: ExecutorAdapter = {
+  id: "provider_webhook",
+  displayName: "Provider Webhook Executor",
+  executorType: "provider_webhook",
+  supportedActions: [
+    "contain_asset",
+    "disable_integration",
+    "revoke_access",
+    "isolate_endpoint",
+    "block_indicator",
+  ],
+  mode: "provider",
+  enabled: true,
+  boundary:
+    "Provider Webhook Executor calls only an explicitly configured, organization-authorized HTTPS endpoint after operator authorization and target validation. The provider response is recorded as the execution outcome.",
 };
 
 export const MANUAL_OPERATOR_EXECUTOR: ExecutorAdapter = {
@@ -49,7 +67,7 @@ export const MANUAL_OPERATOR_EXECUTOR: ExecutorAdapter = {
 };
 
 export function getExecutorAdapters(): ExecutorAdapter[] {
-  return [MANUAL_OPERATOR_EXECUTOR];
+  return [MANUAL_OPERATOR_EXECUTOR, PROVIDER_WEBHOOK_EXECUTOR];
 }
 
 export function getExecutorAdapter(
@@ -89,32 +107,32 @@ const REQUIREMENTS: Record<SecurityActionType, ExecutorRequirement> = {
   contain_asset: {
     actionType: "contain_asset",
     requiredIntegrationTypes: ["cloud_security", "endpoint_security"],
-    readiness: "provider_executor_not_configured",
-    boundary: "Provider-specific containment is not executed until an authorized executor adapter is explicitly configured.",
+    readiness: "provider_executor_ready",
+    boundary: "Provider-backed containment is available through the configured Provider Webhook Executor only after explicit operator authorization and target validation.",
   },
   disable_integration: {
     actionType: "disable_integration",
     requiredIntegrationTypes: ["business_application", "cloud_security"],
-    readiness: "provider_executor_not_configured",
-    boundary: "Disabling a provider connection is not executed by the generic Trinorin action endpoint.",
+    readiness: "provider_executor_ready",
+    boundary: "Disabling a provider connection is available through the configured Provider Webhook Executor only after explicit operator authorization and target validation.",
   },
   revoke_access: {
     actionType: "revoke_access",
     requiredIntegrationTypes: ["identity_provider"],
-    readiness: "provider_executor_not_configured",
-    boundary: "Access revocation requires a provider-specific executor with explicit authorization.",
+    readiness: "provider_executor_ready",
+    boundary: "Access revocation is available through the configured Provider Webhook Executor only after explicit operator authorization and target validation.",
   },
   isolate_endpoint: {
     actionType: "isolate_endpoint",
     requiredIntegrationTypes: ["endpoint_security", "cloud_security"],
-    readiness: "provider_executor_not_configured",
-    boundary: "Endpoint isolation requires a provider-specific executor with explicit authorization.",
+    readiness: "provider_executor_ready",
+    boundary: "Endpoint isolation is available through the configured Provider Webhook Executor only after explicit operator authorization and target validation.",
   },
   block_indicator: {
     actionType: "block_indicator",
     requiredIntegrationTypes: ["cloud_security", "network_security"],
-    readiness: "provider_executor_not_configured",
-    boundary: "Indicator blocking requires a provider-specific executor with explicit authorization.",
+    readiness: "provider_executor_ready",
+    boundary: "Indicator blocking is available through the configured Provider Webhook Executor only after explicit operator authorization and target validation.",
   },
 };
 
