@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -22,7 +22,7 @@ const labels: Record<string, string> = {
   block_indicator: "Block indicator",
 };
 
-export default function VerificationPage() {
+function VerificationWorkspace() {
   const searchParams = useSearchParams();
   const actionIdFromQuery = searchParams.get("actionId") ?? "";
   const [actions, setActions] = useState<Action[]>([]);
@@ -137,5 +137,14 @@ export default function VerificationPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+
+export default function VerificationPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-[#071018] px-4 py-8 text-slate-100"><div className="mx-auto max-w-4xl rounded-2xl border border-white/10 bg-white/[0.025] p-8 text-sm text-slate-500">Loading response verification…</div></main>}>
+      <VerificationWorkspace />
+    </Suspense>
   );
 }
