@@ -209,9 +209,7 @@ export async function GET(request: Request) {
           observedAt: finding.updated_at ?? finding.detected_at,
           state: "changed",
           href: "/brain",
-          adaptiveContext: memory.data.finding_id && typeof memory.data.finding_id === "string"
-            ? adaptiveContextByFinding.get(memory.data.finding_id) ?? null
-            : null,
+          adaptiveContext: adaptiveContextByFinding.get(finding.id) ?? null,
         });
       } else {
         changes.push({
