@@ -590,3 +590,4 @@ export default function IntelligencePage() {
 function BoxesIcon({ className }: { className?: string }) {
   return <Network className={className} />;
 }
+
