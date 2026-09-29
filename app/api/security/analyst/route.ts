@@ -298,7 +298,7 @@ async function runGroundedAI(question: string, context: {
           content: [{
             type: "input_text",
             text:
-              "You are SentinelX Security Copilot. Analyze only supplied records. " +
+              "You are Trinorin Security Copilot. Analyze only supplied records. " +
               "Never invent telemetry, compromise, vulnerabilities, attribution, identities, or remediation facts. " +
               "Confirmed relationships are usable graph evidence; do not upgrade proposed or missing relationships. " +
               "Missing telemetry is not proof of safety. Never execute, approve, or claim an action was executed. " +
@@ -361,7 +361,7 @@ export async function POST(request: Request) {
 
     if (!organizationId) {
       return NextResponse.json({
-        answer: "No organization is connected, so SentinelX has no organization-scoped security evidence to analyze.",
+        answer: "No organization is connected, so Trinorin has no organization-scoped security evidence to analyze.",
         evidence: [],
         boundary: "No inference was made.",
         aiUsed: false,
@@ -536,7 +536,7 @@ export async function POST(request: Request) {
           memory_type: "investigation",
           subject_id: selectedFinding.id,
           title: `Investigation: ${selectedFinding.title}`,
-          summary: `SentinelX investigated this finding using recorded evidence and confirmed graph relationships. ${investigation?.blastRadius.length ?? 0} downstream asset(s) were established.`,
+          summary: `Trinorin investigated this finding using recorded evidence and confirmed graph relationships. ${investigation?.blastRadius.length ?? 0} downstream asset(s) were established.`,
           data: {
             fingerprint: investigationFingerprint,
             finding_id: selectedFinding.id,
@@ -714,7 +714,7 @@ export async function POST(request: Request) {
       answer: aiAnswer ?? (
         selectedFinding
           ? "This finding is supported only by the recorded finding data and available evidence. Review the cited evidence and confirmed graph context before taking action."
-          : "SentinelX found no available AI response. Review the recorded findings and evidence directly."
+          : "Trinorin found no available AI response. Review the recorded findings and evidence directly."
       ),
       question,
       aiUsed: Boolean(aiAnswer),
@@ -731,13 +731,13 @@ export async function POST(request: Request) {
       multiSignalCorrelation: correlationContext,
       historicalContext,
       temporalBoundary:
-        "Historical memory can explain what SentinelX previously recorded and how state changed over time. It does not prove that a historical condition still exists. Current evidence and telemetry remain authoritative; missing telemetry is not resolution.",
+        "Historical memory can explain what Trinorin previously recorded and how state changed over time. It does not prove that a historical condition still exists. Current evidence and telemetry remain authoritative; missing telemetry is not resolution.",
       evidence: citedEvidence,
       suggestedNextStep: selectedFinding
         ? "Validate the finding evidence, inspect its confirmed graph context, and create a Security Action only when an authorized response is appropriate."
         : "Review the highest-severity finding and its evidence before creating a response recommendation.",
       boundary: aiAnswer
-        ? "AI-assisted analysis grounded only in organization-scoped SentinelX records. The model cannot execute or authorize response actions."
+        ? "AI-assisted analysis grounded only in organization-scoped Trinorin records. The model cannot execute or authorize response actions."
         : "Deterministic evidence-grounded analysis. No unsupported AI conclusion was used.",
     });
   } catch {
