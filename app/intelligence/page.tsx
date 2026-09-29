@@ -69,6 +69,14 @@ type Intelligence = {
   }>;
   coverageGaps: string[];
   lifecycle: Record<string, number>;
+  stateReconciliation: {
+    current: Array<{ findingId: string; previousState: string | null; currentState: string; changedAt: string | null; changeType: string; evidenceFreshnessMinutes: number | null; evidenceCount: number; eventCount: number }>;
+    changes: Array<{ findingId: string; previousState: string | null; currentState: string; changedAt: string | null; changeType: string; evidenceFreshnessMinutes: number | null; evidenceCount: number; eventCount: number }>;
+    changedCount: number;
+    unknowns: string[];
+    stateConfidence: string;
+    boundary: string;
+  };
   boundary: string;
 };
 
