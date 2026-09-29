@@ -373,7 +373,7 @@ export async function runSecurityAnalysis(
           summary:
             (event.description ?? "A high-impact security event was observed and requires investigation.") +
             (nearbyEvidence.length
-              ? ` SentinelX also found ${nearbyEvidence.length} evidence record(s) on the affected asset within 24 hours of this event; this is supporting context, not proof of causation.`
+              ? ` Trinorin also found ${nearbyEvidence.length} evidence record(s) on the affected asset within 24 hours of this event; this is supporting context, not proof of causation.`
               : ""),
           remediation: "Review the source evidence, validate the affected asset, and apply an authorized remediation appropriate to the event.",
           evidence: {
@@ -407,7 +407,7 @@ export async function runSecurityAnalysis(
           summary:
             (event.description ?? "A high-impact AI security event was observed and requires investigation.") +
             (nearbyEvidence.length
-              ? ` SentinelX also found ${nearbyEvidence.length} evidence record(s) on the affected AI asset within 24 hours of this event; this is supporting context, not proof of causation.`
+              ? ` Trinorin also found ${nearbyEvidence.length} evidence record(s) on the affected AI asset within 24 hours of this event; this is supporting context, not proof of causation.`
               : ""),
           remediation: "Review the AI system or agent evidence, validate the behavior, and apply an authorized remediation appropriate to the event.",
           evidence: {
