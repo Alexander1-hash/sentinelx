@@ -252,7 +252,7 @@ function SecurityActionsPageContent() {
 
       <div className="mx-auto max-w-[1100px] px-4 py-8 sm:px-6">
         <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Controlled response</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Decide before SentinelX acts</h1>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Decide before Trinorin acts</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
           Security actions are explicit, auditable, and authorization-gated. Approving an action here does not execute an external or destructive action until a provider-specific executor is intentionally connected.
         </p>
@@ -290,7 +290,7 @@ function SecurityActionsPageContent() {
                 <p className="mt-1 text-[10px] text-slate-300">Provider executor required</p>
               </div>
             </div>
-            <p className="mt-3 text-[9px] leading-4 text-slate-600">SentinelX does not silently execute, approve, or infer remediation. Current evidence and explicit authorization remain the decision boundary.</p>
+            <p className="mt-3 text-[9px] leading-4 text-slate-600">Trinorin does not silently execute, approve, or infer remediation. Current evidence and explicit authorization remain the decision boundary.</p>
             {linkedFindingId && (
               <div className="mt-4 rounded-2xl border border-violet-400/10 bg-violet-400/[0.025] p-4">
                 <div className="flex items-center justify-between gap-2">
@@ -492,7 +492,7 @@ function SecurityActionsPageContent() {
                         </div>
                       </div>
                       <p className="mt-3 text-[8px] leading-4 text-cyan-100/50">
-                        SentinelX presents the evidence and known boundaries for an operator decision. It does not score or rank response choices, and historical outcomes do not prove current effectiveness.
+                        Trinorin presents the evidence and known boundaries for an operator decision. It does not score or rank response choices, and historical outcomes do not prove current effectiveness.
                       </p>
                     </div>
                   )}
@@ -737,7 +737,7 @@ function SecurityActionsPageContent() {
                           label={action.target_context?.resourceName ? "Target identified" : "Target identity needs review"}
                           detail={action.target_context?.resourceType
                             ? action.target_context.resourceType.replaceAll("_", " ")
-                            : "No verified SentinelX resource"}
+                            : "No verified Trinorin resource"}
                         />
                         <ApprovalCheck
                           ok={Boolean(action.finding_id)}
@@ -763,7 +763,7 @@ function SecurityActionsPageContent() {
                         <ApprovalCheck
                           ok={true}
                           label="Approval-time revalidation enabled"
-                          detail="SentinelX will re-check the target and organization ownership when you authorize."
+                          detail="Trinorin will re-check the target and organization ownership when you authorize."
                         />
                       </div>
                       <p className="mt-3 text-[8px] leading-4 text-slate-600">
@@ -800,7 +800,7 @@ function SecurityActionsPageContent() {
         <section className="mt-5 rounded-2xl border border-orange-400/10 bg-orange-400/[0.025] p-4">
           <p className="text-xs font-semibold text-orange-200">Safety boundary</p>
           <p className="mt-2 text-[11px] leading-5 text-slate-500">
-            SentinelX does not silently isolate devices, revoke credentials, disable services, or block indicators. Those capabilities require an explicitly connected provider executor and an authorization policy.
+            Trinorin does not silently isolate devices, revoke credentials, disable services, or block indicators. Those capabilities require an explicitly connected provider executor and an authorization policy.
           </p>
         </section>
       </div>
