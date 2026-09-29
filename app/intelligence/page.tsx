@@ -38,7 +38,35 @@ type Pattern = {
 
 type Intelligence = {
   summary: { protectedAssets: number; activeFindings: number; evidenceRecords: number; securityEvents: number; confirmedRelationships: number; memoryRecords: number; intelligenceCoverage: number };
-  priorities: Array<{ findingId: string; title: string; severity: string; score: number; asset: string | null; reasons: string[] }>;
+  priorities: Array<{
+    findingId: string;
+    title: string;
+    severity: string;
+    score: number;
+    asset: string | null;
+    reasons: string[];
+    responseLearning?: {
+      responseOutcomes: number;
+      verifications: number;
+      resolved: number;
+      persisting: number;
+      returned: number;
+      unknown: number;
+      lastVerificationState: string | null;
+      lastVerifiedAt: string | null;
+    } | null;
+  }>;
+  responseLearning: Array<{
+    findingId: string;
+    responseOutcomes: number;
+    verifications: number;
+    resolved: number;
+    persisting: number;
+    returned: number;
+    unknown: number;
+    lastVerificationState: string | null;
+    lastVerifiedAt: string | null;
+  }>;
   coverageGaps: string[];
   lifecycle: Record<string, number>;
   boundary: string;
@@ -157,7 +185,7 @@ export default function IntelligencePage() {
       tone: "slate",
       headline: overview?.connected ? "No new high-impact signal is currently recorded." : "Connect a protected surface to begin intelligence collection.",
       detail: overview?.connected
-        ? "SentinelX is retaining the latest verified security state and will reassess it during background refresh."
+        ? "Trinorin is retaining the latest verified security state and will reassess it during background refresh."
         : "The intelligence layer does not infer risk when the underlying telemetry is missing.",
       href: overview?.connected ? "/assets" : "/integrations",
       action: overview?.connected ? "Review assets" : "Connect telemetry",
@@ -192,7 +220,7 @@ export default function IntelligencePage() {
       <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6">
         <div className="max-w-3xl">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">Continuous intelligence</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">What SentinelX understands right now.</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">What Trinorin understands right now.</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500">
             This layer connects existing findings, attention signals, security changes, response verification and historical patterns into one operator view. It does not create a separate source of truth.
           </p>
@@ -238,7 +266,7 @@ export default function IntelligencePage() {
             <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Intelligence map</p>
             <h2 className="text-lg font-semibold text-white">How the current context is assembled</h2>
             <p className="text-xs leading-5 text-slate-500">
-              SentinelX synthesizes recorded signals without turning missing data into a conclusion.
+              Trinorin synthesizes recorded signals without turning missing data into a conclusion.
             </p>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -309,6 +337,46 @@ export default function IntelligencePage() {
           </div>
         </section>
 
+        <section className="mt-5 rounded-3xl border border-emerald-400/10 bg-emerald-400/[0.02] p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-200">Verified response learning</p>
+              <h2 className="mt-1 text-lg font-semibold text-white">What past responses have actually established</h2>
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                Only explicit post-response verification is carried forward. A missing verification record is not treated as success or failure.
+              </p>
+            </div>
+            <Link href="/verification" className="text-[10px] font-semibold uppercase tracking-wider text-emerald-200 hover:text-white">Open verification</Link>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {(intelligence?.responseLearning ?? []).slice(0, 6).map((item) => {
+              const priority = intelligence?.priorities.find((candidate) => candidate.findingId === item.findingId);
+              const state = item.lastVerificationState ?? "recorded";
+              return (
+                <Link key={item.findingId} href={"/analyst?findingId=" + encodeURIComponent(item.findingId)} className="rounded-2xl border border-white/10 bg-black/10 p-4 hover:bg-white/[0.04]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-white">{priority?.title ?? "Finding " + item.findingId.slice(0, 8)}</p>
+                      <p className="mt-1 text-[10px] text-slate-500">{item.responseOutcomes} outcome{item.responseOutcomes === 1 ? "" : "s"} · {item.verifications} verification{item.verifications === 1 ? "" : "s"}</p>
+                    </div>
+                    <span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-emerald-200">{state}</span>
+                  </div>
+                  <div className="mt-4 grid grid-cols-4 gap-2">
+                    <div><p className="text-[9px] text-slate-600">Resolved</p><p className="mt-1 text-sm font-semibold text-white">{item.resolved}</p></div>
+                    <div><p className="text-[9px] text-slate-600">Persisting</p><p className="mt-1 text-sm font-semibold text-white">{item.persisting}</p></div>
+                    <div><p className="text-[9px] text-slate-600">Returned</p><p className="mt-1 text-sm font-semibold text-white">{item.returned}</p></div>
+                    <div><p className="text-[9px] text-slate-600">Unknown</p><p className="mt-1 text-sm font-semibold text-white">{item.unknown}</p></div>
+                  </div>
+                  {item.lastVerifiedAt && <p className="mt-3 text-[9px] text-slate-600">Last verified {new Date(item.lastVerifiedAt).toLocaleString()}</p>}
+                </Link>
+              );
+            })}
+            {!loading && !intelligence?.responseLearning?.length && (
+              <p className="rounded-2xl border border-dashed border-white/10 p-4 text-xs text-slate-600">No verified response learning is recorded yet.</p>
+            )}
+          </div>
+        </section>
+
         <section className="mt-5 rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
           <div className="flex items-center gap-3"><Workflow className="h-5 w-5 text-cyan-300" /><div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Intelligence lifecycle</p><h2 className="mt-1 text-lg font-semibold text-white">The learning loop is measurable</h2></div></div>
           <div className="mt-5 grid gap-2 sm:grid-cols-4 lg:grid-cols-7">
@@ -320,7 +388,7 @@ export default function IntelligencePage() {
             <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Context synthesis</p>
             <h2 className="text-lg font-semibold text-white">Why this context is being surfaced</h2>
             <p className="text-xs leading-5 text-slate-500">
-              SentinelX keeps the reasoning chain inspectable: current signals, historical context, response state, and verification are shown separately.
+              Trinorin keeps the reasoning chain inspectable: current signals, historical context, response state, and verification are shown separately.
             </p>
           </div>
 
@@ -336,7 +404,7 @@ export default function IntelligencePage() {
               {
                 label: "Historical context",
                 title: patterns.length ? `${patterns.length} historical pattern${patterns.length === 1 ? "" : "s"} available` : "No historical pattern established",
-                detail: patterns[0]?.detail ?? "SentinelX has no established pattern to carry into the current context.",
+                detail: patterns[0]?.detail ?? "Trinorin has no established pattern to carry into the current context.",
                 href: "/brain",
                 action: "Open Security Brain",
               },
@@ -352,7 +420,7 @@ export default function IntelligencePage() {
                 title: overview?.connected ? "Evidence remains the source of truth" : "Telemetry is not connected",
                 detail: overview?.connected
                   ? "Missing evidence does not become a safety conclusion; current telemetry and recorded evidence remain authoritative."
-                  : "SentinelX will not infer security state from missing telemetry.",
+                  : "Trinorin will not infer security state from missing telemetry.",
                 href: overview?.connected ? "/assets" : "/integrations",
                 action: overview?.connected ? "Review assets" : "Connect telemetry",
               },
@@ -380,7 +448,7 @@ export default function IntelligencePage() {
               <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Operator handoff</p>
               <h2 className="mt-1 text-lg font-semibold text-white">Keep the investigation chain intact</h2>
               <p className="mt-2 max-w-2xl text-[11px] leading-5 text-slate-500">
-                SentinelX carries the current signal into the next recorded workflow step instead of asking the operator to reconstruct context manually.
+                Trinorin carries the current signal into the next recorded workflow step instead of asking the operator to reconstruct context manually.
               </p>
             </div>
             <span className="rounded-full bg-white/5 px-2.5 py-1 text-[9px] uppercase tracking-wider text-slate-500">Same source data</span>
@@ -432,7 +500,7 @@ export default function IntelligencePage() {
           </div>
 
           <p className="mt-4 rounded-xl border border-amber-400/10 bg-amber-400/[0.025] p-3 text-[9px] leading-4 text-slate-600">
-            Handoff preserves navigation context only. SentinelX does not treat moving to the next step as authorization, execution, success, or proof of compromise.
+            Handoff preserves navigation context only. Trinorin does not treat moving to the next step as authorization, execution, success, or proof of compromise.
           </p>
         </section>
 
@@ -486,7 +554,7 @@ export default function IntelligencePage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-violet-200">Memory → context</p>
-              <h2 className="mt-1 text-lg font-semibold text-white">Patterns SentinelX can carry forward</h2>
+              <h2 className="mt-1 text-lg font-semibold text-white">Patterns Trinorin can carry forward</h2>
             </div>
             <Link href="/brain" className="text-[10px] font-semibold uppercase tracking-wider text-violet-200 hover:text-white">Security Brain</Link>
           </div>
