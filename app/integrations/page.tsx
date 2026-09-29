@@ -98,6 +98,9 @@ export default function IntegrationsPage() {
   const [message, setMessage] = useState("");
   const [tokenNotice, setTokenNotice] = useState<TokenNotice | null>(null);
   const [rotatingId, setRotatingId] = useState<string | null>(null);
+  const [executionId, setExecutionId] = useState<string | null>(null);
+  const [executionUrl, setExecutionUrl] = useState("");
+  const [configuringExecution, setConfiguringExecution] = useState(false);
 
   const catalogWithEndpoint = [...catalog, endpointCatalogItem];
 
@@ -141,6 +144,41 @@ export default function IntegrationsPage() {
       await loadIntegrations();
     } finally {
       setRotatingId(null);
+    }
+  }
+
+  async function configureExecution(integrationId: string) {
+    if (!executionUrl.trim()) {
+      setMessage("Enter the HTTPS provider execution webhook URL first.");
+      return;
+    }
+
+    setConfiguringExecution(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/security/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "configure_execution",
+          integrationId,
+          executionWebhookUrl: executionUrl.trim(),
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error ?? "Unable to configure provider execution.");
+        return;
+      }
+
+      setMessage("Provider execution webhook configured. The deployment allowlist and executor secret are still required before execution can run.");
+      setExecutionId(null);
+      setExecutionUrl("");
+      await loadIntegrations();
+    } finally {
+      setConfiguringExecution(false);
     }
   }
 
@@ -307,6 +345,44 @@ export default function IntegrationsPage() {
                         </Link>
                       ) : null}
                     </div>
+                    {executionId === integration.id ? (
+                      <div className="w-full rounded-xl border border-emerald-400/10 bg-emerald-400/[0.025] p-3 sm:w-auto sm:min-w-[340px]">
+                        <p className="text-[9px] font-semibold uppercase tracking-wider text-emerald-200">Provider execution</p>
+                        <input
+                          value={executionUrl}
+                          onChange={(event) => setExecutionUrl(event.target.value)}
+                          placeholder="https://provider.example/execute"
+                          className="mt-2 w-full rounded-lg border border-white/10 bg-[#071018] px-3 py-2 text-[10px] text-white placeholder:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/20"
+                        />
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void configureExecution(integration.id)}
+                            disabled={configuringExecution}
+                            className="inline-flex items-center gap-2 rounded-lg bg-emerald-300 px-3 py-2 text-[10px] font-semibold text-slate-950 disabled:opacity-50"
+                          >
+                            {configuringExecution ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                            Save executor
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setExecutionId(null); setExecutionUrl(""); }}
+                            className="rounded-lg border border-white/10 px-3 py-2 text-[10px] text-slate-400"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        <p className="mt-2 text-[8px] leading-4 text-slate-600">Use an HTTPS endpoint you control. The endpoint receives only after an operator-authorized action passes Trinorin target validation.</p>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setExecutionId(integration.id); setExecutionUrl(""); }}
+                        className="inline-flex w-fit items-center gap-2 rounded-lg border border-emerald-400/15 px-3 py-2 text-[10px] font-semibold text-emerald-200 hover:bg-emerald-400/5"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" /> Configure provider executor
+                      </button>
+                    )}
                     <button
                       onClick={() => void rotateToken(integration)}
                       disabled={rotatingId === integration.id}
