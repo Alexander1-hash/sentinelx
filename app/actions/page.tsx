@@ -52,6 +52,11 @@ function SecurityActionsPageContent() {
   const [executorType, setExecutorType] = useState("");
   const [executionReference, setExecutionReference] = useState("");
   const [outcomeEvidence, setOutcomeEvidence] = useState("");
+  const [verificationActionId, setVerificationActionId] = useState("");
+  const [verificationState, setVerificationState] = useState<"resolved" | "persisting" | "returned" | "unknown">("resolved");
+  const [verificationSummary, setVerificationSummary] = useState("");
+  const [verificationEvidence, setVerificationEvidence] = useState("");
+  const [verificationReference, setVerificationReference] = useState("");
   const [readiness, setReadiness] = useState<Record<string, {
     readiness?: string;
     connectedIntegrations?: Array<{ displayName: string; provider: string; integrationType: string }>;
@@ -194,6 +199,49 @@ function SecurityActionsPageContent() {
       await loadActions();
     } catch {
       setMessage("Unable to record the execution outcome.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function recordVerification(id: string) {
+    setBusyId(id);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/security/actions/verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          actionId: id,
+          state: verificationState,
+          summary: verificationSummary,
+          evidence: [
+            {
+              type: "post_response_verification",
+              source: "operator_verification",
+              summary: verificationEvidence,
+              reference: verificationReference,
+            },
+          ],
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error ?? "Unable to record post-response verification.");
+        return;
+      }
+
+      setMessage(data.message ?? "Post-response verification recorded.");
+      setVerificationActionId("");
+      setVerificationSummary("");
+      setVerificationEvidence("");
+      setVerificationReference("");
+      await loadActions();
+    } catch {
+      setMessage("Unable to record post-response verification.");
     } finally {
       setBusyId("");
     }
@@ -608,18 +656,90 @@ function SecurityActionsPageContent() {
                     {String(action.result.message ?? "Awaiting operator decision.")}
                   </p>
 
-                  {(action.status === "completed" || action.status === "failed") && action.finding_id && (
+                  {(action.status === "completed" || action.status === "failed") && (
                     <div className="mt-4 rounded-xl border border-emerald-400/10 bg-emerald-400/[0.025] p-3">
-                      <p className="text-[9px] font-semibold uppercase tracking-wider text-emerald-200">Verify and learn</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[9px] font-semibold uppercase tracking-wider text-emerald-200">Post-response verification</p>
+                        <span className="text-[8px] uppercase tracking-wider text-slate-600">Explicit evidence required</span>
+                      </div>
                       <p className="mt-1 text-[9px] leading-4 text-slate-500">
-                        This outcome is recorded in Security Brain memory. Re-open the linked finding in Analyst to compare the recorded response with current evidence.
+                        Execution outcome is not remediation proof. Record what the current security evidence actually shows after the response.
                       </p>
-                      <Link
-                        href={"/analyst?findingId=" + encodeURIComponent(action.finding_id)}
-                        className="mt-3 inline-flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-[10px] font-semibold text-emerald-200"
-                      >
-                        <ShieldCheck className="h-3.5 w-3.5" /> Verify in Security Analyst
-                      </Link>
+                      {verificationActionId === action.id ? (
+                        <div className="mt-3 space-y-2">
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            <select
+                              value={verificationState}
+                              onChange={(event) => setVerificationState(event.target.value as typeof verificationState)}
+                              className="rounded-lg border border-white/10 bg-[#071018] px-2 py-2 text-[10px] text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/30"
+                            >
+                              <option value="resolved">Resolved</option>
+                              <option value="persisting">Persisting</option>
+                              <option value="returned">Returned</option>
+                              <option value="unknown">Unknown</option>
+                            </select>
+                            <input
+                              value={verificationReference}
+                              onChange={(event) => setVerificationReference(event.target.value)}
+                              placeholder="Evidence reference"
+                              className="rounded-lg border border-white/10 bg-[#071018] px-2 py-2 text-[10px] text-white placeholder:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/30"
+                            />
+                            <Link
+                              href={action.finding_id ? "/analyst?findingId=" + encodeURIComponent(action.finding_id) : "/analyst"}
+                              className="inline-flex items-center justify-center rounded-lg border border-white/10 px-2 py-2 text-[10px] text-slate-400 hover:text-white"
+                            >
+                              Open current evidence
+                            </Link>
+                          </div>
+                          <textarea
+                            value={verificationSummary}
+                            onChange={(event) => setVerificationSummary(event.target.value)}
+                            placeholder="Verification summary: what does the current security state show?"
+                            rows={2}
+                            className="w-full rounded-lg border border-white/10 bg-[#071018] px-2 py-2 text-[10px] text-white placeholder:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/30"
+                          />
+                          <textarea
+                            value={verificationEvidence}
+                            onChange={(event) => setVerificationEvidence(event.target.value)}
+                            placeholder="Explicit evidence observed after the response"
+                            rows={2}
+                            className="w-full rounded-lg border border-white/10 bg-[#071018] px-2 py-2 text-[10px] text-white placeholder:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/30"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              disabled={busyId === action.id || !verificationSummary.trim() || !verificationEvidence.trim()}
+                              onClick={() => void recordVerification(action.id)}
+                              className="rounded-lg bg-emerald-300 px-3 py-2 text-[10px] font-semibold text-slate-950 disabled:opacity-50"
+                            >
+                              {busyId === action.id ? "Recording..." : "Record verification"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busyId === action.id}
+                              onClick={() => setVerificationActionId("")}
+                              className="rounded-lg border border-white/10 px-3 py-2 text-[10px] text-slate-400"
+                            >
+                              Close
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={busyId === action.id}
+                          onClick={() => {
+                            setVerificationActionId(action.id);
+                            setVerificationState("resolved");
+                          }}
+                          className="mt-3 inline-flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-[10px] font-semibold text-emerald-200 disabled:opacity-50"
+                        >
+                          <ShieldCheck className="h-3.5 w-3.5" /> Record explicit verification
+                        </button>
+                      )}
+                      <p className="mt-2 text-[8px] leading-4 text-slate-600">
+                        Resolution is never inferred from missing telemetry. Unknown remains unknown until explicit evidence supports another state.
+                      </p>
                     </div>
                   )}
 
@@ -862,8 +982,8 @@ function ResponseLifecycle({ action }: { action: Action }) {
     { label: "Finding", state: action.finding_id ? "recorded" : "pending", href: action.finding_id ? `/analyst?findingId=${encodeURIComponent(action.finding_id)}` : "/analyst" },
     { label: "Decide", state: action.status === "pending" ? "current" : "recorded", href: action.finding_id ? `/actions?findingId=${encodeURIComponent(action.finding_id)}` : "/actions" },
     { label: "Respond", state: responseRecorded ? "recorded" : "pending", href: "/actions" },
-    { label: "Verify", state: outcomeRecorded ? "current" : "pending", href: action.finding_id ? `/analyst?findingId=${encodeURIComponent(action.finding_id)}` : "/analyst" },
-    { label: "Learn", state: outcomeRecorded ? "recorded" : "pending", href: "/brain" },
+    { label: "Verify", state: action.result?.verification ? "recorded" : outcomeRecorded ? "current" : "pending", href: action.finding_id ? `/analyst?findingId=${encodeURIComponent(action.finding_id)}` : "/analyst" },
+    { label: "Learn", state: action.result?.verification ? "recorded" : "pending", href: "/brain" },
   ] as const;
 
   return (
