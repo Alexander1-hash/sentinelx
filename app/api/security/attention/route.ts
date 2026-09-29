@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { buildAdaptiveInvestigationContext } from "@/lib/security/adaptive-context";
 
 type AttentionItem = {
   id: string;
@@ -9,6 +10,13 @@ type AttentionItem = {
   detail: string;
   observedAt: string;
   href: string;
+  adaptiveContext?: {
+    confidence: "strong" | "moderate" | "limited";
+    evidenceFreshnessMinutes: number | null;
+    contradictions: string[];
+    latestVerification: { state: string; occurredAt: string } | null;
+    nextEvidenceNeeded: string[];
+  } | null;
 };
 
 export async function GET() {
@@ -21,9 +29,9 @@ export async function GET() {
     const organizationId = profile?.organization_id;
     if (!organizationId) return NextResponse.json({ items: [], summary: { high: 0, medium: 0 } });
 
-    const [findingsResult, eventsResult, actionsResult] = await Promise.all([
+    const [findingsResult, eventsResult, actionsResult, evidenceResult, contextEventsResult, relationshipResult, assetResult, memoryResult] = await Promise.all([
       supabase.from("security_findings")
-        .select("id,title,severity,summary,detected_at")
+        .select("id,title,finding_type,severity,status,summary,asset_id,detected_at")
         .eq("organization_id", organizationId)
         .in("status", ["open", "acknowledged"])
         .in("severity", ["high", "critical"])
@@ -41,10 +49,48 @@ export async function GET() {
         .eq("status", "pending")
         .order("created_at", { ascending: false })
         .limit(10),
+      supabase.from("security_evidence")
+        .select("id,asset_id,evidence_type,source,title,summary,observed_at")
+        .eq("organization_id", organizationId)
+        .order("observed_at", { ascending: false })
+        .limit(500),
+      supabase.from("security_events")
+        .select("id,asset_id,severity,observed_at")
+        .eq("organization_id", organizationId)
+        .order("observed_at", { ascending: false })
+        .limit(500),
+      supabase.from("security_asset_relationships")
+        .select("source_asset_id,target_asset_id,relationship_type,confidence,status")
+        .eq("organization_id", organizationId)
+        .limit(500),
+      supabase.from("security_assets")
+        .select("id,name,asset_type,criticality,status")
+        .eq("organization_id", organizationId)
+        .limit(500),
+      supabase.from("security_memory")
+        .select("id,memory_type,subject_id,title,summary,state,data,occurred_at")
+        .eq("organization_id", organizationId)
+        .order("occurred_at", { ascending: false })
+        .limit(500),
     ]);
 
-    const error = findingsResult.error ?? eventsResult.error ?? actionsResult.error;
+    const error = findingsResult.error ?? eventsResult.error ?? actionsResult.error ?? evidenceResult.error ?? contextEventsResult.error ?? relationshipResult.error ?? assetResult.error ?? memoryResult.error;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const adaptiveContextByFinding = new Map<string, ReturnType<typeof buildAdaptiveInvestigationContext>>();
+    for (const finding of findingsResult.data ?? []) {
+      adaptiveContextByFinding.set(
+        finding.id,
+        buildAdaptiveInvestigationContext({
+          finding,
+          evidence: evidenceResult.data ?? [],
+          events: contextEventsResult.data ?? [],
+          relationships: relationshipResult.data ?? [],
+          assets: assetResult.data ?? [],
+          memories: memoryResult.data ?? [],
+        }),
+      );
+    }
 
     const items: AttentionItem[] = [
       ...(findingsResult.data ?? []).map((item) => ({
@@ -52,9 +98,24 @@ export async function GET() {
         kind: "finding" as const,
         priority: "high" as const,
         title: item.title,
-        detail: item.summary ?? "Open high-impact security finding requires review.",
+        detail: adaptiveContextByFinding.get(item.id)?.contradictions[0]
+          ?? adaptiveContextByFinding.get(item.id)?.nextEvidenceNeeded[0]
+          ?? item.summary
+          ?? "Open high-impact security finding requires review.",
         observedAt: item.detected_at,
         href: `/analyst?findingId=${encodeURIComponent(item.id)}`,
+        adaptiveContext: (() => {
+          const context = adaptiveContextByFinding.get(item.id);
+          return context
+            ? {
+                confidence: context.confidence,
+                evidenceFreshnessMinutes: context.currentState.evidenceFreshnessMinutes,
+                contradictions: context.contradictions,
+                latestVerification: context.historicalState.latestVerification,
+                nextEvidenceNeeded: context.nextEvidenceNeeded.slice(0, 2),
+              }
+            : null;
+        })(),
       })),
       ...(eventsResult.data ?? []).map((item) => ({
         id: item.id,
