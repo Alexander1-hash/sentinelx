@@ -67,6 +67,72 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
+    if (body.action === "configure_execution") {
+      const integrationId = typeof body.integrationId === "string" ? body.integrationId.trim() : "";
+      const webhookUrl = typeof body.executionWebhookUrl === "string" ? body.executionWebhookUrl.trim() : "";
+
+      if (!integrationId || !webhookUrl) {
+        return NextResponse.json(
+          { error: "Integration ID and execution webhook URL are required." },
+          { status: 400 },
+        );
+      }
+
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(webhookUrl);
+      } catch {
+        return NextResponse.json({ error: "Execution webhook URL is invalid." }, { status: 400 });
+      }
+
+      if (parsedUrl.protocol !== "https:") {
+        return NextResponse.json({ error: "Execution webhooks must use HTTPS." }, { status: 400 });
+      }
+
+      const { data: integration, error: lookupError } = await supabase
+        .from("security_integrations")
+        .select("id,configuration")
+        .eq("id", integrationId)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (lookupError) return NextResponse.json({ error: lookupError.message }, { status: 500 });
+      if (!integration) return NextResponse.json({ error: "Integration not found." }, { status: 404 });
+
+      const current = integration.configuration && typeof integration.configuration === "object" && !Array.isArray(integration.configuration)
+        ? integration.configuration as Record<string, unknown>
+        : {};
+
+      const execution = current.execution && typeof current.execution === "object" && !Array.isArray(current.execution)
+        ? current.execution as Record<string, unknown>
+        : {};
+
+      const { error: updateError } = await supabase
+        .from("security_integrations")
+        .update({
+          configuration: {
+            ...current,
+            execution: {
+              ...execution,
+              webhook_url: webhookUrl,
+              executor_type: "provider_webhook",
+              configured_at: new Date().toISOString(),
+            },
+          },
+        })
+        .eq("id", integrationId)
+        .eq("organization_id", organizationId);
+
+      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+
+      return NextResponse.json({
+        message: "Provider execution webhook configured.",
+        integrationId,
+        executorType: "provider_webhook",
+        boundary: "The webhook URL is only a routing configuration. Execution still requires a connected permitted integration, explicit operator authorization, target validation, and the deployment execution secret/host allowlist.",
+      });
+    }
+
     if (body.action === "rotate_token") {
       const integrationId = typeof body.integrationId === "string" ? body.integrationId : "";
 
