@@ -195,6 +195,7 @@ export async function POST(request: Request) {
       actionType?: string;
       findingId?: string | null;
       target?: Record<string, unknown>;
+      integrationId?: string | null;
       reason?: string;
     };
 
@@ -254,6 +255,38 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+    const integrationId = typeof body.integrationId === "string" ? body.integrationId.trim() : "";
+    if (isMutatingSecurityAction(actionType) && integrationId) {
+      const requirement = getExecutorRequirement(actionType);
+      const { data: integration, error: integrationError } = await supabase
+        .from("security_integrations")
+        .select("id,integration_type,status")
+        .eq("id", integrationId)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (integrationError) {
+        return NextResponse.json({ error: integrationError.message }, { status: 500 });
+      }
+
+      if (!integration) {
+        return NextResponse.json({ error: "The selected provider integration is not available in this organization." }, { status: 409 });
+      }
+
+      if (integration.status !== "connected") {
+        return NextResponse.json({ error: "The selected provider integration is not connected." }, { status: 409 });
+      }
+
+      if (requirement && !requirement.requiredIntegrationTypes.includes(integration.integration_type)) {
+        return NextResponse.json({ error: "The selected provider integration type is not permitted for this action." }, { status: 409 });
+      }
+
+      target = {
+        ...target,
+        integrationId,
+      };
+    }
+
     const reason = body.reason?.trim() || "Operator-requested security action.";
 
     let historicalPatternContext: Array<Record<string, unknown>> = [];
