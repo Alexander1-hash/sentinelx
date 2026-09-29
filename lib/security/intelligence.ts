@@ -76,6 +76,35 @@ function recencyWeight(value: string | null, now: number) {
   return Math.max(0, 30 - Math.min(30, ageHours / 8));
 }
 
+export type SecurityStateChange = { findingId: string; previousState: string | null; currentState: string; changedAt: string | null; changeType: "opened" | "acknowledged" | "resolved" | "reopened" | "state_changed" | "unchanged"; evidenceFreshnessMinutes: number | null; evidenceCount: number; eventCount: number };
+
+export function reconcileSecurityState(input: { findings: IntelligenceFinding[]; evidence: IntelligenceEvidence[]; events: IntelligenceEvent[]; memories: IntelligenceMemory[]; now?: number }) {
+  const now = input.now ?? Date.now();
+  const latestMemory = new Map<string, IntelligenceMemory>();
+  for (const memory of input.memories) {
+    if (!["finding_state", "verification", "evidence_change"].includes(memory.memory_type)) continue;
+    const findingId = typeof memory.data?.finding_id === "string" ? memory.data.finding_id : memory.subject_id;
+    if (!findingId) continue;
+    const prior = latestMemory.get(findingId);
+    if (!prior || new Date(memory.occurred_at).getTime() > new Date(prior.occurred_at).getTime()) latestMemory.set(findingId, memory);
+  }
+  const current = input.findings.map((finding) => {
+    const memory = latestMemory.get(finding.id); const data = memory?.data ?? {};
+    const previousState = typeof data.previous_state === "string" ? data.previous_state : typeof data.previous_security_state === "string" ? data.previous_security_state : null;
+    const currentState = typeof data.current_state === "string" ? data.current_state : typeof data.current_security_state === "string" ? data.current_security_state : finding.status;
+    const previous = previousState?.toLowerCase() ?? null; const state = currentState.toLowerCase();
+    const changeType: SecurityStateChange["changeType"] = previous === null ? "unchanged" : previous === state ? "unchanged" : ["resolved", "closed"].includes(state) ? "resolved" : ["open", "reopened"].includes(state) && ["resolved", "closed"].includes(previous) ? "reopened" : state === "acknowledged" && previous === "open" ? "acknowledged" : "state_changed";
+    const findingEvidence = input.evidence.filter((item) => item.asset_id && item.asset_id === finding.asset_id);
+    const findingEvents = input.events.filter((item) => item.asset_id && item.asset_id === finding.asset_id);
+    const latestEvidenceAt = findingEvidence.reduce((latest, item) => { const time = new Date(item.observed_at).getTime(); return time > latest ? time : latest; }, 0);
+    const evidenceFreshnessMinutes = latestEvidenceAt ? Math.max(0, Math.round((now - latestEvidenceAt) / 60000)) : null;
+    return { findingId: finding.id, previousState, currentState, changedAt: memory?.occurred_at ?? finding.detected_at ?? null, changeType, evidenceFreshnessMinutes, evidenceCount: findingEvidence.length, eventCount: findingEvents.length };
+  });
+  const changes = current.filter((item) => item.changeType !== "unchanged");
+  const unknowns = [current.some((item) => item.evidenceFreshnessMinutes === null) ? "At least one finding has no asset-linked evidence timestamp." : null, current.some((item) => item.evidenceFreshnessMinutes !== null && item.evidenceFreshnessMinutes > 60) ? "Some finding evidence is older than 60 minutes and may not represent current state." : null, changes.some((item) => item.currentState.toLowerCase() === "resolved" && item.evidenceCount === 0) ? "A resolved state is recorded without asset-linked evidence; explicit verification evidence is still required." : null].filter((value): value is string => Boolean(value));
+  return { current, changes, changedCount: changes.length, unknowns, stateConfidence: unknowns.length === 0 ? "strong" : changes.length > 0 ? "moderate" : "limited", boundary: "Reconciliation describes the latest organization-scoped state recorded by Trinorin. It does not infer compromise, causation, attacker intent, or resolution from missing telemetry." } as const;
+}
+
 export function synthesizeSecurityIntelligence(input: {
   findings: IntelligenceFinding[];
   evidence: IntelligenceEvidence[];
@@ -308,6 +337,7 @@ export function synthesizeSecurityIntelligence(input: {
     lifecycle,
     recentMemory,
     responseLearning,
+    stateReconciliation: reconcileSecurityState({ findings: input.findings, evidence: input.evidence, events: input.events, memories: input.memories, now }),
     boundary:
       "Trinorin intelligence is evidence-first. Priority scores organize recorded signals for investigation; they do not prove compromise, attacker intent, causation, or future outcome.",
   };
