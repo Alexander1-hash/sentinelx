@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { buildAdaptiveInvestigationContext } from "@/lib/security/adaptive-context";
 
 type Memory = {
   id: string;
@@ -21,6 +22,7 @@ type Change = {
   state: "new" | "changed" | "remembered" | "resolved";
   href: string;
   verificationState?: "improved" | "observed" | "uncertain" | "awaiting_evidence";
+  adaptiveContext?: ReturnType<typeof buildAdaptiveInvestigationContext> | null;
 };
 
 function sameFindingState(memory: Memory, finding: {
@@ -71,6 +73,9 @@ export async function GET(request: Request) {
       findingResult,
       evidenceResult,
       actionResult,
+      relationshipResult,
+      assetResult,
+      eventResult,
     ] = await Promise.all([
       supabase
         .from("security_memory")
@@ -96,19 +101,53 @@ export async function GET(request: Request) {
         .eq("organization_id", profile.organization_id)
         .order("created_at", { ascending: false })
         .limit(100),
+      supabase
+        .from("security_relationships")
+        .select("source_asset_id,target_asset_id,relationship_type,confidence,status")
+        .eq("organization_id", profile.organization_id)
+        .limit(500),
+      supabase
+        .from("security_assets")
+        .select("id,name,asset_type,criticality,status")
+        .eq("organization_id", profile.organization_id)
+        .limit(500),
+      supabase
+        .from("security_events")
+        .select("id,asset_id,severity,observed_at")
+        .eq("organization_id", profile.organization_id)
+        .order("observed_at", { ascending: false })
+        .limit(300),
     ]);
 
     const error =
       memoryResult.error ??
       findingResult.error ??
       evidenceResult.error ??
-      actionResult.error;
+      actionResult.error ??
+      relationshipResult.error ??
+      assetResult.error ??
+      eventResult.error;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     const memories = (memoryResult.data ?? []) as Memory[];
+    const adaptiveContextByFinding = new Map<string, ReturnType<typeof buildAdaptiveInvestigationContext>>();
+
+    for (const finding of findingResult.data ?? []) {
+      adaptiveContextByFinding.set(
+        finding.id,
+        buildAdaptiveInvestigationContext({
+          finding,
+          evidence: evidenceResult.data ?? [],
+          events: eventResult.data ?? [],
+          relationships: relationshipResult.data ?? [],
+          assets: assetResult.data ?? [],
+          memories,
+        }),
+      );
+    }
     const changes: Change[] = [];
 
     for (const memory of memories) {
@@ -170,6 +209,9 @@ export async function GET(request: Request) {
           observedAt: finding.updated_at ?? finding.detected_at,
           state: "changed",
           href: "/brain",
+          adaptiveContext: memory.data.finding_id && typeof memory.data.finding_id === "string"
+            ? adaptiveContextByFinding.get(memory.data.finding_id) ?? null
+            : null,
         });
       } else {
         changes.push({
@@ -180,6 +222,7 @@ export async function GET(request: Request) {
           observedAt: finding.updated_at ?? finding.detected_at,
           state: "remembered",
           href: "/brain",
+          adaptiveContext: adaptiveContextByFinding.get(finding.id) ?? null,
         });
       }
     }
