@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 type Memory = {
   id: string;
-  memory_type: "finding_state" | "investigation" | "operator_decision" | "response_outcome" | "evidence_change";
+  memory_type: "finding_state" | "investigation" | "operator_decision" | "response_outcome" | "evidence_change" | "verification";
   subject_id: string | null;
   title: string;
   summary: string;
@@ -56,7 +56,7 @@ function subjectFor(
   const evidenceId = stringValue(memory.data.evidence_id) ??
     (memory.memory_type === "evidence_change" ? memory.subject_id : null);
   const actionId = stringValue(memory.data.action_id) ??
-    (memory.memory_type === "operator_decision" || memory.memory_type === "response_outcome" ? memory.subject_id : null);
+    (memory.memory_type === "operator_decision" || memory.memory_type === "response_outcome" || memory.memory_type === "verification" ? memory.subject_id : null);
 
   if (findingId && names.findings.has(findingId)) {
     return { kind: "finding", id: findingId, name: names.findings.get(findingId) ?? null };
@@ -92,7 +92,7 @@ export async function GET(request: Request) {
     if (!organizationId) {
       return NextResponse.json({
         timeline: [],
-        summary: { total: 0, findings: 0, investigations: 0, decisions: 0, outcomes: 0, evidenceChanges: 0 },
+        summary: { total: 0, findings: 0, investigations: 0, decisions: 0, outcomes: 0, verifications: 0, evidenceChanges: 0 },
         boundary: "No organization-scoped security memory is available.",
       });
     }
@@ -179,7 +179,7 @@ export async function GET(request: Request) {
               (memory.memory_type === "evidence_change" ? memory.subject_id : null),
             actionId:
               stringValue(memory.data.action_id) ??
-              ((memory.memory_type === "operator_decision" || memory.memory_type === "response_outcome") ? memory.subject_id : null),
+              ((memory.memory_type === "operator_decision" || memory.memory_type === "response_outcome" || memory.memory_type === "verification") ? memory.subject_id : null),
             changeType,
             previousState,
             currentState,
