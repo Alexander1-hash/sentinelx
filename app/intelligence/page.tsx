@@ -385,6 +385,84 @@ export default function IntelligencePage() {
           </div>
         </section>
 
+        <section className="mt-5 rounded-3xl border border-amber-400/10 bg-amber-400/[0.02] p-5 sm:p-6">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-200">Continuous state reconciliation</p>
+              <h2 className="mt-1 text-lg font-semibold text-white">What changed in the recorded security state</h2>
+              <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-500">
+                Reconciliation compares the latest recorded finding state with explicit evidence, events, and verification. It does not infer resolution, compromise, causation, or attacker intent from missing telemetry.
+              </p>
+            </div>
+            <span className="mt-2 rounded-full bg-amber-400/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-amber-200 sm:mt-0">
+              {loading ? "Reconstructing" : intelligence?.stateReconciliation?.stateConfidence ?? "unknown"} confidence
+            </span>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+              <p className="text-[9px] uppercase tracking-wider text-slate-600">Current records</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{loading ? "—" : intelligence?.stateReconciliation?.current.length ?? 0}</p>
+              <p className="mt-1 text-[9px] text-slate-600">finding states reconciled</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+              <p className="text-[9px] uppercase tracking-wider text-slate-600">Changed</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{loading ? "—" : intelligence?.stateReconciliation?.changedCount ?? 0}</p>
+              <p className="mt-1 text-[9px] text-slate-600">explicit state transitions</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+              <p className="text-[9px] uppercase tracking-wider text-slate-600">Unknowns</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{loading ? "—" : intelligence?.stateReconciliation?.unknowns.length ?? 0}</p>
+              <p className="mt-1 text-[9px] text-slate-600">evidence gaps requiring review</p>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {(intelligence?.stateReconciliation?.changes ?? []).slice(0, 6).map((change) => (
+              <Link
+                key={change.findingId + change.changedAt + change.changeType}
+                href={"/analyst?findingId=" + encodeURIComponent(change.findingId)}
+                className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-black/10 p-3 transition hover:border-amber-400/20 hover:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="text-xs font-semibold text-white">Finding {change.findingId.slice(0, 8)}</p>
+                  <p className="mt-1 text-[9px] text-slate-500">
+                    {change.previousState ?? "unknown"} → {change.currentState} · {change.changeType.replaceAll("_", " ")}
+                  </p>
+                </div>
+                <div className="text-left sm:text-right">
+                  <p className="text-[9px] text-slate-500">
+                    {change.evidenceCount} evidence · {change.eventCount} events
+                  </p>
+                  <p className="mt-1 text-[8px] text-slate-700">
+                    {change.evidenceFreshnessMinutes == null ? "Evidence freshness unknown" : `${Math.round(change.evidenceFreshnessMinutes)} min since latest linked evidence`}
+                  </p>
+                </div>
+              </Link>
+            ))}
+            {!loading && !(intelligence?.stateReconciliation?.changes.length) && (
+              <p className="rounded-2xl border border-dashed border-white/10 p-4 text-xs text-slate-600">
+                No explicit state transition is currently recorded.
+              </p>
+            )}
+          </div>
+
+          {(intelligence?.stateReconciliation?.unknowns ?? []).length > 0 && (
+            <div className="mt-4 rounded-2xl border border-amber-400/10 bg-amber-400/[0.025] p-3">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-200">Evidence gaps</p>
+              <ul className="mt-2 space-y-1">
+                {intelligence.stateReconciliation.unknowns.slice(0, 5).map((item) => (
+                  <li key={item} className="text-[9px] leading-4 text-slate-500">• {item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <p className="mt-4 text-[9px] leading-4 text-slate-600">
+            {intelligence?.stateReconciliation?.boundary ?? "Reconciliation describes recorded organizational state and does not infer security conclusions from missing telemetry."}
+          </p>
+        </section>
+
         <section className="mt-5 rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
           <div className="flex items-center gap-3"><Workflow className="h-5 w-5 text-cyan-300" /><div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">Intelligence lifecycle</p><h2 className="mt-1 text-lg font-semibold text-white">The learning loop is measurable</h2></div></div>
           <div className="mt-5 grid gap-2 sm:grid-cols-4 lg:grid-cols-7">
