@@ -42,6 +42,7 @@ function SecurityActionsPageContent() {
   const linkedFindingId = searchParams.get("findingId") ?? "";
   const linkedActionId = searchParams.get("actionId") ?? "";
   const [createType, setCreateType] = useState("review_finding");
+  const [createIntegrationId, setCreateIntegrationId] = useState("");
   const [creating, setCreating] = useState(false);
   const [actions, setActions] = useState<Action[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +81,9 @@ function SecurityActionsPageContent() {
         body: JSON.stringify({
           actionType: createType,
           findingId: linkedFindingId,
+          integrationId: ["contain_asset", "disable_integration", "revoke_access", "isolate_endpoint", "block_indicator"].includes(createType)
+            ? createIntegrationId || null
+            : null,
           reason: "Created from Security Analyst investigation context.",
         }),
       });
@@ -138,6 +142,7 @@ function SecurityActionsPageContent() {
         const response = await fetch(`/api/security/actions/readiness${linkedFindingId ? `?findingId=${encodeURIComponent(linkedFindingId)}` : ""}`, { cache: "no-store" });
         const data = await response.json();
         if (!response.ok) return;
+        setConnectedIntegrations(Array.isArray(data.connectedIntegrations) ? data.connectedIntegrations : []);
         const adaptive = data.adaptiveInvestigationContext;
         setFocusedDecision(adaptive ? { confidence: adaptive.confidence, contradictions: adaptive.contradictions ?? [], nextEvidenceNeeded: adaptive.nextEvidenceNeeded ?? [], latestVerification: adaptive.historicalState?.latestVerification ?? null, responseLearning: adaptive.responseLearning ?? [] } : null);
 
@@ -403,6 +408,25 @@ function SecurityActionsPageContent() {
                 ) : null}
               </div>
             )}
+            {["contain_asset", "disable_integration", "revoke_access", "isolate_endpoint", "block_indicator"].includes(createType) ? (
+              <div className="mt-4 rounded-xl border border-emerald-400/10 bg-emerald-400/[0.02] p-3">
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-emerald-200">Provider target</p>
+                <p className="mt-1 text-[9px] leading-4 text-slate-600">Choose the connected provider integration that is authorized to receive this action. Trinorin will not silently select one.</p>
+                <select
+                  value={createIntegrationId}
+                  onChange={(event) => setCreateIntegrationId(event.target.value)}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-[#071018] px-3 py-3 text-xs text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/20"
+                >
+                  <option value="">Select provider integration…</option>
+                  {connectedIntegrations.map((integration) => (
+                    <option key={integration.id} value={integration.id}>
+                      {integration.displayName} · {integration.provider} · {integration.integrationType}
+                    </option>
+                  ))}
+                </select>
+                {!connectedIntegrations.length && <p className="mt-2 text-[9px] text-amber-300">No connected provider integration is available for automated execution.</p>}
+              </div>
+            ) : null}
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <select
                 value={createType}
