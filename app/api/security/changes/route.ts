@@ -176,12 +176,44 @@ export async function GET(request: Request) {
           id: `remembered-${finding.id}`,
           kind: "memory",
           title: `Remembered: ${finding.title}`,
-          detail: "SentinelX has historical context for this finding.",
+          detail: "Trinorin has historical context for this finding.",
           observedAt: finding.updated_at ?? finding.detected_at,
           state: "remembered",
           href: "/brain",
         });
       }
+    }
+
+    const verificationMemoryIds = new Set(
+      memories
+        .filter((memory) => memory.memory_type === "verification")
+        .map((memory) => memory.subject_id)
+        .filter((value): value is string => Boolean(value))
+    );
+
+    for (const memory of memories) {
+      if (memory.memory_type !== "verification") continue;
+
+      const actionId =
+        typeof memory.data.action_id === "string"
+          ? memory.data.action_id
+          : memory.subject_id;
+
+      changes.push({
+        id: `verification-memory-${memory.id}`,
+        kind: "verification",
+        title: memory.title,
+        detail: memory.summary,
+        observedAt: memory.occurred_at,
+        state: "changed",
+        verificationState:
+          memory.data.state === "resolved"
+            ? "improved"
+            : memory.data.state === "unknown"
+              ? "uncertain"
+              : "observed",
+        href: actionId ? `/verification?actionId=${encodeURIComponent(actionId)}` : "/verification",
+      });
     }
 
     const evidenceMemoryIds = new Set(
@@ -234,7 +266,8 @@ export async function GET(request: Request) {
       if (
         action.finding_id &&
         action.executed_at &&
-        ["completed", "failed"].includes(action.status)
+        ["completed", "failed"].includes(action.status) &&
+        !verificationMemoryIds.has(action.id)
       ) {
         const postResponseEvidence = (evidenceResult.data ?? []).filter((evidence) => {
           if (!evidence.observed_at) return false;
@@ -360,7 +393,7 @@ export async function GET(request: Request) {
         resolved: visible.filter((item) => item.state === "resolved").length,
       },
       boundary:
-        "Change intelligence compares recorded evidence and current security state with SentinelX security memory. Unchanged telemetry is suppressed. Resolved is shown only when an authorized source explicitly reports a cleared, resolved, or healthy state after an active/degraded state. Silence or missing telemetry is never treated as resolution. A change alone is not proof of compromise.",
+        "Change intelligence compares recorded evidence and current security state with Trinorin security memory. Unchanged telemetry is suppressed. Resolved is shown only when an authorized source explicitly reports a cleared, resolved, or healthy state after an active/degraded state. Silence or missing telemetry is never treated as resolution. A change alone is not proof of compromise.",
     });
   } catch {
     return NextResponse.json(
