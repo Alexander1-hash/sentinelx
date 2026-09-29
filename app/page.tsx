@@ -162,6 +162,8 @@ type SecurityIntelligence = {
     reasons: string[];
   }>;
   summary: { protectedAssets: number; activeFindings: number; evidenceRecords: number; securityEvents: number; confirmedRelationships: number; memoryRecords: number; intelligenceCoverage: number };
+  lifecycle: { observe: number; detect: number; investigate: number; decide: number; respond: number; verify: number; learn: number };
+  coverageGaps: string[];
   boundary: string;
 };
 
@@ -462,6 +464,48 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="mt-4 rounded-2xl border border-dashed border-white/10 p-4 text-[10px] text-slate-600">No active finding has enough recorded context to create an intelligence priority.</div>
+          )}
+        </section>
+
+        <section className="mb-5 rounded-3xl border border-indigo-400/10 bg-indigo-400/[0.02] p-5 sm:p-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-indigo-200">Intelligence spine</p>
+              <h2 className="mt-1 text-lg font-semibold text-white">One context across the defense lifecycle</h2>
+              <p className="mt-1 text-[11px] text-slate-500">These counts come from the same Security Brain synthesis that powers investigation priorities.</p>
+            </div>
+            <span className="rounded-full bg-indigo-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-indigo-200">
+              {intelligence?.summary.memoryRecords ?? 0} memory records
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+            {[
+              ["Observe", intelligence?.lifecycle.observe ?? 0],
+              ["Detect", intelligence?.lifecycle.detect ?? 0],
+              ["Investigate", intelligence?.lifecycle.investigate ?? 0],
+              ["Decide", intelligence?.lifecycle.decide ?? 0],
+              ["Respond", intelligence?.lifecycle.respond ?? 0],
+              ["Verify", intelligence?.lifecycle.verify ?? 0],
+              ["Learn", intelligence?.lifecycle.learn ?? 0],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-2xl border border-white/10 bg-black/10 p-3">
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-600">{label}</p>
+                <p className="mt-1 text-lg font-semibold text-white">{value}</p>
+                <p className="text-[9px] text-slate-600">recorded signals</p>
+              </div>
+            ))}
+          </div>
+          {intelligence?.coverageGaps?.length ? (
+            <div className="mt-3 rounded-2xl border border-amber-400/10 bg-amber-400/[0.025] p-3">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-200">Evidence coverage gaps</p>
+              <ul className="mt-2 space-y-1">
+                {intelligence.coverageGaps.slice(0, 3).map((gap) => (
+                  <li key={gap} className="text-[10px] leading-4 text-slate-500">• {gap}</li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="mt-3 text-[10px] text-emerald-300/80">No recorded coverage gaps in the current Security Brain snapshot.</p>
           )}
         </section>
 
