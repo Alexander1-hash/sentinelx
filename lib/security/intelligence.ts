@@ -45,6 +45,18 @@ export type IntelligenceAsset = {
   status: string;
 };
 
+export type IntelligenceResponseLearning = {
+  findingId: string;
+  responseOutcomes: number;
+  verifications: number;
+  resolved: number;
+  persisting: number;
+  returned: number;
+  unknown: number;
+  lastVerificationState: string | null;
+  lastVerifiedAt: string | null;
+};
+
 const severityWeight: Record<string, number> = {
   critical: 100,
   high: 70,
@@ -101,46 +113,100 @@ export function synthesizeSecurityIntelligence(input: {
     neighbors.set(edge.target_asset_id, b);
   }
 
+  const memoryData = (memory: IntelligenceMemory) => memory.data ?? {};
+  const nestedRecord = (value: unknown): Record<string, unknown> =>
+    value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+
+  const actionFindingIds = new Map<string, string>();
+  for (const memory of input.memories) {
+    const data = memoryData(memory);
+    const directFindingId = typeof data.finding_id === "string" ? data.finding_id : null;
+    const actionId = typeof data.action_id === "string" ? data.action_id : null;
+    const verification = nestedRecord(data.verification);
+    const findingSnapshot = nestedRecord(verification.finding_snapshot);
+    const verificationFindingId = typeof findingSnapshot.id === "string" ? findingSnapshot.id : null;
+
+    if (actionId && directFindingId) actionFindingIds.set(actionId, directFindingId);
+    if (actionId && verificationFindingId) actionFindingIds.set(actionId, verificationFindingId);
+
+    const result = nestedRecord(data.result);
+    const outcomeFindingSnapshot = nestedRecord(result.finding_snapshot);
+    if (actionId && typeof outcomeFindingSnapshot.id === "string") {
+      actionFindingIds.set(actionId, outcomeFindingSnapshot.id);
+    }
+  }
+
+  const responseLearningByFinding = new Map<string, IntelligenceResponseLearning>();
+  for (const memory of input.memories) {
+    if (!["response_outcome", "verification"].includes(memory.memory_type)) continue;
+
+    const data = memoryData(memory);
+    const actionId = typeof data.action_id === "string" ? data.action_id : null;
+    const directFindingId = typeof data.finding_id === "string" ? data.finding_id : null;
+    const verification = nestedRecord(data.verification);
+    const findingSnapshot = nestedRecord(verification.finding_snapshot);
+    const verificationFindingId = typeof findingSnapshot.id === "string" ? findingSnapshot.id : null;
+    const findingId =
+      directFindingId ??
+      verificationFindingId ??
+      (actionId ? actionFindingIds.get(actionId) ?? null : null);
+
+    if (!findingId) continue;
+
+    const current = responseLearningByFinding.get(findingId) ?? {
+      findingId, responseOutcomes: 0, verifications: 0, resolved: 0,
+      persisting: 0, returned: 0, unknown: 0, lastVerificationState: null, lastVerifiedAt: null,
+    };
+
+    if (memory.memory_type === "response_outcome") current.responseOutcomes += 1;
+    if (memory.memory_type === "verification") {
+      current.verifications += 1;
+      const state = typeof data.state === "string" ? data.state : typeof verification.state === "string" ? verification.state : memory.state;
+      if (state === "resolved") current.resolved += 1;
+      else if (state === "persisting") current.persisting += 1;
+      else if (state === "returned") current.returned += 1;
+      else current.unknown += 1;
+      const verifiedAt = typeof verification.verified_at === "string" ? verification.verified_at : memory.occurred_at;
+      if (!current.lastVerifiedAt || new Date(verifiedAt).getTime() > new Date(current.lastVerifiedAt).getTime()) {
+        current.lastVerifiedAt = verifiedAt;
+        current.lastVerificationState = state;
+      }
+    }
+    responseLearningByFinding.set(findingId, current);
+  }
+
+  const responseLearning = Array.from(responseLearningByFinding.values()).sort((a, b) => {
+    const aTime = a.lastVerifiedAt ? new Date(a.lastVerifiedAt).getTime() : 0;
+    const bTime = b.lastVerifiedAt ? new Date(b.lastVerifiedAt).getTime() : 0;
+    return bTime - aTime;
+  }).slice(0, 25);
+
   const activeFindings = input.findings.filter((finding) => ["open", "acknowledged"].includes(finding.status));
-  const priorities = activeFindings
-    .map((finding) => {
-      const evidenceCount = finding.asset_id ? evidenceByAsset.get(finding.asset_id) ?? 0 : 0;
-      const eventCount = finding.asset_id ? eventsByAsset.get(finding.asset_id) ?? 0 : 0;
-      const neighborCount = finding.asset_id ? neighbors.get(finding.asset_id)?.size ?? 0 : 0;
-      const recurrence = input.memories.filter((memory) =>
-        memory.subject_id === finding.id || memory.data.finding_id === finding.id
-      ).length;
-      const score = Math.min(
-        100,
-        (severityWeight[finding.severity.toLowerCase()] ?? 0) +
-          recencyWeight(finding.detected_at, now) +
-          Math.min(15, evidenceCount * 3) +
-          Math.min(10, eventCount * 2) +
-          Math.min(10, neighborCount * 2) +
-          Math.min(10, recurrence * 2),
-      );
-      const asset = finding.asset_id ? assetMap.get(finding.asset_id) : null;
-      return {
-        findingId: finding.id,
-        title: finding.title,
-        severity: finding.severity,
-        score,
-        asset: asset?.name ?? null,
-        assetId: finding.asset_id,
-        evidenceCount,
-        eventCount,
-        connectedAssets: neighborCount,
-        historicalRecords: recurrence,
-        reasons: [
-          `${finding.severity} severity`,
-          evidenceCount ? `${evidenceCount} linked evidence record${evidenceCount === 1 ? "" : "s"}` : "no directly linked evidence",
-          neighborCount ? `${neighborCount} confirmed connected asset${neighborCount === 1 ? "" : "s"}` : "no confirmed asset connection",
-          recurrence ? `${recurrence} historical memory record${recurrence === 1 ? "" : "s"}` : "no historical memory for this finding",
-        ],
-      };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 8);
+  const priorities = activeFindings.map((finding) => {
+    const evidenceCount = finding.asset_id ? evidenceByAsset.get(finding.asset_id) ?? 0 : 0;
+    const eventCount = finding.asset_id ? eventsByAsset.get(finding.asset_id) ?? 0 : 0;
+    const neighborCount = finding.asset_id ? neighbors.get(finding.asset_id)?.size ?? 0 : 0;
+    const recurrence = input.memories.filter((memory) => memory.subject_id === finding.id || memory.data.finding_id === finding.id).length;
+    const learning = responseLearningByFinding.get(finding.id);
+    const verificationSignal = learning?.lastVerificationState === "persisting" || learning?.lastVerificationState === "returned" ? 6 : 0;
+    const score = Math.min(100,
+      (severityWeight[finding.severity.toLowerCase()] ?? 0) + recencyWeight(finding.detected_at, now) +
+      Math.min(15, evidenceCount * 3) + Math.min(10, eventCount * 2) + Math.min(10, neighborCount * 2) +
+      Math.min(10, recurrence * 2) + verificationSignal,
+    );
+    const asset = finding.asset_id ? assetMap.get(finding.asset_id) : null;
+    return {
+      findingId: finding.id, title: finding.title, severity: finding.severity, score, asset: asset?.name ?? null, assetId: finding.asset_id,
+      evidenceCount, eventCount, connectedAssets: neighborCount, historicalRecords: recurrence, responseLearning: learning ?? null,
+      reasons: [
+        finding.severity + " severity",
+        evidenceCount ? evidenceCount + " linked evidence record" + (evidenceCount === 1 ? "" : "s") : "no directly linked evidence",
+        neighborCount ? neighborCount + " confirmed connected asset" + (neighborCount === 1 ? "" : "s") : "no confirmed asset connection",
+        recurrence ? recurrence + " historical memory record" + (recurrence === 1 ? "" : "s") : "no historical memory for this finding",
+        learning?.lastVerificationState ? "latest verified response state: " + learning.lastVerificationState : "no verified response learning linked to this finding",
+      ],
+    };
+  }).sort((a, b) => b.score - a.score).slice(0, 8);
 
   const coverageGaps = [
     input.assets.length === 0 ? "No protected assets are registered." : null,
@@ -191,6 +257,7 @@ export function synthesizeSecurityIntelligence(input: {
     coverageGaps,
     lifecycle,
     recentMemory,
+    responseLearning,
     boundary:
       "Trinorin intelligence is evidence-first. Priority scores organize recorded signals for investigation; they do not prove compromise, attacker intent, causation, or future outcome.",
   };
