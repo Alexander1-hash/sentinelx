@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 type Action = {
   id: string;
@@ -22,6 +23,8 @@ const labels: Record<string, string> = {
 };
 
 export default function VerificationPage() {
+  const searchParams = useSearchParams();
+  const actionIdFromQuery = searchParams.get("actionId") ?? "";
   const [actions, setActions] = useState<Action[]>([]);
   const [selected, setSelected] = useState("");
   const [state, setState] = useState("resolved");
@@ -38,6 +41,10 @@ export default function VerificationPage() {
   }
 
   useEffect(() => { void load(); }, []);
+
+  useEffect(() => {
+    if (actionIdFromQuery) setSelected(actionIdFromQuery);
+  }, [actionIdFromQuery]);
 
   const eligible = actions.filter((item) => item.status === "completed" || item.status === "failed");
 
@@ -83,6 +90,9 @@ export default function VerificationPage() {
         </div>
 
         <section className="mt-6 space-y-3">
+          <div className="rounded-xl border border-cyan-400/10 bg-cyan-400/5 p-3 text-[11px] leading-5 text-slate-500">
+            This workspace is linked from Intelligence and Security Actions so the response chain stays intact: execution outcome → post-response evidence → verification → learning.
+          </div>
           {eligible.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm text-slate-600">No completed or failed response is ready for verification.</div>
           ) : eligible.map((action) => {
