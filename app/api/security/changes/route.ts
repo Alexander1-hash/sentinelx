@@ -139,8 +139,16 @@ export async function GET(request: Request) {
       adaptiveContextByFinding.set(
         finding.id,
         buildAdaptiveInvestigationContext({
-          finding,
-          evidence: evidenceResult.data ?? [],
+          finding: {
+          ...finding,
+          finding_type: finding.finding_type ?? "unknown",
+          summary: finding.summary ?? null,
+        },
+          evidence: (evidenceResult.data ?? []).map((item) => ({
+            ...item,
+            source: item.source ?? "unknown",
+            title: item.title ?? "Security evidence",
+          })),
           events: eventResult.data ?? [],
           relationships: relationshipResult.data ?? [],
           assets: assetResult.data ?? [],
