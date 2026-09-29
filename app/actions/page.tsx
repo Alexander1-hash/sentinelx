@@ -291,6 +291,41 @@ function SecurityActionsPageContent() {
               </div>
             </div>
             <p className="mt-3 text-[9px] leading-4 text-slate-600">SentinelX does not silently execute, approve, or infer remediation. Current evidence and explicit authorization remain the decision boundary.</p>
+            {linkedFindingId && (
+              <div className="mt-4 rounded-2xl border border-violet-400/10 bg-violet-400/[0.025] p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-violet-200">Adaptive decision context</p>
+                  <span className="text-[8px] uppercase tracking-wider text-amber-200">Human decision required</span>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-lg border border-white/10 bg-black/10 p-2">
+                    <p className="text-[8px] uppercase tracking-wider text-slate-600">Evidence sufficiency</p>
+                    <p className="mt-1 text-[10px] font-medium text-slate-300">{focusedDecision?.confidence ?? "loading"} adaptive confidence</p>
+                  </div>
+                  <div className="rounded-lg border border-white/10 bg-black/10 p-2">
+                    <p className="text-[8px] uppercase tracking-wider text-slate-600">Authorization</p>
+                    <p className="mt-1 text-[10px] font-medium text-slate-300">Not authorized</p>
+                  </div>
+                </div>
+                {focusedDecision?.latestVerification && (
+                  <p className="mt-3 text-[9px] text-slate-500">Latest verification: {focusedDecision.latestVerification.state}</p>
+                )}
+                {focusedDecision?.contradictions?.length ? (
+                  <div className="mt-3 rounded-lg border border-amber-400/10 bg-amber-400/[0.02] p-2">
+                    <p className="text-[8px] uppercase tracking-wider text-amber-200/70">Reconcile before decision</p>
+                    <p className="mt-1 text-[9px] leading-4 text-slate-500">{focusedDecision.contradictions[0]}</p>
+                  </div>
+                ) : focusedDecision?.nextEvidenceNeeded?.length ? (
+                  <div className="mt-3 rounded-lg border border-cyan-400/10 bg-cyan-400/[0.02] p-2">
+                    <p className="text-[8px] uppercase tracking-wider text-cyan-200/70">Next evidence needed</p>
+                    <p className="mt-1 text-[9px] leading-4 text-slate-500">{focusedDecision.nextEvidenceNeeded[0]}</p>
+                  </div>
+                ) : null}
+                {focusedDecision?.responseLearning?.length ? (
+                  <p className="mt-3 text-[9px] leading-4 text-slate-500">Response learning records available: {focusedDecision.responseLearning.length}</p>
+                ) : null}
+              </div>
+            )}
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <select
                 value={createType}
