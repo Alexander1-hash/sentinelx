@@ -75,7 +75,7 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json(synthesizeSecurityIntelligence({
+    const intelligence = synthesizeSecurityIntelligence({
       findings: findings.data ?? [],
       evidence: evidence.data ?? [],
       events: events.data ?? [],
@@ -83,7 +83,9 @@ export async function GET() {
       memories: memories.data ?? [],
       assets: assets.data ?? [],
       adaptiveContexts,
-    }));
+    });
+
+    return NextResponse.json(intelligence);
   } catch {
     return NextResponse.json({ error: "Security intelligence synthesis failed." }, { status: 500 });
   }
