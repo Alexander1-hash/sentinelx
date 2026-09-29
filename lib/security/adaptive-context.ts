@@ -100,6 +100,7 @@ export type AdaptiveInvestigationContext = {
     latestVerification: { state: string; occurredAt: string } | null;
   };
   responseLearning: AdaptiveResponseLearning[];
+  learningState: AdaptiveLearningState;
   confirmedReachability: Array<{
     asset: AdaptiveAsset;
     hops: number;
