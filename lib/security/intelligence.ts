@@ -213,6 +213,8 @@ export function synthesizeSecurityIntelligence(input: {
     return bTime - aTime;
   }).slice(0, 25);
 
+  const stateReconciliation = reconcileSecurityState({ findings: input.findings, evidence: input.evidence, events: input.events, memories: input.memories, now });
+
   const activeFindings = input.findings.filter((finding) => ["open", "acknowledged"].includes(finding.status));
   const priorities = activeFindings.map((finding) => {
     const evidenceCount = finding.asset_id ? evidenceByAsset.get(finding.asset_id) ?? 0 : 0;
@@ -337,7 +339,7 @@ export function synthesizeSecurityIntelligence(input: {
     lifecycle,
     recentMemory,
     responseLearning,
-    stateReconciliation: reconcileSecurityState({ findings: input.findings, evidence: input.evidence, events: input.events, memories: input.memories, now }),
+    stateReconciliation,
     boundary:
       "Trinorin intelligence is evidence-first. Priority scores organize recorded signals for investigation; they do not prove compromise, attacker intent, causation, or future outcome.",
   };
