@@ -45,7 +45,7 @@ export async function GET() {
         .select("source_asset_id,target_asset_id,confidence,status")
         .eq("organization_id", org).limit(1500),
       supabase.from("security_memory")
-        .select("id,memory_type,subject_id,occurred_at,state,data")
+        .select("id,memory_type,subject_id,title,summary,occurred_at,state,data")
         .eq("organization_id", org).order("occurred_at", { ascending: false }).limit(1000),
       supabase.from("security_assets")
         .select("id,name,asset_type,criticality,status")
