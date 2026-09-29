@@ -128,7 +128,7 @@ function SecurityActionsPageContent() {
   useEffect(() => {
     async function loadReadiness() {
       try {
-        const response = await fetch("/api/security/actions/readiness", { cache: "no-store" });
+        const response = await fetch(`/api/security/actions/readiness${linkedFindingId ? `?findingId=${encodeURIComponent(linkedFindingId)}` : ""}`, { cache: "no-store" });
         const data = await response.json();
         if (!response.ok) return;
         const map: typeof readiness = {};
