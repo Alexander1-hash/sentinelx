@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { synthesizeSecurityIntelligence } from "@/lib/security/intelligence";
+import { buildAdaptiveInvestigationContext } from "@/lib/security/adaptive-context";
 
 export async function GET() {
   try {
@@ -32,10 +33,10 @@ export async function GET() {
     const org = profile.organization_id;
     const [findings, evidence, events, relationships, memories, assets] = await Promise.all([
       supabase.from("security_findings")
-        .select("id,asset_id,title,severity,status,detected_at")
+        .select("id,asset_id,title,finding_type,severity,status,summary,detected_at")
         .eq("organization_id", org).order("detected_at", { ascending: false }).limit(500),
       supabase.from("security_evidence")
-        .select("id,asset_id,evidence_type,observed_at")
+        .select("id,asset_id,evidence_type,source,title,summary,observed_at")
         .eq("organization_id", org).order("observed_at", { ascending: false }).limit(1000),
       supabase.from("security_events")
         .select("id,asset_id,severity,observed_at")
@@ -54,6 +55,18 @@ export async function GET() {
     const error = findings.error ?? evidence.error ?? events.error ?? relationships.error ?? memories.error ?? assets.error;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+    const adaptiveContexts: Record<string, ReturnType<typeof buildAdaptiveInvestigationContext>> = {};
+    for (const finding of findings.data ?? []) {
+      adaptiveContexts[finding.id] = buildAdaptiveInvestigationContext({
+        finding,
+        evidence: evidence.data ?? [],
+        events: events.data ?? [],
+        relationships: relationships.data ?? [],
+        assets: assets.data ?? [],
+        memories: memories.data ?? [],
+      });
+    }
+
     return NextResponse.json(synthesizeSecurityIntelligence({
       findings: findings.data ?? [],
       evidence: evidence.data ?? [],
@@ -61,6 +74,7 @@ export async function GET() {
       relationships: relationships.data ?? [],
       memories: memories.data ?? [],
       assets: assets.data ?? [],
+      adaptiveContexts,
     }));
   } catch {
     return NextResponse.json({ error: "Security intelligence synthesis failed." }, { status: 500 });
