@@ -97,7 +97,7 @@ export async function GET(request: Request) {
       patterns,
       summary: summarizeSecurityPatterns(patterns),
       boundary:
-        "Security Pattern Intelligence identifies deterministic patterns in recorded SentinelX memory. Patterns are investigation signals, not proof of compromise, attribution, or current security state.",
+        "Security Pattern Intelligence identifies deterministic patterns in recorded Trinorin memory. Patterns are investigation signals, not proof of compromise, attribution, or current security state.",
     });
   } catch {
     return NextResponse.json(
