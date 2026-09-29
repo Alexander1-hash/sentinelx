@@ -415,7 +415,10 @@ export async function POST(request: Request) {
 
     const findings = (findingsResult.data ?? []) as FindingItem[];
     const evidence = (evidenceResult.data ?? []) as EvidenceItem[];
-    const relationships = (relationshipsResult.data ?? []) as RelationshipItem[];
+    const relationships = (relationshipsResult.data ?? []).map((relationship) => ({
+      ...relationship,
+      status: "confirmed" as const,
+    })) as Array<RelationshipItem & { status: "confirmed" }>;
     const assets = (assetsResult.data ?? []) as AssetItem[];
     const memory = (memoryResult.data ?? []) as Array<{ id: string; memory_type: string; subject_id: string | null; title: string; summary: string; state: string; data: Record<string, unknown>; occurred_at: string }>;
     const securityEvents = (eventsResult.data ?? []) as Array<{ id: string; asset_id: string | null; severity: string | null; observed_at: string }>;
