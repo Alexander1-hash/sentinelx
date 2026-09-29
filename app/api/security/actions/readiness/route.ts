@@ -46,7 +46,7 @@ export async function GET(request: Request) {
 
     const { data: integrations, error } = await supabase
       .from("security_integrations")
-      .select("id,provider,integration_type,display_name,status,scopes,last_sync_at")
+      .select("id,provider,integration_type,display_name,status,scopes,last_sync_at,configuration")
       .eq("organization_id", organizationId);
 
     if (error) {
@@ -105,19 +105,51 @@ export async function GET(request: Request) {
         findingId: findingId ?? null,
         requirement,
         adaptiveInvestigationContext,
-        connectedIntegrations: matchingIntegrations.map((integration) => ({
-          id: integration.id,
-          provider: integration.provider,
-          integrationType: integration.integration_type,
-          displayName: integration.display_name,
-          status: integration.status,
-          lastSyncAt: integration.last_sync_at,
-        })),
-        executorReady: false,
+        connectedIntegrations: matchingIntegrations.map((integration) => {
+          const configuration = (integration as { configuration?: unknown }).configuration;
+          const execution =
+            configuration && typeof configuration === "object" && !Array.isArray(configuration)
+              ? (configuration as Record<string, unknown>).execution
+              : null;
+          return {
+            id: integration.id,
+            provider: integration.provider,
+            integrationType: integration.integration_type,
+            displayName: integration.display_name,
+            status: integration.status,
+            lastSyncAt: integration.last_sync_at,
+            providerExecutionReady: Boolean(
+              execution &&
+                typeof execution === "object" &&
+                !Array.isArray(execution) &&
+                typeof (execution as Record<string, unknown>).webhook_url === "string" &&
+                (execution as Record<string, unknown>).webhook_url.trim(),
+            ),
+          };
+        }),
+        executorReady:
+          requirement.readiness === "not_required"
+            ? true
+            : matchingIntegrations.some((integration) => {
+                const configuration = (integration as { configuration?: unknown }).configuration;
+                const execution =
+                  configuration && typeof configuration === "object" && !Array.isArray(configuration)
+                    ? (configuration as Record<string, unknown>).execution
+                    : null;
+                return (
+                  Boolean(
+                    execution &&
+                      typeof execution === "object" &&
+                      !Array.isArray(execution) &&
+                      typeof (execution as Record<string, unknown>).webhook_url === "string" &&
+                      (execution as Record<string, unknown>).webhook_url.trim(),
+                  )
+                );
+              }),
         boundary:
           requirement.readiness === "not_required"
             ? requirement.boundary
-            : "Connectivity alone does not authorize or execute a provider action. A provider-specific executor adapter must be configured.",
+            : "Provider execution is available only when a connected, permitted integration has an explicit execution webhook and the deployment execution allowlist is configured. Connectivity never grants authorization.",
       });
     }
 
@@ -136,7 +168,23 @@ export async function GET(request: Request) {
         connectedIntegrationCount: connected.filter((integration) =>
           requirement.requiredIntegrationTypes.includes(integration.integration_type),
         ).length,
-        executorReady: requirement.readiness === "not_required",
+        executorReady:
+          requirement.readiness === "not_required" ||
+          connected.some((integration) => {
+            if (!requirement.requiredIntegrationTypes.includes(integration.integration_type)) return false;
+            const configuration = (integration as { configuration?: unknown }).configuration;
+            const execution =
+              configuration && typeof configuration === "object" && !Array.isArray(configuration)
+                ? (configuration as Record<string, unknown>).execution
+                : null;
+            return Boolean(
+              execution &&
+                typeof execution === "object" &&
+                !Array.isArray(execution) &&
+                typeof (execution as Record<string, unknown>).webhook_url === "string" &&
+                (execution as Record<string, unknown>).webhook_url.trim(),
+            );
+          }),
       })),
       connectedIntegrations: connected.map((integration) => ({
         id: integration.id,
