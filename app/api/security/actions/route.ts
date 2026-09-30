@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildSecurityPatterns, type SecurityPatternMemory } from "@/lib/security/patterns";
-import { validateExecutionTarget, isMutatingSecurityAction } from "@/lib/security/executors";
+import { getExecutorRequirement, validateExecutionTarget, isMutatingSecurityAction } from "@/lib/security/executors";
 
 const ACTION_TYPES = [
   "investigate_asset",
@@ -217,7 +217,6 @@ export async function POST(request: Request) {
         .eq("id", body.findingId)
         .eq("organization_id", organizationId)
         .maybeSingle();
-
       if (findingError) {
         return NextResponse.json({ error: findingError.message }, { status: 500 });
       }
@@ -517,7 +516,6 @@ export async function PATCH(request: Request) {
           .eq("id", existing.finding_id)
           .eq("organization_id", organizationId)
           .maybeSingle();
-
         if (findingError) {
           return NextResponse.json({ error: findingError.message }, { status: 500 });
         }
