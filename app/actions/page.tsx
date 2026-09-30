@@ -70,6 +70,15 @@ function SecurityActionsPageContent() {
 
   const [focusedActionId, setFocusedActionId] = useState(linkedActionId);
 
+  const [connectedIntegrations, setConnectedIntegrations] = useState<Array<{
+    id: string;
+    displayName: string;
+    provider: string;
+    integrationType: string;
+    providerExecutionReady?: boolean;
+  }>>([]);
+
+
   async function createAction() {
     if (!linkedFindingId) return;
     setCreating(true);
