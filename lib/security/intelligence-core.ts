@@ -1,4 +1,5 @@
 import type { AdaptiveInvestigationContext } from "@/lib/security/adaptive-context";
+import { assessEvidence } from "@/lib/security/evidence-reasoning";
 
 export type IntelligenceFact = {
   id: string;
@@ -72,7 +73,9 @@ export function buildIntelligenceCore(
   const evidenceIds = context.currentState.correlatedEvidenceIds;
   const eventIds = context.currentState.correlatedEventIds;
   const relationshipCount = context.currentState.confirmedConnectedAssets;
-  const contradictions = [...context.contradictions];
+  const evidenceReasoning = assessEvidence(context, now);
+  const contradictions = [...new Set([...context.contradictions, ...evidenceReasoning.conflicts])];
+  const evidenceGaps = [...new Set([...context.nextEvidenceNeeded, ...evidenceReasoning.gaps])];
   const unknowns = [...context.unknowns];
 
   const facts: IntelligenceFact[] = [];
@@ -118,14 +121,16 @@ export function buildIntelligenceCore(
     facts.push({
       id: "latest-verification",
       statement: `The latest explicit verification is recorded as ${context.historicalState.latestVerification.state}.`,
-      sourceIds: [],
+      sourceIds: [context.historicalState.latestVerification.id],
       sourceType: "verification",
     });
   }
 
   if (evidenceCount > 0) {
     const evidenceConfidence = clamp(
-      35 + evidenceCount * 9 + Math.min(eventCount, 5) * 4,
+      20 +
+      evidenceReasoning.aggregateScore * 0.55 +
+      Math.min(eventCount, 5) * 4,
     );
 
     claims.push({
@@ -133,7 +138,7 @@ export function buildIntelligenceCore(
       statement: `${evidenceCount} correlated evidence record(s) support the current investigation context.`,
       evidenceIds: evidenceIds.slice(0, 20),
       confidence: evidenceConfidence,
-      uncertainty: context.nextEvidenceNeeded.slice(0, 3),
+      uncertainty: evidenceGaps.slice(0, 3),
       status: evidenceConfidence >= 70 ? "supported" : "weakly_supported",
     });
   } else {
@@ -172,7 +177,7 @@ export function buildIntelligenceCore(
       id: "connected-impact",
       statement: `${relationshipCount} confirmed first-hop relationship(s) provide a basis for investigating connected assets.`,
       supportingSignals: ["confirmed asset relationships"],
-      missingEvidence: context.nextEvidenceNeeded.slice(0, 3),
+      missingEvidence: evidenceGaps.slice(0, 3),
       confidence: clamp(35 + relationshipCount * 12),
       status: "active",
     });
@@ -206,7 +211,7 @@ export function buildIntelligenceCore(
     claims.push({
       id: "historical-resolution",
       statement: "A prior explicit verification recorded resolution.",
-      evidenceIds: evidenceIds.slice(0, 20),
+      evidenceIds: [],
       confidence: 80,
       uncertainty: ["Historical resolution does not prove the current finding is resolved."],
       status: context.currentState.findingStatus === "open" ? "weakly_supported" : "supported",
@@ -234,10 +239,11 @@ export function buildIntelligenceCore(
           ? "verify"
           : "review",
     rationale: [
-      ...context.reasoning.slice(0, 4),
+      ...context.reasoning.slice(0, 3),
+      ...evidenceReasoning.rationale.slice(0, 2),
       ...contradictions.slice(0, 2).map((item) => `Contradiction: ${item}`),
     ],
-    requiredEvidence: context.nextEvidenceNeeded.slice(0, 6),
+    requiredEvidence: evidenceGaps.slice(0, 6),
     authorizationRequired: true,
   };
 
@@ -245,13 +251,23 @@ export function buildIntelligenceCore(
     generatedAt: new Date(now).toISOString(),
     state,
     confidence,
-    facts: facts.slice(0, 12),
+    facts: [
+      ...facts,
+      ...(evidenceCount > 0
+        ? [{
+            id: "evidence-quality",
+            statement: `Evidence reasoning assessed the correlated set at ${evidenceReasoning.aggregateScore}/100, with ${evidenceReasoning.freshEvidenceCount} fresh/recent record(s) and ${evidenceReasoning.sourceCount} source label(s).`,
+            sourceIds: evidenceIds.slice(0, 20),
+            sourceType: "evidence" as const,
+          }]
+        : []),
+    ].slice(0, 12),
     inferences: inferences.slice(0, 12),
     claims: claims.slice(0, 8),
     hypotheses: hypotheses.slice(0, 8),
     contradictions: contradictions.slice(0, 8),
     unknowns: unknowns.slice(0, 10),
-    nextEvidence: context.nextEvidenceNeeded.slice(0, 8),
+    nextEvidence: evidenceGaps.slice(0, 8),
     decisionContext,
     boundary:
       "The intelligence core organizes recorded evidence and uncertainty. It does not establish compromise, attribution, causation, or response success without explicit supporting evidence.",
