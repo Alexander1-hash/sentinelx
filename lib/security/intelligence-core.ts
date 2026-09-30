@@ -152,6 +152,15 @@ export function buildIntelligenceCore(
     });
   }
 
+  if (context.historicalState.reasoningTraces.length > 0) {
+    facts.push({
+      id: "historical-reasoning",
+      statement: `${context.historicalState.reasoningTraces.length} prior reasoning trace(s) are available for longitudinal context.`,
+      sourceIds: context.historicalState.reasoningTraces.slice(0, 20).map((trace) => trace.id),
+      sourceType: "finding",
+    });
+  }
+
   if (context.historicalState.latestVerification) {
     facts.push({
       id: "latest-verification",
@@ -278,6 +287,9 @@ export function buildIntelligenceCore(
       ...evidenceReasoning.rationale.slice(0, 2),
       ...temporalReasoning.rationale.slice(0, 2),
       ...contradictionResolution.rationale.slice(0, 2),
+      ...(context.historicalState.reasoningTraces.length > 0
+        ? [`${context.historicalState.reasoningTraces.length} prior reasoning trace(s) are available as historical explanation context.`]
+        : []),
       ...contradictions.slice(0, 2).map((item) => `Contradiction: ${item}`),
     ],
     requiredEvidence: evidenceGaps.slice(0, 6),
