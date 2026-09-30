@@ -52,6 +52,7 @@ export function buildIntelligenceCore(
 ): IntelligenceCoreResult {
   const evidenceCount = context.currentState.correlatedEvidenceCount;
   const eventCount = context.currentState.correlatedEventCount;
+  const evidenceIds = context.currentState.correlatedEvidenceIds;
   const relationshipCount = context.currentState.confirmedConnectedAssets;
   const contradictions = [...context.contradictions];
   const unknowns = [...context.unknowns];
@@ -67,7 +68,7 @@ export function buildIntelligenceCore(
     claims.push({
       id: "current-evidence",
       statement: `${evidenceCount} correlated evidence record(s) support the current investigation context.`,
-      evidenceIds: [],
+      evidenceIds: evidenceIds.slice(0, 20),
       confidence: evidenceConfidence,
       uncertainty: context.nextEvidenceNeeded.slice(0, 3),
       status: evidenceConfidence >= 70 ? "supported" : "weakly_supported",
@@ -122,7 +123,7 @@ export function buildIntelligenceCore(
     claims.push({
       id: "historical-resolution",
       statement: "A prior explicit verification recorded resolution.",
-      evidenceIds: [],
+      evidenceIds: evidenceIds.slice(0, 20),
       confidence: 80,
       uncertainty: ["Historical resolution does not prove the current finding is resolved."],
       status: context.currentState.findingStatus === "open" ? "weakly_supported" : "supported",
