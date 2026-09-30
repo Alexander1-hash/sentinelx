@@ -39,7 +39,7 @@ export function evaluateIntelligence(
 
     const verificationDiscipline = context?.historicalState.latestVerification
       ? 100
-      : context?.responseLearning.verifications
+      : context?.historicalState.verifications
         ? 70
         : 45;
 
