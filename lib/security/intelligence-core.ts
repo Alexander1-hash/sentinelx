@@ -2,6 +2,7 @@ import type { AdaptiveInvestigationContext } from "@/lib/security/adaptive-conte
 import { assessEvidence, type EvidenceReasoningResult } from "@/lib/security/evidence-reasoning";
 import { assessTemporalState, type TemporalAssessment } from "@/lib/security/temporal-reasoning";
 import { resolveContradictions, type ContradictionResolutionResult } from "@/lib/security/contradiction-resolution";
+import { buildIntelligenceGraph, type IntelligenceGraphResult } from "@/lib/security/intelligence-graph";
 
 export type IntelligenceFact = {
   id: string;
@@ -58,6 +59,7 @@ export type IntelligenceCoreResult = {
   evidenceReasoning: EvidenceReasoningResult;
   temporalReasoning: TemporalAssessment;
   contradictionResolution: ContradictionResolutionResult;
+  graph: IntelligenceGraphResult;
   boundary: string;
 };
 
@@ -81,6 +83,7 @@ export function buildIntelligenceCore(
   const evidenceReasoning = assessEvidence(context, now);
   const temporalReasoning = assessTemporalState(context, now);
   const contradictionResolution = resolveContradictions(context, now);
+  const graph = buildIntelligenceGraph(context);
   const contradictions = [...new Set([
     ...context.contradictions,
     ...evidenceReasoning.conflicts,
