@@ -82,7 +82,9 @@ export type AdaptiveInvestigationContext = {
     latestEvidenceAt: string | null;
     evidenceFreshnessMinutes: number | null;
     correlatedEvidenceCount: number;
+    correlatedEvidenceIds: string[];
     correlatedEventCount: number;
+    correlatedEventIds: string[];
     confirmedConnectedAssets: number;
   };
   historicalState: {
@@ -404,7 +406,9 @@ export function buildAdaptiveInvestigationContext(input: {
       latestEvidenceAt: latestEvidenceAt !== null ? new Date(latestEvidenceAt).toISOString() : null,
       evidenceFreshnessMinutes,
       correlatedEvidenceCount: correlatedEvidence.length,
+      correlatedEvidenceIds: correlatedEvidence.map((item) => item.id).slice(0, 100),
       correlatedEventCount: correlatedEvents.length,
+      correlatedEventIds: correlatedEvents.map((item) => item.id).slice(0, 100),
       confirmedConnectedAssets: confirmedEdges.length,
     },
     historicalState: {
