@@ -1,4 +1,4 @@
--- SentinelX atomic response outcome recording
+-- Trinorin atomic response outcome recording
 -- Keeps security_actions and security_memory consistent when recording an explicit executor result.
 
 create or replace function public.record_security_action_outcome(
@@ -72,7 +72,7 @@ begin
       'evidence', p_evidence,
       'supplied_at', now(),
       'supplied_by', v_user_id,
-      'boundary', 'This outcome is recorded from an explicit executor result. SentinelX does not infer execution from approval alone.'
+      'boundary', 'This outcome is recorded from an explicit executor result. Trinorin does not infer execution from approval alone.'
     );
 
   update public.security_actions
