@@ -8,6 +8,7 @@ import { assessDecision, type DecisionReasoningResult } from "@/lib/security/dec
 import { assessResponsePath, type ResponseReasoningResult } from "@/lib/security/response-reasoning";
 import { assessVerification, type VerificationReasoningResult } from "@/lib/security/verification-reasoning";
 import { assessLearning, type LearningReasoningResult } from "@/lib/security/learning-reasoning";
+import { buildReasoningTrace, type IntelligenceReasoningTrace } from "@/lib/security/reasoning-trace";
 
 export type IntelligenceFact = {
   id: string;
@@ -70,6 +71,7 @@ export type IntelligenceCoreResult = {
   responseReasoning: ResponseReasoningResult;
   verificationReasoning: VerificationReasoningResult;
   learningReasoning: LearningReasoningResult;
+  reasoningTrace: IntelligenceReasoningTrace;
   boundary: string;
 };
 
@@ -282,6 +284,17 @@ export function buildIntelligenceCore(
     authorizationRequired: true,
   };
 
+  const reasoningTrace = buildReasoningTrace(
+    context,
+    graph,
+    hypothesisReasoning,
+    decisionReasoning,
+    responseReasoning,
+    verificationReasoning,
+    learningReasoning,
+    now,
+  );
+
   return {
     generatedAt: new Date(now).toISOString(),
     state,
@@ -313,6 +326,7 @@ export function buildIntelligenceCore(
     responseReasoning,
     verificationReasoning,
     learningReasoning,
+    reasoningTrace,
     boundary:
       "The intelligence core organizes recorded evidence and uncertainty. It does not establish compromise, attribution, causation, or response success without explicit supporting evidence.",
   };
