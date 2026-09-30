@@ -52,7 +52,7 @@ export function buildReasoningTrace(
   learning: LearningReasoningResult,
   now = Date.now(),
 ): IntelligenceReasoningTrace {
-  const findingId = context.reasoning[0]?.match(/finding[ :]+([a-zA-Z0-9_-]+)/i)?.[1] ?? "unknown-finding";
+  const findingId = context.findingId;
   const evidenceIds = context.currentState.correlatedEvidenceIds.slice(0, 50);
   const eventIds = context.currentState.correlatedEventIds.slice(0, 50);
   const hypothesisIds = unique([
@@ -115,7 +115,7 @@ export function buildReasoningTrace(
       outputIds: [findingId],
       confidence: 100,
       rationale: [`Finding context is recorded as ${context.currentState.findingStatus} with severity ${context.currentState.severity}.`],
-      unresolved: findingId === "unknown-finding" ? ["Finding identifier is not exposed by the adaptive context contract."] : [],
+      unresolved: [],
     },
     {
       stage: "hypothesis",
