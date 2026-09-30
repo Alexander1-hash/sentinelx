@@ -3,6 +3,7 @@ import { assessEvidence, type EvidenceReasoningResult } from "@/lib/security/evi
 import { assessTemporalState, type TemporalAssessment } from "@/lib/security/temporal-reasoning";
 import { resolveContradictions, type ContradictionResolutionResult } from "@/lib/security/contradiction-resolution";
 import { buildIntelligenceGraph, type IntelligenceGraphResult } from "@/lib/security/intelligence-graph";
+import { assessHypotheses, type HypothesisReasoningResult } from "@/lib/security/hypothesis-reasoning";
 
 export type IntelligenceFact = {
   id: string;
@@ -60,6 +61,7 @@ export type IntelligenceCoreResult = {
   temporalReasoning: TemporalAssessment;
   contradictionResolution: ContradictionResolutionResult;
   graph: IntelligenceGraphResult;
+  hypothesisReasoning: HypothesisReasoningResult;
   boundary: string;
 };
 
@@ -84,6 +86,7 @@ export function buildIntelligenceCore(
   const temporalReasoning = assessTemporalState(context, now);
   const contradictionResolution = resolveContradictions(context, now);
   const graph = buildIntelligenceGraph(context);
+  const hypothesisReasoning = assessHypotheses(context, graph);
   const contradictions = [...new Set([
     ...context.contradictions,
     ...evidenceReasoning.conflicts,
@@ -293,6 +296,7 @@ export function buildIntelligenceCore(
     temporalReasoning,
     contradictionResolution,
     graph,
+    hypothesisReasoning,
     boundary:
       "The intelligence core organizes recorded evidence and uncertainty. It does not establish compromise, attribution, causation, or response success without explicit supporting evidence.",
   };
