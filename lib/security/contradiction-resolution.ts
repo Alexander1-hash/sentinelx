@@ -117,7 +117,7 @@ export function resolveContradictions(
       ? `${resolved.length} contradiction(s) were resolved using deterministic evidence rules.`
       : "No contradiction was resolved automatically.",
     unresolved.length
-      ? "Unresolved contradictions are preserved rather than hidden or arbitrarily selected.",
+      ? "Unresolved contradictions are preserved rather than hidden or arbitrarily selected."
       : "All detected contradictions have a deterministic resolution.",
     `Analysis timestamp: ${new Date(now).toISOString()}.`,
   ];
