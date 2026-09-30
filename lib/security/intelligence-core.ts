@@ -6,6 +6,8 @@ import { buildIntelligenceGraph, type IntelligenceGraphResult } from "@/lib/secu
 import { assessHypotheses, type HypothesisReasoningResult } from "@/lib/security/hypothesis-reasoning";
 import { assessDecision, type DecisionReasoningResult } from "@/lib/security/decision-reasoning";
 import { assessResponsePath, type ResponseReasoningResult } from "@/lib/security/response-reasoning";
+import { assessVerification, type VerificationReasoningResult } from "@/lib/security/verification-reasoning";
+import { assessLearning, type LearningReasoningResult } from "@/lib/security/learning-reasoning";
 
 export type IntelligenceFact = {
   id: string;
@@ -66,6 +68,8 @@ export type IntelligenceCoreResult = {
   hypothesisReasoning: HypothesisReasoningResult;
   decisionReasoning: DecisionReasoningResult;
   responseReasoning: ResponseReasoningResult;
+  verificationReasoning: VerificationReasoningResult;
+  learningReasoning: LearningReasoningResult;
   boundary: string;
 };
 
@@ -93,6 +97,8 @@ export function buildIntelligenceCore(
   const hypothesisReasoning = assessHypotheses(context, graph);
   const decisionReasoning = assessDecision(context, graph, hypothesisReasoning);
   const responseReasoning = assessResponsePath(context, graph, hypothesisReasoning, decisionReasoning);
+  const verificationReasoning = assessVerification(context, now);
+  const learningReasoning = assessLearning(context, verificationReasoning);
   const contradictions = [...new Set([
     ...context.contradictions,
     ...evidenceReasoning.conflicts,
@@ -305,6 +311,8 @@ export function buildIntelligenceCore(
     hypothesisReasoning,
     decisionReasoning,
     responseReasoning,
+    verificationReasoning,
+    learningReasoning,
     boundary:
       "The intelligence core organizes recorded evidence and uncertainty. It does not establish compromise, attribution, causation, or response success without explicit supporting evidence.",
   };
