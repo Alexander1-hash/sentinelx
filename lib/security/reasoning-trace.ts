@@ -52,7 +52,7 @@ export function buildReasoningTrace(
   learning: LearningReasoningResult,
   now = Date.now(),
 ): IntelligenceReasoningTrace {
-  const findingId = context.finding.id;
+  const findingId = context.reasoning[0]?.match(/finding[ :]+([a-zA-Z0-9_-]+)/i)?.[1] ?? "unknown-finding";
   const evidenceIds = context.currentState.correlatedEvidenceIds.slice(0, 50);
   const eventIds = context.currentState.correlatedEventIds.slice(0, 50);
   const hypothesisIds = unique([
@@ -93,7 +93,7 @@ export function buildReasoningTrace(
       confidence: evidenceIds.length > 0 ? context.confidence === "strong" ? 82 : context.confidence === "moderate" ? 64 : 42 : 0,
       rationale: evidenceIds.length > 0
         ? [
-            `Evidence reasoning score: ${context.currentState.correlatedEvidenceCount > 0 ? "available" : "none"}.`,
+            `Evidence reasoning input contains ${context.currentState.correlatedEvidenceCount} correlated record(s).`,
             ...context.reasoning.slice(0, 2),
           ]
         : ["No correlated evidence is available to ground a strong conclusion."],
@@ -111,11 +111,11 @@ export function buildReasoningTrace(
     {
       stage: "finding",
       status: "observed",
-      inputIds: [findingId],
+      inputIds: [],
       outputIds: [findingId],
       confidence: 100,
-      rationale: [`Finding is recorded as ${context.currentState.findingStatus} with severity ${context.currentState.severity}.`],
-      unresolved: [],
+      rationale: [`Finding context is recorded as ${context.currentState.findingStatus} with severity ${context.currentState.severity}.`],
+      unresolved: findingId === "unknown-finding" ? ["Finding identifier is not exposed by the adaptive context contract."] : [],
     },
     {
       stage: "hypothesis",
