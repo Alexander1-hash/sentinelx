@@ -22,7 +22,7 @@ export async function GET() {
   const [findingsResult, evidenceResult, eventsResult, relationshipsResult, assetsResult, memoryResult] =
     await Promise.all([
       supabase.from("security_findings")
-        .select("id,asset_id,finding_type,severity,status,summary,detected_at")
+        .select("id,asset_id,title,finding_type,severity,status,summary,detected_at")
         .eq("organization_id", organizationId)
         .order("detected_at", { ascending: false })
         .limit(100),
