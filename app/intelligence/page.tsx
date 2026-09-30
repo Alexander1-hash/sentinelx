@@ -451,7 +451,7 @@ export default function IntelligencePage() {
             <div className="mt-4 rounded-2xl border border-amber-400/10 bg-amber-400/[0.025] p-3">
               <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-200">Evidence gaps</p>
               <ul className="mt-2 space-y-1">
-                {intelligence.stateReconciliation.unknowns.slice(0, 5).map((item) => (
+                {(intelligence?.stateReconciliation?.unknowns ?? []).slice(0, 5).map((item) => (
                   <li key={item} className="text-[9px] leading-4 text-slate-500">• {item}</li>
                 ))}
               </ul>
