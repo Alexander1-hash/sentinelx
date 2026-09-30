@@ -1,5 +1,5 @@
 import type { AdaptiveInvestigationContext } from "@/lib/security/adaptive-context";
-import { assessEvidence } from "@/lib/security/evidence-reasoning";
+import { assessEvidence, type EvidenceReasoningResult } from "@/lib/security/evidence-reasoning";
 
 export type IntelligenceFact = {
   id: string;
@@ -53,6 +53,7 @@ export type IntelligenceCoreResult = {
   unknowns: string[];
   nextEvidence: string[];
   decisionContext: IntelligenceDecisionContext;
+  evidenceReasoning: EvidenceReasoningResult;
   boundary: string;
 };
 
@@ -269,6 +270,7 @@ export function buildIntelligenceCore(
     unknowns: unknowns.slice(0, 10),
     nextEvidence: evidenceGaps.slice(0, 8),
     decisionContext,
+    evidenceReasoning,
     boundary:
       "The intelligence core organizes recorded evidence and uncertainty. It does not establish compromise, attribution, causation, or response success without explicit supporting evidence.",
   };
