@@ -221,7 +221,7 @@ export default function IntelligencePage() {
               <p className="text-[11px] text-slate-500">Cross-signal security context</p>
             </div>
           </div>
-          <Link href="/" className="text-xs text-slate-400 hover:text-white">Command Center</Link>
+          <div className="flex items-center gap-3"><Link href="/intelligence/trace" className="text-xs text-cyan-300 hover:text-white">Reasoning Trace</Link><Link href="/" className="text-xs text-slate-400 hover:text-white">Command Center</Link></div>
         </div>
       </header>
 
