@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildAdaptiveInvestigationContext } from "@/lib/security/adaptive-context";
 import { evaluateIntelligence, summarizeIntelligenceEvaluation } from "@/lib/security/evaluation";
+import { buildIntelligenceCore } from "@/lib/security/intelligence-core";
 
 export async function GET() {
   const supabase = await createClient();
@@ -77,9 +78,13 @@ export async function GET() {
   }
 
   const results = evaluateIntelligence(findingsResult.data ?? [], contexts);
+  const core = Object.fromEntries(
+    (findingsResult.data ?? []).map((finding) => [finding.id, buildIntelligenceCore(contexts[finding.id])]),
+  );
 
   return NextResponse.json({
     results,
+    core,
     summary: summarizeIntelligenceEvaluation(results),
     boundary: "Evaluation measures the quality of recorded intelligence context; it does not establish ground truth or authorize actions.",
   });
