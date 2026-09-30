@@ -1,6 +1,7 @@
 import type { AdaptiveInvestigationContext } from "@/lib/security/adaptive-context";
 import { assessEvidence, type EvidenceReasoningResult } from "@/lib/security/evidence-reasoning";
 import { assessTemporalState, type TemporalAssessment } from "@/lib/security/temporal-reasoning";
+import { resolveContradictions, type ContradictionResolutionResult } from "@/lib/security/contradiction-resolution";
 
 export type IntelligenceFact = {
   id: string;
@@ -56,6 +57,7 @@ export type IntelligenceCoreResult = {
   decisionContext: IntelligenceDecisionContext;
   evidenceReasoning: EvidenceReasoningResult;
   temporalReasoning: TemporalAssessment;
+  contradictionResolution: ContradictionResolutionResult;
   boundary: string;
 };
 
@@ -78,7 +80,12 @@ export function buildIntelligenceCore(
   const relationshipCount = context.currentState.confirmedConnectedAssets;
   const evidenceReasoning = assessEvidence(context, now);
   const temporalReasoning = assessTemporalState(context, now);
-  const contradictions = [...new Set([...context.contradictions, ...evidenceReasoning.conflicts])];
+  const contradictionResolution = resolveContradictions(context, now);
+  const contradictions = [...new Set([
+    ...context.contradictions,
+    ...evidenceReasoning.conflicts,
+    ...contradictionResolution.unresolvedReasons,
+  ])];
   const evidenceGaps = [...new Set([
     ...context.nextEvidenceNeeded,
     ...evidenceReasoning.gaps,
@@ -250,6 +257,7 @@ export function buildIntelligenceCore(
       ...context.reasoning.slice(0, 3),
       ...evidenceReasoning.rationale.slice(0, 2),
       ...temporalReasoning.rationale.slice(0, 2),
+      ...contradictionResolution.rationale.slice(0, 2),
       ...contradictions.slice(0, 2).map((item) => `Contradiction: ${item}`),
     ],
     requiredEvidence: evidenceGaps.slice(0, 6),
@@ -280,6 +288,7 @@ export function buildIntelligenceCore(
     decisionContext,
     evidenceReasoning,
     temporalReasoning,
+    contradictionResolution,
     boundary:
       "The intelligence core organizes recorded evidence and uncertainty. It does not establish compromise, attribution, causation, or response success without explicit supporting evidence.",
   };
