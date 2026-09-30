@@ -1,5 +1,6 @@
 import type { AdaptiveInvestigationContext } from "@/lib/security/adaptive-context";
 import { assessEvidence, type EvidenceReasoningResult } from "@/lib/security/evidence-reasoning";
+import { assessTemporalState, type TemporalAssessment } from "@/lib/security/temporal-reasoning";
 
 export type IntelligenceFact = {
   id: string;
@@ -54,6 +55,7 @@ export type IntelligenceCoreResult = {
   nextEvidence: string[];
   decisionContext: IntelligenceDecisionContext;
   evidenceReasoning: EvidenceReasoningResult;
+  temporalReasoning: TemporalAssessment;
   boundary: string;
 };
 
@@ -75,8 +77,13 @@ export function buildIntelligenceCore(
   const eventIds = context.currentState.correlatedEventIds;
   const relationshipCount = context.currentState.confirmedConnectedAssets;
   const evidenceReasoning = assessEvidence(context, now);
+  const temporalReasoning = assessTemporalState(context, now);
   const contradictions = [...new Set([...context.contradictions, ...evidenceReasoning.conflicts])];
-  const evidenceGaps = [...new Set([...context.nextEvidenceNeeded, ...evidenceReasoning.gaps])];
+  const evidenceGaps = [...new Set([
+    ...context.nextEvidenceNeeded,
+    ...evidenceReasoning.gaps,
+    ...temporalReasoning.anomalies.map((item) => `Temporal anomaly: ${item}`),
+  ])];
   const unknowns = [...context.unknowns];
 
   const facts: IntelligenceFact[] = [];
@@ -242,6 +249,7 @@ export function buildIntelligenceCore(
     rationale: [
       ...context.reasoning.slice(0, 3),
       ...evidenceReasoning.rationale.slice(0, 2),
+      ...temporalReasoning.rationale.slice(0, 2),
       ...contradictions.slice(0, 2).map((item) => `Contradiction: ${item}`),
     ],
     requiredEvidence: evidenceGaps.slice(0, 6),
@@ -271,6 +279,7 @@ export function buildIntelligenceCore(
     nextEvidence: evidenceGaps.slice(0, 8),
     decisionContext,
     evidenceReasoning,
+    temporalReasoning,
     boundary:
       "The intelligence core organizes recorded evidence and uncertainty. It does not establish compromise, attribution, causation, or response success without explicit supporting evidence.",
   };
