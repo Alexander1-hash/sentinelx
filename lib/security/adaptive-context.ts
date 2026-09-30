@@ -73,6 +73,7 @@ export type AdaptiveLearningState = {
 };
 
 export type AdaptiveInvestigationContext = {
+  findingId: string;
   generatedAt: string;
   confidence: "strong" | "moderate" | "limited";
   currentState: {
@@ -105,6 +106,7 @@ export type AdaptiveInvestigationContext = {
     responseOutcomes: number;
     verifications: number;
     latestVerification: { id: string; state: string; occurredAt: string } | null;
+    reasoningTraces: Array<{ id: string; traceId: string; occurredAt: string }>;
   };
   responseLearning: AdaptiveResponseLearning[];
   learningState: AdaptiveLearningState;
@@ -248,6 +250,14 @@ export function buildAdaptiveInvestigationContext(input: {
   const decisions = relevantMemory.filter((memory) => memory.memory_type === "operator_decision");
   const outcomes = relevantMemory.filter((memory) => memory.memory_type === "response_outcome");
   const verifications = relevantMemory.filter((memory) => memory.memory_type === "verification");
+  const reasoningTraces = relevantMemory
+    .filter((memory) => memory.memory_type === "reasoning_trace")
+    .map((memory) => ({
+      id: memory.id,
+      traceId: typeof memory.data?.trace_id === "string" ? memory.data.trace_id : memory.id,
+      occurredAt: memory.occurred_at,
+    }))
+    .slice(0, 20);
 
   const latestVerification = [...verifications]
     .sort((a, b) => (asTime(b.occurred_at) ?? 0) - (asTime(a.occurred_at) ?? 0))
@@ -403,6 +413,7 @@ export function buildAdaptiveInvestigationContext(input: {
         : "limited";
 
   return {
+    findingId: input.finding.id,
     generatedAt: new Date(now).toISOString(),
     confidence,
     currentState: {
@@ -435,6 +446,7 @@ export function buildAdaptiveInvestigationContext(input: {
       responseOutcomes: outcomes.length,
       verifications: verifications.length,
       latestVerification,
+      reasoningTraces,
     },
     responseLearning: input.responseLearning ?? [],
     learningState,
