@@ -1,5 +1,20 @@
 import type { AdaptiveInvestigationContext } from "@/lib/security/adaptive-context";
 
+export type IntelligenceFact = {
+  id: string;
+  statement: string;
+  sourceIds: string[];
+  sourceType: "evidence" | "event" | "finding" | "verification" | "relationship";
+};
+
+export type IntelligenceInference = {
+  id: string;
+  statement: string;
+  derivedFrom: string[];
+  confidence: number;
+  status: "supported" | "tentative" | "blocked";
+};
+
 export type IntelligenceClaim = {
   id: string;
   statement: string;
@@ -29,6 +44,8 @@ export type IntelligenceCoreResult = {
   generatedAt: string;
   state: "coherent" | "uncertain" | "contradictory";
   confidence: number;
+  facts: IntelligenceFact[];
+  inferences: IntelligenceInference[];
   claims: IntelligenceClaim[];
   hypotheses: IntelligenceHypothesis[];
   contradictions: string[];
@@ -53,12 +70,58 @@ export function buildIntelligenceCore(
   const evidenceCount = context.currentState.correlatedEvidenceCount;
   const eventCount = context.currentState.correlatedEventCount;
   const evidenceIds = context.currentState.correlatedEvidenceIds;
+  const eventIds = context.currentState.correlatedEventIds;
   const relationshipCount = context.currentState.confirmedConnectedAssets;
   const contradictions = [...context.contradictions];
   const unknowns = [...context.unknowns];
 
+  const facts: IntelligenceFact[] = [];
+  const inferences: IntelligenceInference[] = [];
   const claims: IntelligenceClaim[] = [];
   const hypotheses: IntelligenceHypothesis[] = [];
+
+  facts.push({
+    id: "finding-state",
+    statement: `The finding is currently recorded as ${context.currentState.findingStatus} with severity ${context.currentState.severity}.`,
+    sourceIds: [],
+    sourceType: "finding",
+  });
+
+  if (evidenceCount > 0) {
+    facts.push({
+      id: "correlated-evidence",
+      statement: `${evidenceCount} evidence record(s) are correlated with the finding context.`,
+      sourceIds: evidenceIds.slice(0, 20),
+      sourceType: "evidence",
+    });
+  }
+
+  if (eventCount > 0) {
+    facts.push({
+      id: "correlated-events",
+      statement: `${eventCount} security event signal(s) are correlated with the finding context.`,
+      sourceIds: eventIds.slice(0, 20),
+      sourceType: "event",
+    });
+  }
+
+  if (relationshipCount > 0) {
+    facts.push({
+      id: "confirmed-relationships",
+      statement: `${relationshipCount} confirmed first-hop asset relationship(s) are available.`,
+      sourceIds: [],
+      sourceType: "relationship",
+    });
+  }
+
+  if (context.historicalState.latestVerification) {
+    facts.push({
+      id: "latest-verification",
+      statement: `The latest explicit verification is recorded as ${context.historicalState.latestVerification.state}.`,
+      sourceIds: [],
+      sourceType: "verification",
+    });
+  }
 
   if (evidenceCount > 0) {
     const evidenceConfidence = clamp(
@@ -81,6 +144,26 @@ export function buildIntelligenceCore(
       confidence: 15,
       uncertainty: ["Fresh telemetry is required before strengthening the conclusion."],
       status: "unresolved",
+    });
+  }
+
+  if (evidenceCount > 0 && eventCount > 0) {
+    inferences.push({
+      id: "evidence-event-correlation",
+      statement: "Correlated evidence and event signals provide converging current-context support.",
+      derivedFrom: ["correlated-evidence", "correlated-events"],
+      confidence: clamp(50 + Math.min(evidenceCount, 5) * 7 + Math.min(eventCount, 5) * 5),
+      status: "supported",
+    });
+  }
+
+  if (relationshipCount > 0) {
+    inferences.push({
+      id: "relationship-investigation",
+      statement: "Confirmed relationships justify investigating connected assets, but do not by themselves establish impact or compromise.",
+      derivedFrom: ["confirmed-relationships"],
+      confidence: clamp(35 + relationshipCount * 12),
+      status: "tentative",
     });
   }
 
@@ -162,6 +245,8 @@ export function buildIntelligenceCore(
     generatedAt: new Date(now).toISOString(),
     state,
     confidence,
+    facts: facts.slice(0, 12),
+    inferences: inferences.slice(0, 12),
     claims: claims.slice(0, 8),
     hypotheses: hypotheses.slice(0, 8),
     contradictions: contradictions.slice(0, 8),
