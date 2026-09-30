@@ -292,6 +292,7 @@ export function buildIntelligenceCore(
     evidenceReasoning,
     temporalReasoning,
     contradictionResolution,
+    graph,
     boundary:
       "The intelligence core organizes recorded evidence and uncertainty. It does not establish compromise, attribution, causation, or response success without explicit supporting evidence.",
   };
