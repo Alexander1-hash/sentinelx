@@ -83,6 +83,12 @@ export type AdaptiveInvestigationContext = {
     evidenceFreshnessMinutes: number | null;
     correlatedEvidenceCount: number;
     correlatedEvidenceIds: string[];
+    correlatedEvidenceProfiles: Array<{
+      id: string;
+      source: string;
+      evidenceType: string;
+      observedAt: string;
+    }>;
     correlatedEventCount: number;
     correlatedEventIds: string[];
     confirmedConnectedAssets: number;
@@ -98,7 +104,7 @@ export type AdaptiveInvestigationContext = {
     priorOperatorDecisions: number;
     responseOutcomes: number;
     verifications: number;
-    latestVerification: { state: string; occurredAt: string } | null;
+    latestVerification: { id: string; state: string; occurredAt: string } | null;
   };
   responseLearning: AdaptiveResponseLearning[];
   learningState: AdaptiveLearningState;
@@ -252,7 +258,7 @@ export function buildAdaptiveInvestigationContext(input: {
           typeof (memory.data.verification as Record<string, unknown>).state === "string"
           ? (memory.data.verification as Record<string, unknown>).state as string
           : memory.state;
-      return { state, occurredAt: memory.occurred_at };
+      return { id: memory.id, state, occurredAt: memory.occurred_at };
     })[0] ?? null;
 
   const latestVerificationMemory = [...verifications]
@@ -407,6 +413,12 @@ export function buildAdaptiveInvestigationContext(input: {
       evidenceFreshnessMinutes,
       correlatedEvidenceCount: correlatedEvidence.length,
       correlatedEvidenceIds: correlatedEvidence.map((item) => item.id).slice(0, 100),
+      correlatedEvidenceProfiles: correlatedEvidence.map((item) => ({
+        id: item.id,
+        source: item.source,
+        evidenceType: item.evidence_type,
+        observedAt: item.observed_at,
+      })).slice(0, 100),
       correlatedEventCount: correlatedEvents.length,
       correlatedEventIds: correlatedEvents.map((item) => item.id).slice(0, 100),
       confirmedConnectedAssets: confirmedEdges.length,
