@@ -54,7 +54,7 @@ function snapshotFromMemory(memory: {
   traceId: string;
   occurredAt: string;
   confidence: number | null;
-  trace: Record<string, unknown>;
+  trace: Record<string, unknown> | null;
 }): LongitudinalReasoning["previousTrace"] {
   const evidence = stage(memory.trace, "evidence");
   const signals = stage(memory.trace, "signals");
