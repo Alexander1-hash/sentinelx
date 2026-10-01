@@ -30,6 +30,22 @@ type TraceRecord = {
     evidenceChain: string[];
     boundary: string;
   } | null;
+  longitudinalReasoning?: {
+    available: boolean;
+    traceCount: number;
+    comparison: {
+      evidenceAdded: string[];
+      evidenceRemoved: string[];
+      hypothesesAdded: string[];
+      hypothesesRemoved: string[];
+      stateChanged: boolean;
+      previousLearnedState: string | null;
+      currentLearnedState: string | null;
+      responseEffectiveness: string;
+      recurringPattern: string;
+    };
+    signals: string[];
+  } | null;
 };
 
 export default function ReasoningTracePage() {
@@ -158,6 +174,27 @@ export default function ReasoningTracePage() {
                   {new Date(record.occurredAt).toLocaleString()}
                 </div>
               </div>
+
+              {record.longitudinalReasoning?.available && (
+                <div className="mt-5 rounded-2xl border border-cyan-400/10 bg-cyan-400/[0.02] p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-semibold text-white">Longitudinal intelligence</p>
+                      <p className="mt-1 text-[10px] text-slate-500">Current reasoning compared with the previous persisted investigation.</p>
+                    </div>
+                    <span className="rounded-full bg-white/5 px-2 py-1 text-[9px] uppercase tracking-wider text-cyan-200">
+                      {record.longitudinalReasoning.comparison.recurringPattern.replaceAll("_", " ")}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-xl border border-white/10 bg-black/10 p-3"><p className="text-[9px] uppercase tracking-wider text-slate-600">Evidence change</p><p className="mt-1 text-xs text-white">+{record.longitudinalReasoning.comparison.evidenceAdded.length} / -{record.longitudinalReasoning.comparison.evidenceRemoved.length}</p></div>
+                    <div className="rounded-xl border border-white/10 bg-black/10 p-3"><p className="text-[9px] uppercase tracking-wider text-slate-600">Hypothesis change</p><p className="mt-1 text-xs text-white">+{record.longitudinalReasoning.comparison.hypothesesAdded.length} / -{record.longitudinalReasoning.comparison.hypothesesRemoved.length}</p></div>
+                    <div className="rounded-xl border border-white/10 bg-black/10 p-3"><p className="text-[9px] uppercase tracking-wider text-slate-600">Learned state</p><p className="mt-1 text-xs text-white">{record.longitudinalReasoning.comparison.previousLearnedState ?? "none"} → {record.longitudinalReasoning.comparison.currentLearnedState ?? "none"}</p></div>
+                    <div className="rounded-xl border border-white/10 bg-black/10 p-3"><p className="text-[9px] uppercase tracking-wider text-slate-600">Response signal</p><p className="mt-1 text-xs text-white">{record.longitudinalReasoning.comparison.responseEffectiveness.replaceAll("_", " ")}</p></div>
+                  </div>
+                  <ul className="mt-3 space-y-1">{record.longitudinalReasoning.signals.slice(0, 4).map((item) => <li key={item} className="text-[10px] leading-4 text-slate-500">• {item}</li>)}</ul>
+                </div>
+              )}
 
               {record.trace && (
                 <>

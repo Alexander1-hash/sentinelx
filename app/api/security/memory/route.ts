@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 type Memory = {
   id: string;
-  memory_type: "finding_state" | "investigation" | "operator_decision" | "response_outcome" | "evidence_change" | "verification";
+  memory_type: "finding_state" | "investigation" | "operator_decision" | "response_outcome" | "evidence_change" | "verification" | "reasoning_trace";
   subject_id: string | null;
   title: string;
   summary: string;
@@ -51,7 +51,7 @@ function subjectFor(
   }
 ): TimelineItem["subject"] {
   const findingId = stringValue(memory.data.finding_id) ??
-    (memory.memory_type === "finding_state" || memory.memory_type === "investigation" ? memory.subject_id : null);
+    (memory.memory_type === "finding_state" || memory.memory_type === "investigation" || memory.memory_type === "reasoning_trace" ? memory.subject_id : null);
   const assetId = stringValue(memory.data.asset_id) ?? stringValue(memory.data.affected_asset_id);
   const evidenceId = stringValue(memory.data.evidence_id) ??
     (memory.memory_type === "evidence_change" ? memory.subject_id : null);
@@ -92,7 +92,7 @@ export async function GET(request: Request) {
     if (!organizationId) {
       return NextResponse.json({
         timeline: [],
-        summary: { total: 0, findings: 0, investigations: 0, decisions: 0, outcomes: 0, verifications: 0, evidenceChanges: 0 },
+        summary: { total: 0, findings: 0, investigations: 0, decisions: 0, outcomes: 0, verifications: 0, evidenceChanges: 0, reasoningTraces: 0 },
         boundary: "No organization-scoped security memory is available.",
       });
     }
@@ -172,7 +172,7 @@ export async function GET(request: Request) {
           context: {
             findingId:
               stringValue(memory.data.finding_id) ??
-              ((memory.memory_type === "finding_state" || memory.memory_type === "investigation") ? memory.subject_id : null),
+              ((memory.memory_type === "finding_state" || memory.memory_type === "investigation" || memory.memory_type === "reasoning_trace") ? memory.subject_id : null),
             assetId: stringValue(memory.data.asset_id) ?? stringValue(memory.data.affected_asset_id),
             evidenceId:
               stringValue(memory.data.evidence_id) ??
@@ -197,6 +197,7 @@ export async function GET(request: Request) {
         decisions: items.filter((item) => item.type === "operator_decision").length,
         outcomes: items.filter((item) => item.type === "response_outcome").length,
         evidenceChanges: items.filter((item) => item.type === "evidence_change").length,
+        reasoningTraces: items.filter((item) => item.type === "reasoning_trace").length,
       },
       boundary:
         "Security History is a record of what Trinorin previously observed, investigated, decided, or recorded as an outcome. Historical memory provides context but does not prove that the same condition exists now. Current evidence and telemetry remain authoritative for present-state claims. Missing telemetry is never treated as resolution.",

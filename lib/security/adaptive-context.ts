@@ -106,7 +106,7 @@ export type AdaptiveInvestigationContext = {
     responseOutcomes: number;
     verifications: number;
     latestVerification: { id: string; state: string; occurredAt: string } | null;
-    reasoningTraces: Array<{ id: string; traceId: string; occurredAt: string }>;
+    reasoningTraces: Array<{ id: string; traceId: string; occurredAt: string; confidence: number | null; trace: Record<string, unknown> | null }>;
   };
   responseLearning: AdaptiveResponseLearning[];
   learningState: AdaptiveLearningState;
@@ -256,6 +256,10 @@ export function buildAdaptiveInvestigationContext(input: {
       id: memory.id,
       traceId: typeof memory.data?.trace_id === "string" ? memory.data.trace_id : memory.id,
       occurredAt: memory.occurred_at,
+      confidence: typeof memory.data?.confidence === "number" ? memory.data.confidence : null,
+      trace: memory.data?.trace && typeof memory.data.trace === "object"
+        ? memory.data.trace as Record<string, unknown>
+        : null,
     }))
     .slice(0, 20);
 

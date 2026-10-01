@@ -313,7 +313,7 @@ export function synthesizeSecurityIntelligence(input: {
     respond: input.memories.filter((memory) => memory.memory_type === "response_outcome").length,
     verify: input.memories.filter((memory) => memory.memory_type === "verification").length,
     learn: input.memories.filter((memory) =>
-      ["evidence_change", "finding_state", "response_outcome", "verification"].includes(memory.memory_type)
+      ["evidence_change", "finding_state", "response_outcome", "verification", "reasoning_trace"].includes(memory.memory_type)
     ).length,
   };
 

@@ -9,6 +9,7 @@ import { assessResponsePath, type ResponseReasoningResult } from "@/lib/security
 import { assessVerification, type VerificationReasoningResult } from "@/lib/security/verification-reasoning";
 import { assessLearning, type LearningReasoningResult } from "@/lib/security/learning-reasoning";
 import { buildReasoningTrace, type IntelligenceReasoningTrace } from "@/lib/security/reasoning-trace";
+import { buildLongitudinalReasoning, type LongitudinalReasoning } from "@/lib/security/longitudinal-reasoning";
 
 export type IntelligenceFact = {
   id: string;
@@ -72,6 +73,7 @@ export type IntelligenceCoreResult = {
   verificationReasoning: VerificationReasoningResult;
   learningReasoning: LearningReasoningResult;
   reasoningTrace: IntelligenceReasoningTrace;
+  longitudinalReasoning: LongitudinalReasoning;
   boundary: string;
 };
 
@@ -101,6 +103,7 @@ export function buildIntelligenceCore(
   const responseReasoning = assessResponsePath(context, graph, hypothesisReasoning, decisionReasoning);
   const verificationReasoning = assessVerification(context, now);
   const learningReasoning = assessLearning(context, verificationReasoning);
+  const longitudinalReasoning = buildLongitudinalReasoning(context, hypothesisReasoning, verificationReasoning, learningReasoning);
   const contradictions = [...new Set([
     ...context.contradictions,
     ...evidenceReasoning.conflicts,
@@ -270,7 +273,7 @@ export function buildIntelligenceCore(
         : "coherent";
 
   const confidence = clamp(
-    context.confidence === "strong" ? 82 : context.confidence === "moderate" ? 64 : 42,
+    (context.confidence === "strong" ? 82 : context.confidence === "moderate" ? 64 : 42) + longitudinalReasoning.confidenceAdjustment,
     0,
     100,
   );
@@ -290,6 +293,7 @@ export function buildIntelligenceCore(
       ...(context.historicalState.reasoningTraces.length > 0
         ? [`${context.historicalState.reasoningTraces.length} prior reasoning trace(s) are available as historical explanation context.`]
         : []),
+      ...longitudinalReasoning.signals.slice(0, 3),
       ...contradictions.slice(0, 2).map((item) => `Contradiction: ${item}`),
     ],
     requiredEvidence: evidenceGaps.slice(0, 6),
@@ -339,6 +343,7 @@ export function buildIntelligenceCore(
     verificationReasoning,
     learningReasoning,
     reasoningTrace,
+    longitudinalReasoning,
     boundary:
       "The intelligence core organizes recorded evidence and uncertainty. It does not establish compromise, attribution, causation, or response success without explicit supporting evidence.",
   };

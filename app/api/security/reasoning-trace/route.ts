@@ -114,6 +114,7 @@ export async function GET() {
         trace: memory.data?.trace ?? null,
         confidence: typeof memory.data?.confidence === "number" ? memory.data.confidence : null,
         decision: typeof memory.data?.decision === "string" ? memory.data.decision : null,
+        longitudinalReasoning: memory.data?.longitudinal_reasoning ?? null,
       })),
       boundary: "Persisted reasoning traces are historical explanations of recorded intelligence context. They do not establish compromise, attribution, causation, or response success.",
     });
@@ -147,6 +148,7 @@ export async function POST(request: Request) {
         trace: core.reasoningTrace,
         confidence: core.confidence,
         decision: core.decisionReasoning.assessment.priority,
+        longitudinal_reasoning: core.longitudinalReasoning,
       },
       occurred_at: core.generatedAt,
     }));
