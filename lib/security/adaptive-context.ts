@@ -250,8 +250,11 @@ export function buildAdaptiveInvestigationContext(input: {
   const decisions = relevantMemory.filter((memory) => memory.memory_type === "operator_decision");
   const outcomes = relevantMemory.filter((memory) => memory.memory_type === "response_outcome");
   const verifications = relevantMemory.filter((memory) => memory.memory_type === "verification");
-  const reasoningTraces = relevantMemory
-    .filter((memory) => memory.memory_type === "reasoning_trace")
+  // Reasoning traces are keyed to a finding, not merely an affected asset.
+  // This prevents a history from another finding on the same asset from contaminating
+  // longitudinal comparisons.
+  const reasoningTraces = input.memories
+    .filter((memory) => memory.memory_type === "reasoning_trace" && memory.subject_id === input.finding.id)
     .map((memory) => ({
       id: memory.id,
       traceId: typeof memory.data?.trace_id === "string" ? memory.data.trace_id : memory.id,
