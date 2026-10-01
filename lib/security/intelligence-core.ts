@@ -81,6 +81,7 @@ export type IntelligenceCoreResult = {
       evidenceRemoved: string[];
       hypothesesAdded: string[];
       hypothesesRemoved: string[];
+      stateChanged: boolean;
       previousLearnedState: string | null;
       currentLearnedState: string | null;
       responseEffectiveness: string;
@@ -104,16 +105,20 @@ function buildLongitudinalReasoning(
   hypotheses: HypothesisReasoningResult,
   verification: VerificationReasoningResult,
 ): IntelligenceCoreResult["longitudinalReasoning"] {
-  const previous = context.historicalState.reasoningTraces
+  const historicalTraces = context.historicalState.reasoningTraces
     .filter((item) => item.trace !== null)
-    .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())[0];
+    .filter((item) => item.trace?.findingId === context.findingId)
+    .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
+
+  const previous = historicalTraces[0];
 
   if (!previous?.trace) {
     return {
       available: false,
-      traceCount: context.historicalState.reasoningTraces.length,
+      traceCount: historicalTraces.length,
       comparison: {
         evidenceAdded: [], evidenceRemoved: [], hypothesesAdded: [], hypothesesRemoved: [],
+        stateChanged: false,
         previousLearnedState: null, currentLearnedState: context.learningState.state,
         responseEffectiveness: "not_observable", recurringPattern: "insufficient_history",
       },
@@ -149,13 +154,24 @@ function buildLongitudinalReasoning(
   const currentLearned = context.learningState.state;
   const stateChanged = priorLearned !== currentLearned && Boolean(priorLearned || currentLearned);
   const responseEffectiveness =
-    currentLearned === "persisting" ? "persisting" :
-    currentLearned === "returned" ? "returned" :
-    currentLearned === "resolved" && priorLearned !== "resolved" ? "improved" :
+    currentLearned === "resolved" && (priorLearned === "persisting" || priorLearned === "returned")
+      ? "improved" :
+    (currentLearned === "persisting" && priorLearned === "persisting")
+      ? "persisting" :
+    (currentLearned === "returned" && priorLearned === "resolved")
+      ? "returned_after_resolution" :
+    (currentLearned === "returned" && priorLearned === "returned")
+      ? "recurrent" :
+    (currentLearned === "persisting" && priorLearned === "returned")
+      ? "persistent_after_recurrence" :
+    currentLearned === "resolved" && priorLearned === "resolved"
+      ? "stable_resolved" :
     "unknown";
   const recurringPattern =
-    currentLearned === "returned" ? "recurrence" :
-    currentLearned === "persisting" ? "persistence" :
+    responseEffectiveness === "returned_after_resolution" || responseEffectiveness === "recurrent"
+      ? "recurrence" :
+    responseEffectiveness === "persisting" || responseEffectiveness === "persistent_after_recurrence"
+      ? "persistence" :
     stateChanged ? "state_change" : "stable";
 
   return {
@@ -166,6 +182,7 @@ function buildLongitudinalReasoning(
       evidenceRemoved: evidenceDiff.removed,
       hypothesesAdded: hypothesisDiff.added,
       hypothesesRemoved: hypothesisDiff.removed,
+      stateChanged,
       previousLearnedState: priorLearned,
       currentLearnedState: currentLearned,
       responseEffectiveness,
@@ -182,11 +199,16 @@ function buildLongitudinalReasoning(
       evidenceDiff.added.length ? "Prioritize newly observed evidence and test whether it strengthens or contradicts the previous reasoning." : null,
       evidenceDiff.removed.length ? "Re-check evidence that disappeared from the current correlation set." : null,
       stateChanged ? "Re-evaluate the current hypothesis because the learned state changed." : null,
-      currentLearned === "returned" ? "Compare recurrence conditions with the prior response outcome before considering another response." : null,
+      responseEffectiveness === "returned_after_resolution" ? "Treat the current state as a recurrence signal and compare the new evidence with the prior resolved trace." : null,
+      responseEffectiveness === "recurrent" ? "Compare the current recurrence conditions with the prior recurrence before considering another response." : null,
       currentLearned === "persisting" ? "Investigate why the prior response did not establish a changed state and obtain fresh evidence." : null,
       currentLearned === "unknown" ? "Close the verification evidence gap before treating response effectiveness as established." : null,
     ].filter((item): item is string => Boolean(item)).slice(0, 8),
-    confidenceAdjustment: responseEffectiveness === "persisting" || responseEffectiveness === "returned" ? -8 : responseEffectiveness === "improved" ? 4 : 0,
+    confidenceAdjustment:
+      responseEffectiveness === "persisting" || responseEffectiveness === "persistent_after_recurrence" ? -6 :
+      responseEffectiveness === "returned_after_resolution" || responseEffectiveness === "recurrent" ? -8 :
+      responseEffectiveness === "improved" ? 3 :
+      0,
     boundary: "Longitudinal reasoning compares recorded historical traces with current recorded context; historical continuity is not proof of compromise, causation, attribution, or response success.",
   };
 }
