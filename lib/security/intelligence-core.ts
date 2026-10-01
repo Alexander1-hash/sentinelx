@@ -9,7 +9,7 @@ import { assessResponsePath, type ResponseReasoningResult } from "@/lib/security
 import { assessVerification, type VerificationReasoningResult } from "@/lib/security/verification-reasoning";
 import { assessLearning, type LearningReasoningResult } from "@/lib/security/learning-reasoning";
 import { buildReasoningTrace, type IntelligenceReasoningTrace } from "@/lib/security/reasoning-trace";
-import { buildLongitudinalReasoning, type LongitudinalReasoning } from "@/lib/security/longitudinal-reasoning";
+
 
 export type IntelligenceFact = {
   id: string;
@@ -73,12 +73,122 @@ export type IntelligenceCoreResult = {
   verificationReasoning: VerificationReasoningResult;
   learningReasoning: LearningReasoningResult;
   reasoningTrace: IntelligenceReasoningTrace;
-  longitudinalReasoning: LongitudinalReasoning;
+  longitudinalReasoning: {
+    available: boolean;
+    traceCount: number;
+    comparison: {
+      evidenceAdded: string[];
+      evidenceRemoved: string[];
+      hypothesesAdded: string[];
+      hypothesesRemoved: string[];
+      previousLearnedState: string | null;
+      currentLearnedState: string | null;
+      responseEffectiveness: string;
+      recurringPattern: string;
+    };
+    signals: string[];
+    nextInvestigationChanges: string[];
+    confidenceAdjustment: number;
+    boundary: string;
+  };
   boundary: string;
 };
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+
+function buildLongitudinalReasoning(
+  context: AdaptiveInvestigationContext,
+  hypotheses: HypothesisReasoningResult,
+  verification: VerificationReasoningResult,
+): IntelligenceCoreResult["longitudinalReasoning"] {
+  const previous = context.historicalState.reasoningTraces
+    .filter((item) => item.trace !== null)
+    .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())[0];
+
+  if (!previous?.trace) {
+    return {
+      available: false,
+      traceCount: context.historicalState.reasoningTraces.length,
+      comparison: {
+        evidenceAdded: [], evidenceRemoved: [], hypothesesAdded: [], hypothesesRemoved: [],
+        previousLearnedState: null, currentLearnedState: context.learningState.state,
+        responseEffectiveness: "not_observable", recurringPattern: "insufficient_history",
+      },
+      signals: ["No prior substantive reasoning trace is available for comparison."],
+      nextInvestigationChanges: ["Persist this reasoning trace so the next investigation can compare evidence, hypotheses, verification and learning."],
+      confidenceAdjustment: 0,
+      boundary: "Longitudinal reasoning compares recorded historical traces with current recorded context; historical continuity is not proof of compromise, causation, attribution, or response success.",
+    };
+  }
+
+  const trace = previous.trace;
+  const stages = Array.isArray(trace.stages) ? trace.stages : [];
+  const stage = (name: string) => {
+    const found = stages.find((item) => item && typeof item === "object" && (item as Record<string, unknown>).stage === name);
+    return found && typeof found === "object" ? found as Record<string, unknown> : {};
+  };
+  const ids = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  const diff = (current: string[], prior: string[]) => {
+    const priorSet = new Set(prior);
+    const currentSet = new Set(current);
+    return {
+      added: current.filter((id) => !priorSet.has(id)).slice(0, 25),
+      removed: prior.filter((id) => !currentSet.has(id)).slice(0, 25),
+    };
+  };
+
+  const evidenceDiff = diff(context.currentState.correlatedEvidenceIds, ids(stage("evidence").inputIds));
+  const hypothesisDiff = diff(
+    [...hypotheses.activeHypothesisIds, ...hypotheses.blockedHypothesisIds],
+    ids(stage("hypothesis").outputIds),
+  );
+  const priorLearned = ids(stage("learned_state").outputIds)[0]?.replace(/^learned-state:/, "") ?? null;
+  const currentLearned = context.learningState.state;
+  const stateChanged = priorLearned !== currentLearned && Boolean(priorLearned || currentLearned);
+  const responseEffectiveness =
+    currentLearned === "persisting" ? "persisting" :
+    currentLearned === "returned" ? "returned" :
+    currentLearned === "resolved" && priorLearned !== "resolved" ? "improved" :
+    "unknown";
+  const recurringPattern =
+    currentLearned === "returned" ? "recurrence" :
+    currentLearned === "persisting" ? "persistence" :
+    stateChanged ? "state_change" : "stable";
+
+  return {
+    available: true,
+    traceCount: context.historicalState.reasoningTraces.length,
+    comparison: {
+      evidenceAdded: evidenceDiff.added,
+      evidenceRemoved: evidenceDiff.removed,
+      hypothesesAdded: hypothesisDiff.added,
+      hypothesesRemoved: hypothesisDiff.removed,
+      previousLearnedState: priorLearned,
+      currentLearnedState: currentLearned,
+      responseEffectiveness,
+      recurringPattern,
+    },
+    signals: [
+      evidenceDiff.added.length ? evidenceDiff.added.length + " new evidence record(s) since the previous trace." : "No new correlated evidence IDs since the previous trace.",
+      evidenceDiff.removed.length ? evidenceDiff.removed.length + " previously used evidence record(s) are no longer in the current correlated set." : "No previously used evidence records dropped out of the current set.",
+      hypothesisDiff.added.length || hypothesisDiff.removed.length ? "Hypothesis structure changed since the previous trace." : "No hypothesis identifier change was detected.",
+      stateChanged ? "Learned state changed from " + (priorLearned ?? "none") + " to " + (currentLearned ?? "none") + "." : "Learned state did not change.",
+      verification.assessment.verificationId ? "A current explicit verification record is available for comparison." : "No current explicit verification record is available.",
+    ].slice(0, 6),
+    nextInvestigationChanges: [
+      evidenceDiff.added.length ? "Prioritize newly observed evidence and test whether it strengthens or contradicts the previous reasoning." : null,
+      evidenceDiff.removed.length ? "Re-check evidence that disappeared from the current correlation set." : null,
+      stateChanged ? "Re-evaluate the current hypothesis because the learned state changed." : null,
+      currentLearned === "returned" ? "Compare recurrence conditions with the prior response outcome before considering another response." : null,
+      currentLearned === "persisting" ? "Investigate why the prior response did not establish a changed state and obtain fresh evidence." : null,
+      currentLearned === "unknown" ? "Close the verification evidence gap before treating response effectiveness as established." : null,
+    ].filter((item): item is string => Boolean(item)).slice(0, 8),
+    confidenceAdjustment: responseEffectiveness === "persisting" || responseEffectiveness === "returned" ? -8 : responseEffectiveness === "improved" ? 4 : 0,
+    boundary: "Longitudinal reasoning compares recorded historical traces with current recorded context; historical continuity is not proof of compromise, causation, attribution, or response success.",
+  };
 }
 
 function hasVerification(context: AdaptiveInvestigationContext) {
@@ -103,7 +213,7 @@ export function buildIntelligenceCore(
   const responseReasoning = assessResponsePath(context, graph, hypothesisReasoning, decisionReasoning);
   const verificationReasoning = assessVerification(context, now);
   const learningReasoning = assessLearning(context, verificationReasoning);
-  const longitudinalReasoning = buildLongitudinalReasoning(context, hypothesisReasoning, verificationReasoning, learningReasoning);
+  const longitudinalReasoning = buildLongitudinalReasoning(context, hypothesisReasoning, verificationReasoning);
   const contradictions = [...new Set([
     ...context.contradictions,
     ...evidenceReasoning.conflicts,
