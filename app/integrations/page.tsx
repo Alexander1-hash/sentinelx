@@ -167,6 +167,7 @@ export default function IntegrationsPage() {
   const [discoveredAssets, setDiscoveredAssets] = useState<Record<string, DiscoveredAssets>>({});
   const [selectingAsset, setSelectingAsset] = useState<string | null>(null);
   const [subscribingWebhook, setSubscribingWebhook] = useState<string | null>(null);
+  const [selectedWabaIds, setSelectedWabaIds] = useState<Record<string, string>>({});
 
   const catalogWithEndpoint = [...catalog, endpointCatalogItem];
 
@@ -327,6 +328,9 @@ export default function IntegrationsPage() {
       if (!response.ok) {
         setMessage(data.error ?? "Unable to validate the selected asset.");
         return;
+      }
+      if (integration.integration_type === "whatsapp" && selection.wabaId) {
+        setSelectedWabaIds((current) => ({ ...current, [integration.id]: selection.wabaId as string }));
       }
       setMessage(
         integration.integration_type === "whatsapp"
@@ -664,12 +668,9 @@ export default function IntegrationsPage() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const selection = discoveredAssets[integration.id]?.whatsappBusinessAccounts.find((item) =>
-                                    item.phoneNumbers.some((phone) => phone.id === (item.phoneNumbers[0]?.id)),
-                                  );
-                                  const waba = discoveredAssets[integration.id]?.whatsappBusinessAccounts[0];
-                                  if (waba) void subscribeWhatsAppWebhook(integration, waba.id);
-                                  else setMessage("Rediscover WhatsApp assets before subscribing the webhook.");
+                                  const wabaId = selectedWabaIds[integration.id];
+                                  if (wabaId) void subscribeWhatsAppWebhook(integration, wabaId);
+                                  else setMessage("Select and validate a WhatsApp phone number before subscribing the webhook.");
                                 }}
                                 disabled={subscribingWebhook === integration.id}
                                 className="rounded-lg bg-emerald-300 px-3 py-2 text-[9px] font-semibold text-slate-950 disabled:opacity-50"
