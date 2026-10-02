@@ -55,12 +55,42 @@ export async function GET() {
           ? integration.configuration as Record<string, unknown>
           : {};
 
-      const { authorization: _authorization, ...safeConfiguration } =
-        configuration;
+      const authorization =
+        configuration.authorization &&
+        typeof configuration.authorization === "object" &&
+        !Array.isArray(configuration.authorization)
+          ? configuration.authorization as Record<string, unknown>
+          : {};
+      const assetSelection =
+        authorization.asset_selection &&
+        typeof authorization.asset_selection === "object" &&
+        !Array.isArray(authorization.asset_selection)
+          ? authorization.asset_selection as Record<string, unknown>
+          : {};
+      const webhookSubscription =
+        authorization.webhook_subscription &&
+        typeof authorization.webhook_subscription === "object" &&
+        !Array.isArray(authorization.webhook_subscription)
+          ? authorization.webhook_subscription as Record<string, unknown>
+          : {};
+      const { authorization: _authorization, ...safeConfiguration } = configuration;
 
       return {
         ...integration,
         configuration: safeConfiguration,
+        authorization_state: {
+          asset_selection: {
+            business_id: typeof assetSelection.business_id === "string" ? assetSelection.business_id : null,
+            waba_id: typeof assetSelection.waba_id === "string" ? assetSelection.waba_id : null,
+            phone_number_id: typeof assetSelection.phone_number_id === "string" ? assetSelection.phone_number_id : null,
+            verified: assetSelection.verified === true,
+          },
+          webhook_subscription: {
+            waba_id: typeof webhookSubscription.waba_id === "string" ? webhookSubscription.waba_id : null,
+            subscribed: webhookSubscription.subscribed === true,
+            subscribed_at: typeof webhookSubscription.subscribed_at === "string" ? webhookSubscription.subscribed_at : null,
+          },
+        },
         connection_state:
           typeof configuration.connection_state === "string"
             ? configuration.connection_state
