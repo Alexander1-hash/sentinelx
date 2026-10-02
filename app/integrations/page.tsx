@@ -136,6 +136,7 @@ export default function IntegrationsPage() {
   const [executionId, setExecutionId] = useState<string | null>(null);
   const [executionUrl, setExecutionUrl] = useState("");
   const [configuringExecution, setConfiguringExecution] = useState(false);
+  const [connectingId, setConnectingId] = useState<string | null>(null);
 
   const catalogWithEndpoint = [...catalog, endpointCatalogItem];
 
@@ -153,6 +154,17 @@ export default function IntegrationsPage() {
 
   useEffect(() => {
     void loadIntegrations();
+
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get("connected");
+    const connectionError = params.get("connection_error");
+
+    if (connected) setMessage(`${connected} authorization completed successfully.`);
+    if (connectionError) setMessage(connectionError);
+
+    if (connected || connectionError) {
+      window.history.replaceState({}, "", "/integrations");
+    }
   }, []);
 
   async function rotateToken(integration: Integration) {
@@ -179,6 +191,45 @@ export default function IntegrationsPage() {
       await loadIntegrations();
     } finally {
       setRotatingId(null);
+    }
+  }
+
+  async function connectIntegration(integration: Integration) {
+    const supported = new Set(["x", "meta", "whatsapp", "discord", "slack"]);
+    if (!supported.has(integration.integration_type)) {
+      setMessage(
+        integration.integration_type === "telegram"
+          ? "Telegram requires a bot/business credential setup rather than this OAuth connection flow."
+          : "This integration requires provider-specific setup before Trinorin can authorize it.",
+      );
+      return;
+    }
+
+    setConnectingId(integration.id);
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/security/integrations/connect?integrationId=${encodeURIComponent(integration.id)}&provider=${encodeURIComponent(integration.integration_type)}`,
+        { cache: "no-store" },
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error ?? "Unable to start provider authorization.");
+        return;
+      }
+
+      if (typeof data.authorizationUrl !== "string") {
+        setMessage("The provider authorization URL was not returned.");
+        return;
+      }
+
+      window.location.assign(data.authorizationUrl);
+    } catch {
+      setMessage("Unable to start provider authorization.");
+    } finally {
+      setConnectingId(null);
     }
   }
 
@@ -385,6 +436,17 @@ export default function IntegrationsPage() {
                         ) : null}
                       </div>
                     </div>
+                    {["x", "meta", "whatsapp", "discord", "slack"].includes(integration.integration_type) ? (
+                      <button
+                        type="button"
+                        onClick={() => void connectIntegration(integration)}
+                        disabled={connectingId === integration.id || integration.connection_state === "authorized"}
+                        className="inline-flex w-fit items-center gap-2 rounded-lg border border-cyan-400/15 px-3 py-2 text-[10px] font-semibold text-cyan-200 hover:bg-cyan-400/5 disabled:opacity-50"
+                      >
+                        {connectingId === integration.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+                        {integration.connection_state === "authorized" ? "Provider authorized" : "Connect provider"}
+                      </button>
+                    ) : null}
                     {executionId === integration.id ? (
                       <div className="w-full rounded-xl border border-emerald-400/10 bg-emerald-400/[0.025] p-3 sm:w-auto sm:min-w-[340px]">
                         <p className="text-[9px] font-semibold uppercase tracking-wider text-emerald-200">Provider execution</p>
