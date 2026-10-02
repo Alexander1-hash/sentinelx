@@ -200,18 +200,48 @@ export default function IntegrationsPage() {
   const [selectingAsset, setSelectingAsset] = useState<string | null>(null);
   const [subscribingWebhook, setSubscribingWebhook] = useState<string | null>(null);
   const [selectedWabaIds, setSelectedWabaIds] = useState<Record<string, string>>({});
+  const [integrationHealth, setIntegrationHealth] = useState<Record<string, IntegrationHealth>>({});
+  const [healthCheckedAt, setHealthCheckedAt] = useState<string | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
 
   const catalogWithEndpoint = [...catalog, endpointCatalogItem];
 
-  async function loadIntegrations() {
-    setLoading(true);
+  async function loadIntegrations(options: { silent?: boolean } = {}) {
+    if (!options.silent) setLoading(true);
+    setHealthLoading(true);
     try {
-      const response = await fetch("/api/security/integrations", { cache: "no-store" });
-      const data = await response.json();
-      if (response.ok) setIntegrations(data.integrations ?? []);
-      else setMessage(data.error ?? "Unable to load integrations.");
+      const [integrationResponse, healthResponse] = await Promise.all([
+        fetch("/api/security/integrations", { cache: "no-store" }),
+        fetch("/api/security/integrations/health", { cache: "no-store" }),
+      ]);
+      const [data, healthData] = await Promise.all([
+        integrationResponse.json(),
+        healthResponse.json(),
+      ]);
+
+      if (integrationResponse.ok) {
+        setIntegrations(data.integrations ?? []);
+      } else if (!options.silent) {
+        setMessage(data.error ?? "Unable to load integrations.");
+      }
+
+      if (healthResponse.ok) {
+        const nextHealth: Record<string, IntegrationHealth> = {};
+        for (const item of Array.isArray(healthData.health) ? healthData.health : []) {
+          if (item && typeof item.integrationId === "string") {
+            nextHealth[item.integrationId] = item as IntegrationHealth;
+          }
+        }
+        setIntegrationHealth(nextHealth);
+        setHealthCheckedAt(typeof healthData.checkedAt === "string" ? healthData.checkedAt : null);
+      } else if (!options.silent) {
+        setMessage(healthData.error ?? "Unable to evaluate integration health.");
+      }
+    } catch {
+      if (!options.silent) setMessage("Unable to load integration health.");
     } finally {
-      setLoading(false);
+      setHealthLoading(false);
+      if (!options.silent) setLoading(false);
     }
   }
 
