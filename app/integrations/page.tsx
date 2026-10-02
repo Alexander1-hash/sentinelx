@@ -36,6 +36,32 @@ type TokenNotice = {
   token: string;
 };
 
+type MetaBusiness = {
+  id: string;
+  name: string | null;
+};
+
+type WhatsAppPhone = {
+  id: string;
+  display_phone_number: string | null;
+  verified_name: string | null;
+  quality_rating: string | null;
+  code_verification_status: string | null;
+};
+
+type WhatsAppBusinessAccount = {
+  id: string;
+  name: string | null;
+  business_id: string | null;
+  business_name: string | null;
+  phoneNumbers: WhatsAppPhone[];
+};
+
+type DiscoveredAssets = {
+  businesses: MetaBusiness[];
+  whatsappBusinessAccounts: WhatsAppBusinessAccount[];
+};
+
 function syncAgeLabel(lastSyncAt: string | null) {
   if (!lastSyncAt) return "No telemetry received yet.";
   const ageMs = Math.max(0, Date.now() - new Date(lastSyncAt).getTime());
@@ -137,6 +163,10 @@ export default function IntegrationsPage() {
   const [executionUrl, setExecutionUrl] = useState("");
   const [configuringExecution, setConfiguringExecution] = useState(false);
   const [connectingId, setConnectingId] = useState<string | null>(null);
+  const [discoveringId, setDiscoveringId] = useState<string | null>(null);
+  const [discoveredAssets, setDiscoveredAssets] = useState<Record<string, DiscoveredAssets>>({});
+  const [selectingAsset, setSelectingAsset] = useState<string | null>(null);
+  const [subscribingWebhook, setSubscribingWebhook] = useState<string | null>(null);
 
   const catalogWithEndpoint = [...catalog, endpointCatalogItem];
 
@@ -234,6 +264,7 @@ export default function IntegrationsPage() {
   }
 
   async function discoverMetaAssets(integration: Integration) {
+    setDiscoveringId(integration.id);
     setMessage("");
     try {
       const response = await fetch(
@@ -245,22 +276,91 @@ export default function IntegrationsPage() {
         setMessage(data.error ?? "Unable to discover Meta assets.");
         return;
       }
-      const businesses = Array.isArray(data.businesses) ? data.businesses : [];
+      const businesses: MetaBusiness[] = Array.isArray(data.businesses)
+        ? data.businesses.filter((item: unknown): item is MetaBusiness =>
+            Boolean(item && typeof item === "object" && typeof (item as { id?: unknown }).id === "string"),
+          )
+        : [];
+      const whatsappBusinessAccounts: WhatsAppBusinessAccount[] = integration.integration_type === "whatsapp" && Array.isArray(data.whatsappBusinessAccounts)
+        ? data.whatsappBusinessAccounts
+            .filter((item: unknown): item is WhatsAppBusinessAccount =>
+              Boolean(item && typeof item === "object" && typeof (item as { id?: unknown }).id === "string"),
+            )
+            .map((item) => ({
+              ...item,
+              phoneNumbers: Array.isArray(item.phoneNumbers) ? item.phoneNumbers.filter((phone): phone is WhatsAppPhone => Boolean(phone && typeof phone.id === "string")) : [],
+            }))
+        : [];
+      setDiscoveredAssets((current) => ({
+        ...current,
+        [integration.id]: { businesses, whatsappBusinessAccounts },
+      }));
       if (integration.integration_type === "whatsapp") {
-        const wabas = Array.isArray(data.whatsappBusinessAccounts) ? data.whatsappBusinessAccounts : [];
-        const phones = wabas.flatMap((waba: { phoneNumbers?: unknown[] }) =>
-          Array.isArray(waba.phoneNumbers) ? waba.phoneNumbers : [],
-        );
+        const phones = whatsappBusinessAccounts.reduce((count, waba) => count + waba.phoneNumbers.length, 0);
         setMessage(
-          `Meta discovery completed: ${businesses.length} business account(s), ${wabas.length} WhatsApp Business Account(s), ${phones.length} phone number(s) found. Asset selection is still required before Trinorin claims WhatsApp telemetry.`,
+          `Meta discovery completed: ${businesses.length} business account(s), ${whatsappBusinessAccounts.length} WhatsApp Business Account(s), ${phones} phone number(s) found. Select a WABA and phone number to continue.`,
         );
       } else {
-        setMessage(
-          `Meta discovery completed: ${businesses.length} business account(s) found. Select and validate the intended business asset before Trinorin claims Meta telemetry.`,
-        );
+        setMessage(`Meta discovery completed: ${businesses.length} business account(s). Select the intended business asset to continue.`);
       }
     } catch {
       setMessage("Unable to discover Meta assets.");
+    } finally {
+      setDiscoveringId(null);
+    }
+  }
+
+  async function selectMetaAsset(integration: Integration, selection: { businessId?: string; wabaId?: string; phoneNumberId?: string }) {
+    setSelectingAsset(integration.id);
+    setMessage("");
+    try {
+      const response = await fetch("/api/security/integrations/meta/assets/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          integrationId: integration.id,
+          provider: integration.integration_type,
+          ...selection,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error ?? "Unable to validate the selected asset.");
+        return;
+      }
+      setMessage(
+        integration.integration_type === "whatsapp"
+          ? "WhatsApp WABA and phone number verified. The webhook can now be subscribed."
+          : "Meta business asset verified. Trinorin can now use only the explicitly selected asset.",
+      );
+      await loadIntegrations();
+    } catch {
+      setMessage("Unable to validate the selected asset.");
+    } finally {
+      setSelectingAsset(null);
+    }
+  }
+
+  async function subscribeWhatsAppWebhook(integration: Integration, wabaId: string) {
+    setSubscribingWebhook(integration.id);
+    setMessage("");
+    try {
+      const response = await fetch("/api/security/integrations/meta/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ integrationId: integration.id, wabaId }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error ?? "Unable to subscribe the WhatsApp webhook.");
+        return;
+      }
+      setMessage("Meta confirmed the WhatsApp Business Account webhook subscription. Trinorin will only mark live ingestion after a signed event is actually received.");
+      await loadIntegrations();
+    } catch {
+      setMessage("Unable to subscribe the WhatsApp webhook.");
+    } finally {
+      setSubscribingWebhook(null);
     }
   }
 
@@ -479,13 +579,107 @@ export default function IntegrationsPage() {
                       </button>
                     ) : null}
                     {["meta", "whatsapp"].includes(integration.integration_type) && integration.connection_state !== "not_connected" ? (
-                      <button
-                        type="button"
-                        onClick={() => void discoverMetaAssets(integration)}
-                        className="inline-flex w-fit items-center gap-2 rounded-lg border border-violet-400/15 px-3 py-2 text-[10px] font-semibold text-violet-200 hover:bg-violet-400/5"
-                      >
-                        <ShieldCheck className="h-3.5 w-3.5" /> Discover business assets
-                      </button>
+                      <div className="w-full space-y-3 rounded-2xl border border-violet-400/10 bg-violet-400/[0.025] p-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void discoverMetaAssets(integration)}
+                            disabled={discoveringId === integration.id}
+                            className="inline-flex w-fit items-center gap-2 rounded-lg border border-violet-400/15 px-3 py-2 text-[10px] font-semibold text-violet-200 hover:bg-violet-400/5 disabled:opacity-50"
+                          >
+                            {discoveringId === integration.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                            {discoveredAssets[integration.id] ? "Refresh business assets" : "Discover business assets"}
+                          </button>
+                        </div>
+
+                        {discoveredAssets[integration.id]?.businesses.length ? (
+                          <div className="space-y-2">
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">
+                              {integration.integration_type === "whatsapp" ? "Authorized businesses" : "Select Meta business"}
+                            </p>
+                            {discoveredAssets[integration.id].businesses.map((business) => (
+                              <div key={business.id} className="rounded-xl border border-white/10 bg-black/10 p-3">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                  <div>
+                                    <p className="text-[11px] font-semibold text-white">{business.name || "Unnamed business"}</p>
+                                    <p className="text-[9px] text-slate-600">Business ID: {business.id}</p>
+                                  </div>
+                                  {integration.integration_type === "meta" ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => void selectMetaAsset(integration, { businessId: business.id })}
+                                      disabled={selectingAsset === integration.id}
+                                      className="rounded-lg bg-violet-300 px-3 py-2 text-[9px] font-semibold text-slate-950 disabled:opacity-50"
+                                    >
+                                      {selectingAsset === integration.id ? "Validating..." : "Select business"}
+                                    </button>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        {integration.integration_type === "whatsapp" && discoveredAssets[integration.id]?.whatsappBusinessAccounts.length ? (
+                          <div className="space-y-3">
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">WhatsApp Business Accounts</p>
+                            {discoveredAssets[integration.id].whatsappBusinessAccounts.map((waba) => (
+                              <div key={waba.id} className="rounded-xl border border-white/10 bg-black/10 p-3">
+                                <div>
+                                  <p className="text-[11px] font-semibold text-white">{waba.name || "WhatsApp Business Account"}</p>
+                                  <p className="text-[9px] text-slate-600">{waba.business_name || "Business"} · WABA {waba.id}</p>
+                                </div>
+                                <div className="mt-3 space-y-2">
+                                  {waba.phoneNumbers.length ? waba.phoneNumbers.map((phone) => (
+                                    <div key={phone.id} className="flex flex-col gap-2 rounded-lg border border-white/10 bg-[#071018] p-2.5 sm:flex-row sm:items-center sm:justify-between">
+                                      <div>
+                                        <p className="text-[10px] font-medium text-white">{phone.display_phone_number || phone.id}</p>
+                                        <p className="text-[9px] text-slate-600">{phone.verified_name || "Verified name unavailable"} · {phone.quality_rating || "quality unknown"}</p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => void selectMetaAsset(integration, { wabaId: waba.id, phoneNumberId: phone.id })}
+                                        disabled={selectingAsset === integration.id}
+                                        className="rounded-lg bg-violet-300 px-3 py-2 text-[9px] font-semibold text-slate-950 disabled:opacity-50"
+                                      >
+                                        {selectingAsset === integration.id ? "Validating..." : "Select phone"}
+                                      </button>
+                                    </div>
+                                  )) : (
+                                    <p className="text-[9px] text-slate-600">No phone numbers were returned for this WABA.</p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        {integration.integration_type === "whatsapp" && integration.connection_state === "asset_verified" ? (
+                          <div className="rounded-xl border border-emerald-400/10 bg-emerald-400/[0.03] p-3">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <div>
+                                <p className="text-[10px] font-semibold text-emerald-200">Asset verified</p>
+                                <p className="mt-1 text-[9px] text-slate-600">Subscribe the selected WABA to Trinorin's signed webhook.</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const selection = discoveredAssets[integration.id]?.whatsappBusinessAccounts.find((item) =>
+                                    item.phoneNumbers.some((phone) => phone.id === (item.phoneNumbers[0]?.id)),
+                                  );
+                                  const waba = discoveredAssets[integration.id]?.whatsappBusinessAccounts[0];
+                                  if (waba) void subscribeWhatsAppWebhook(integration, waba.id);
+                                  else setMessage("Rediscover WhatsApp assets before subscribing the webhook.");
+                                }}
+                                disabled={subscribingWebhook === integration.id}
+                                className="rounded-lg bg-emerald-300 px-3 py-2 text-[9px] font-semibold text-slate-950 disabled:opacity-50"
+                              >
+                                {subscribingWebhook === integration.id ? "Subscribing..." : "Subscribe webhook"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
                     ) : null}
                     {executionId === integration.id ? (
                       <div className="w-full rounded-xl border border-emerald-400/10 bg-emerald-400/[0.025] p-3 sm:w-auto sm:min-w-[340px]">
