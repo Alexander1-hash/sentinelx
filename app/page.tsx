@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
@@ -420,13 +421,14 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-            <button
-              type="button"
+            <Link
+              href="/settings"
               aria-label="Settings"
-              className="rounded-xl border border-white/10 p-2.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
+              title="Settings"
+              className="rounded-xl border border-white/10 p-2.5 text-slate-400 transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60"
             >
               <Settings className="h-4 w-4" />
-            </button>
+            </Link>
             <button
               type="button"
               onClick={handleSignOut}
