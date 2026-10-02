@@ -2,6 +2,12 @@
   "framework": "nextjs",
   "installCommand": "npm install",
   "buildCommand": "npm run build",
+  "crons": [
+    {
+      "path": "/api/security/integrations/refresh-all",
+      "schedule": "0 * * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
