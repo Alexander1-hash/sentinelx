@@ -10,7 +10,9 @@ import {
   KeyRound,
   Link2,
   Loader2,
+  MessageCircle,
   Plus,
+  Send,
   ShieldCheck,
   Sparkles,
   X,
@@ -55,6 +57,38 @@ const endpointCatalogItem = {
   };
 
 const catalog = [
+  {
+    provider: "WhatsApp Business",
+    type: "whatsapp",
+    title: "WhatsApp Business",
+    description: "Authorized business messaging signals, conversations and security-relevant links where the permitted API access supports them.",
+    icon: MessageCircle,
+    scopes: ["messages", "webhooks", "business_metadata"],
+  },
+  {
+    provider: "X",
+    type: "x",
+    title: "X",
+    description: "Authorized account, post and supported interaction signals through the X developer platform.",
+    icon: Send,
+    scopes: ["account_metadata", "posts", "mentions"],
+  },
+  {
+    provider: "Meta",
+    type: "meta",
+    title: "Instagram & Facebook",
+    description: "Authorized business-account messaging and social activity signals through supported Meta APIs.",
+    icon: MessageCircle,
+    scopes: ["business_metadata", "messages", "webhooks"],
+  },
+  {
+    provider: "Telegram",
+    type: "telegram",
+    title: "Telegram",
+    description: "Authorized bot or business messaging events for security analysis and evidence ingestion.",
+    icon: Send,
+    scopes: ["messages", "webhooks", "bot_metadata"],
+  },
   {
     provider: "Cloud",
     type: "cloud",
@@ -487,7 +521,7 @@ export default function IntegrationsPage() {
                 }}
                 className="w-full rounded-xl border border-white/10 bg-[#071018] px-4 py-3 text-sm text-white"
               >
-                {catalog.map((item) => <option key={item.type} value={item.type}>{item.title}</option>)}
+                {catalogWithEndpoint.map((item) => <option key={item.type} value={item.type}>{item.title}</option>)}
               </select>
 
               <div className="rounded-2xl border border-cyan-400/10 bg-cyan-400/[0.03] p-4">
