@@ -55,8 +55,12 @@ export async function GET() {
           ? integration.configuration as Record<string, unknown>
           : {};
 
+      const { authorization: _authorization, ...safeConfiguration } =
+        configuration;
+
       return {
         ...integration,
+        configuration: safeConfiguration,
         connection_state:
           typeof configuration.connection_state === "string"
             ? configuration.connection_state
