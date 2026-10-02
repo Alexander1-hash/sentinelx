@@ -43,6 +43,25 @@ type Integration = {
   };
 };
 
+type IntegrationHealth = {
+  integrationId: string;
+  displayName: string;
+  provider: string;
+  status: string;
+  stage: "registered" | "authorized" | "asset_verified" | "webhook_subscribed" | "ingestion_active";
+  checks: {
+    registered: boolean;
+    authorized: boolean;
+    credentialExpired: boolean;
+    assetVerified: boolean;
+    webhookSubscribed: boolean;
+    firstEventReceived: boolean;
+    analysisReady: boolean;
+  };
+  lastTelemetryAt: string | null;
+  nextAction: string;
+};
+
 type TokenNotice = {
   integrationId: string;
   integrationName: string;
