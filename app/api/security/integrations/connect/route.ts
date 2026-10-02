@@ -30,7 +30,7 @@ const providers = {
   slack: {
     clientId: () => process.env.SLACK_CLIENT_ID,
     authorizeUrl: "https://slack.com/oauth/v2/authorize",
-    scopes: ["channels:read", "groups:read", "users:read"],
+    scopes: ["channels:read", "channels:history", "groups:read", "groups:history", "im:history", "mpim:history", "users:read"],
     pkce: false,
   },
 } as const;
