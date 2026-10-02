@@ -81,7 +81,7 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json({ health });
+    return NextResponse.json({ health, checkedAt: new Date().toISOString() });
   } catch {
     return NextResponse.json({ error: "Unable to evaluate integration health." }, { status: 500 });
   }
