@@ -27,6 +27,7 @@ type Integration = {
   scopes: string[];
   last_sync_at: string | null;
   created_at: string;
+  connection_state: string;
 };
 
 type TokenNotice = {
@@ -309,7 +310,7 @@ export default function IntegrationsPage() {
                     <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5 text-cyan-300">
                       <Icon className="h-5 w-5" />
                     </div>
-                    <span className="rounded-full bg-white/5 px-2 py-1 text-[9px] uppercase tracking-wider text-slate-500">Available</span>
+                    <span className="rounded-full bg-white/5 px-2 py-1 text-[9px] uppercase tracking-wider text-slate-500">Connector definition</span>
                   </div>
                   <p className="mt-5 text-sm font-semibold text-white">{item.title}</p>
                   <p className="mt-2 text-xs leading-5 text-slate-500">{item.description}</p>
@@ -366,18 +367,23 @@ export default function IntegrationsPage() {
                           {integration.last_sync_at
                             ? `Last telemetry received: ${new Date(integration.last_sync_at).toLocaleString()}`
                             : integration.status === "connected"
-                              ? "Connected · awaiting the next telemetry event."
+                              ? "Telemetry channel active · provider authorization is not asserted."
                               : "Not connected · no telemetry is being claimed."}
                         </p>
                         {integration.last_sync_at ? (
                           <p className="text-[10px] text-slate-600">{syncAgeLabel(integration.last_sync_at)}</p>
                         ) : null}
                       </div>
-                      {integration.status === "connected" ? (
-                        <Link href="/" className="text-[10px] font-semibold text-cyan-300 hover:text-white">
-                          Open Command Center →
-                        </Link>
-                      ) : null}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-white/10 px-2 py-1 text-[9px] uppercase tracking-wider text-slate-500">
+                          {integration.connection_state.replaceAll("_", " ")}
+                        </span>
+                        {integration.status === "connected" ? (
+                          <Link href="/" className="text-[10px] font-semibold text-cyan-300 hover:text-white">
+                            Open Command Center →
+                          </Link>
+                        ) : null}
+                      </div>
                     </div>
                     {executionId === integration.id ? (
                       <div className="w-full rounded-xl border border-emerald-400/10 bg-emerald-400/[0.025] p-3 sm:w-auto sm:min-w-[340px]">
@@ -535,7 +541,7 @@ export default function IntegrationsPage() {
               </div>
 
               <div className="rounded-xl border border-white/10 bg-black/10 p-3 text-[10px] leading-5 text-slate-600">
-                The integration will remain <strong className="text-amber-300">planned</strong> until an authorized connection is completed. Trinorin will not fabricate telemetry, findings, or protection status.
+                The integration will remain <strong className="text-amber-300">planned</strong> until an authorized connection is completed. Using the ingestion token activates only the telemetry channel; it does not claim that the external provider account has been authorized.
               </div>
 
               <button disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 disabled:opacity-50">
