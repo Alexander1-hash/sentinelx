@@ -125,11 +125,6 @@ export async function GET(request: Request) {
       );
     }
 
-    const businesses = asRows(
-      await graphGet("me/businesses", "invalid", "id,name"),
-    );
-    // graphGet expects the token as its second argument; the line above is
-    // replaced immediately below to keep the request construction centralized.
     const businessResponse = await graphGet("me/businesses", accessToken, "id,name");
     const businessRows = asRows(businessResponse);
 
