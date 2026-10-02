@@ -28,6 +28,19 @@ type Integration = {
   last_sync_at: string | null;
   created_at: string;
   connection_state: string;
+  authorization_state?: {
+    asset_selection?: {
+      business_id: string | null;
+      waba_id: string | null;
+      phone_number_id: string | null;
+      verified: boolean;
+    };
+    webhook_subscription?: {
+      waba_id: string | null;
+      subscribed: boolean;
+      subscribed_at: string | null;
+    };
+  };
 };
 
 type TokenNotice = {
@@ -658,24 +671,35 @@ export default function IntegrationsPage() {
                           </div>
                         ) : null}
 
-                        {integration.integration_type === "whatsapp" && integration.connection_state === "asset_verified" ? (
+                        {integration.integration_type === "whatsapp" && ["asset_verified", "webhook_subscribed", "ingestion_active"].includes(integration.connection_state) ? (
                           <div className="rounded-xl border border-emerald-400/10 bg-emerald-400/[0.03] p-3">
                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                               <div>
                                 <p className="text-[10px] font-semibold text-emerald-200">Asset verified</p>
-                                <p className="mt-1 text-[9px] text-slate-600">Subscribe the selected WABA to Trinorin's signed webhook.</p>
+                                <p className="mt-1 text-[9px] text-slate-600">
+                                  {integration.authorization_state?.webhook_subscription?.subscribed
+                                    ? "Meta has confirmed the WABA subscription. Live ingestion remains pending until a signed event is received."
+                                    : "Subscribe the selected WABA to the webhook configured for Trinorin's Meta app."}
+                                </p>
                               </div>
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const wabaId = selectedWabaIds[integration.id];
+                                  const wabaId =
+                                    selectedWabaIds[integration.id] ??
+                                    integration.authorization_state?.asset_selection?.waba_id ??
+                                    "";
                                   if (wabaId) void subscribeWhatsAppWebhook(integration, wabaId);
                                   else setMessage("Select and validate a WhatsApp phone number before subscribing the webhook.");
                                 }}
-                                disabled={subscribingWebhook === integration.id}
+                                disabled={subscribingWebhook === integration.id || Boolean(integration.authorization_state?.webhook_subscription?.subscribed)}
                                 className="rounded-lg bg-emerald-300 px-3 py-2 text-[9px] font-semibold text-slate-950 disabled:opacity-50"
                               >
-                                {subscribingWebhook === integration.id ? "Subscribing..." : "Subscribe webhook"}
+                                {integration.authorization_state?.webhook_subscription?.subscribed
+                                  ? "Webhook subscribed"
+                                  : subscribingWebhook === integration.id
+                                    ? "Subscribing..."
+                                    : "Subscribe webhook"}
                               </button>
                             </div>
                           </div>
