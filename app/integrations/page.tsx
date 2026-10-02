@@ -540,6 +540,90 @@ export default function IntegrationsPage() {
         )}
 
         <section className="mt-8">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-cyan-300" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Integration health</p>
+              </div>
+              <p className="mt-2 text-xs text-slate-600">
+                {healthCheckedAt
+                  ? "Checked " + new Date(healthCheckedAt).toLocaleString() + ". Health is evidence-based; authorization does not imply live telemetry."
+                  : "Health checks verify the lifecycle state without exposing provider credentials."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadIntegrations({ silent: true })}
+              disabled={healthLoading}
+              className="inline-flex w-fit items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-[10px] font-semibold text-slate-300 hover:bg-white/[0.03] disabled:opacity-50"
+            >
+              <Loader2 className={"h-3.5 w-3.5 " + (healthLoading ? "animate-spin" : "")} />
+              Refresh health
+            </button>
+          </div>
+
+          {integrations.length ? (
+            <div className="space-y-3">
+              {integrations.map((integration) => {
+                const health = integrationHealth[integration.id];
+                const steps = [
+                  ["Registered", health?.checks.registered === true],
+                  ["Authorized", health?.checks.authorized === true && health?.checks.credentialExpired !== true],
+                  ["Asset", health?.checks.assetVerified === true],
+                  ["Webhook", health?.checks.webhookSubscribed === true],
+                  ["Event", health?.checks.firstEventReceived === true],
+                  ["Analysis", health?.checks.analysisReady === true],
+                ] as const;
+                return (
+                  <div key={integration.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-white">{integration.display_name}</p>
+                          {health ? (
+                            <span className="rounded-full border border-cyan-400/15 bg-cyan-400/[0.04] px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-cyan-200">
+                              {health.stage.replaceAll("_", " ")}
+                            </span>
+                          ) : (
+                            <span className="rounded-full border border-white/10 px-2 py-1 text-[9px] uppercase tracking-wider text-slate-600">Checking</span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-[10px] text-slate-600">{health?.nextAction ?? "Evaluating integration lifecycle."}</p>
+                      </div>
+                      <div className="text-[9px] text-slate-600">
+                        {health?.lastTelemetryAt ? syncAgeLabel(health.lastTelemetryAt) : "No signed event received yet."}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                      {steps.map(([label, complete]) => (
+                        <div key={label} className={"rounded-xl border p-2.5 " + (complete ? "border-emerald-400/15 bg-emerald-400/[0.04]" : "border-white/10 bg-black/10")}>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className={"h-3.5 w-3.5 " + (complete ? "text-emerald-300" : "text-slate-700")} />
+                            <span className={"text-[9px] font-semibold " + (complete ? "text-emerald-200" : "text-slate-600")}>{label}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {health?.checks.credentialExpired ? (
+                      <p className="mt-3 rounded-lg border border-amber-400/10 bg-amber-400/[0.03] px-3 py-2 text-[9px] text-amber-200">
+                        The stored provider credential has expired. Reauthorization is required before new provider access can be trusted.
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-white/10 p-5 text-xs text-slate-600">
+              Register an integration to begin lifecycle health verification.
+            </div>
+          )}
+        </section>
+
+        <section className="mt-8">
           <div className="mb-4 flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-cyan-300" />
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Integration catalog</p>
