@@ -10,17 +10,32 @@ function getKeyMaterial() {
   let bytes: Uint8Array;
 
   if (/^[0-9a-fA-F]{64}$/.test(normalized)) {
-    bytes = new Uint8Array(normalized.match(/.{2}/g)!.map((part) => parseInt(part, 16)));
+    bytes = new Uint8Array(
+      normalized.match(/.{2}/g)!.map((part) => parseInt(part, 16)),
+    );
   } else {
     const binary = atob(normalized);
     bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
   }
 
   if (bytes.length !== 32) {
-    throw new Error("TRINORIN_INTEGRATION_ENCRYPTION_KEY must decode to exactly 32 bytes.");
+    throw new Error(
+      "TRINORIN_INTEGRATION_ENCRYPTION_KEY must decode to exactly 32 bytes.",
+    );
   }
 
-  return crypto.subtle.importKey("raw", bytes, "AES-GCM", false, ["encrypt", "decrypt"]);
+  // Create an ArrayBuffer-backed copy so TypeScript's Web Crypto typings
+  // remain compatible with newer lib.dom definitions.
+  const keyBytes = new Uint8Array(32);
+  keyBytes.set(bytes);
+
+  return crypto.subtle.importKey(
+    "raw",
+    keyBytes.buffer,
+    "AES-GCM",
+    false,
+    ["encrypt", "decrypt"],
+  );
 }
 
 function toBase64Url(bytes: Uint8Array) {
@@ -31,20 +46,30 @@ function toBase64Url(bytes: Uint8Array) {
 }
 
 function fromBase64Url(value: string) {
-  const padded = value.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - (value.length % 4)) % 4);
+  const padded =
+    value.replaceAll("-", "+").replaceAll("_", "/") +
+    "=".repeat((4 - (value.length % 4)) % 4);
   return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
 }
 
-export async function encryptIntegrationState(value: Record<string, unknown>) {
+export async function encryptIntegrationState(
+  value: Record<string, unknown>,
+) {
   const key = await getKeyMaterial();
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = new Uint8Array(
-    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoder.encode(JSON.stringify(value))),
+    await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      key,
+      encoder.encode(JSON.stringify(value)),
+    ),
   );
   return `${toBase64Url(iv)}.${toBase64Url(ciphertext)}`;
 }
 
-export async function decryptIntegrationState<T>(value: string): Promise<T | null> {
+export async function decryptIntegrationState<T>(
+  value: string,
+): Promise<T | null> {
   try {
     const [ivPart, ciphertextPart] = value.split(".");
     if (!ivPart || !ciphertextPart) return null;
