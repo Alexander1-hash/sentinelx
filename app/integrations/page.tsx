@@ -233,6 +233,37 @@ export default function IntegrationsPage() {
     }
   }
 
+  async function discoverMetaAssets(integration: Integration) {
+    setMessage("");
+    try {
+      const response = await fetch(
+        `/api/security/integrations/meta/assets?integrationId=${encodeURIComponent(integration.id)}&provider=${encodeURIComponent(integration.integration_type)}`,
+        { cache: "no-store" },
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error ?? "Unable to discover Meta assets.");
+        return;
+      }
+      const businesses = Array.isArray(data.businesses) ? data.businesses : [];
+      if (integration.integration_type === "whatsapp") {
+        const wabas = Array.isArray(data.whatsappBusinessAccounts) ? data.whatsappBusinessAccounts : [];
+        const phones = wabas.flatMap((waba: { phoneNumbers?: unknown[] }) =>
+          Array.isArray(waba.phoneNumbers) ? waba.phoneNumbers : [],
+        );
+        setMessage(
+          `Meta discovery completed: ${businesses.length} business account(s), ${wabas.length} WhatsApp Business Account(s), ${phones.length} phone number(s) found. Asset selection is still required before Trinorin claims WhatsApp telemetry.`,
+        );
+      } else {
+        setMessage(
+          `Meta discovery completed: ${businesses.length} business account(s) found. Select and validate the intended business asset before Trinorin claims Meta telemetry.`,
+        );
+      }
+    } catch {
+      setMessage("Unable to discover Meta assets.");
+    }
+  }
+
   async function configureExecution(integrationId: string) {
     if (!executionUrl.trim()) {
       setMessage("Enter the HTTPS provider execution webhook URL first.");
@@ -445,6 +476,15 @@ export default function IntegrationsPage() {
                       >
                         {connectingId === integration.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
                         {integration.connection_state === "authorized" ? "Provider authorized" : "Connect provider"}
+                      </button>
+                    ) : null}
+                    {["meta", "whatsapp"].includes(integration.integration_type) && integration.connection_state !== "not_connected" ? (
+                      <button
+                        type="button"
+                        onClick={() => void discoverMetaAssets(integration)}
+                        className="inline-flex w-fit items-center gap-2 rounded-lg border border-violet-400/15 px-3 py-2 text-[10px] font-semibold text-violet-200 hover:bg-violet-400/5"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" /> Discover business assets
                       </button>
                     ) : null}
                     {executionId === integration.id ? (
