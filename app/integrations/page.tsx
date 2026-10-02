@@ -573,7 +573,7 @@ export default function IntegrationsPage() {
                   ["Asset", health?.checks.assetVerified === true],
                   ["Webhook", health?.checks.webhookSubscribed === true],
                   ["Event", health?.checks.firstEventReceived === true],
-                  ["Analysis", health?.checks.analysisReady === true],
+                  ["Analysis eligible", health?.checks.analysisReady === true],
                 ] as const;
                 return (
                   <div key={integration.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
