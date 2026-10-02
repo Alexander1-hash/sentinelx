@@ -41,13 +41,30 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("security_integrations")
-      .select("id,provider,integration_type,display_name,status,scopes,last_sync_at,created_at")
+      .select("id,provider,integration_type,display_name,status,scopes,configuration,last_sync_at,created_at")
       .eq("organization_id", organizationId)
       .order("created_at", { ascending: false });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({ integrations: data ?? [] });
+    const integrations = (data ?? []).map((integration) => {
+      const configuration =
+        integration.configuration &&
+        typeof integration.configuration === "object" &&
+        !Array.isArray(integration.configuration)
+          ? integration.configuration as Record<string, unknown>
+          : {};
+
+      return {
+        ...integration,
+        connection_state:
+          typeof configuration.connection_state === "string"
+            ? configuration.connection_state
+            : "unknown",
+      };
+    });
+
+    return NextResponse.json({ integrations });
   } catch {
     return NextResponse.json({ error: "Unable to load security integrations." }, { status: 500 });
   }
