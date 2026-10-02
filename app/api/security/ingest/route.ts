@@ -312,10 +312,29 @@ export async function POST(request: Request) {
       if (unchangedEvent) {
         const syncTimestamp = new Date().toISOString();
 
+        const { data: existingIntegration } = await supabase
+          .from("security_integrations")
+          .select("configuration")
+          .eq("id", integration.integration_id)
+          .eq("organization_id", integration.organization_id)
+          .maybeSingle();
+
+        const existingConfiguration =
+          existingIntegration?.configuration &&
+          typeof existingIntegration.configuration === "object" &&
+          !Array.isArray(existingIntegration.configuration)
+            ? existingIntegration.configuration as Record<string, unknown>
+            : {};
+
         await supabase
           .from("security_integrations")
           .update({
             status: "connected",
+            configuration: {
+              ...existingConfiguration,
+              connection_state: "ingestion_active",
+              last_ingestion_at: syncTimestamp,
+            },
             last_sync_at: syncTimestamp,
             ingestion_token_last_used_at: syncTimestamp,
           })
@@ -666,12 +685,32 @@ export async function POST(request: Request) {
         .eq("organization_id", integration.organization_id);
     }
 
+    const syncTimestamp = new Date().toISOString();
+    const { data: existingIntegration } = await supabase
+      .from("security_integrations")
+      .select("configuration")
+      .eq("id", integration.integration_id)
+      .eq("organization_id", integration.organization_id)
+      .maybeSingle();
+
+    const existingConfiguration =
+      existingIntegration?.configuration &&
+      typeof existingIntegration.configuration === "object" &&
+      !Array.isArray(existingIntegration.configuration)
+        ? existingIntegration.configuration as Record<string, unknown>
+        : {};
+
     await supabase
       .from("security_integrations")
       .update({
         status: "connected",
-        last_sync_at: new Date().toISOString(),
-        ingestion_token_last_used_at: new Date().toISOString(),
+        configuration: {
+          ...existingConfiguration,
+          connection_state: "ingestion_active",
+          last_ingestion_at: syncTimestamp,
+        },
+        last_sync_at: syncTimestamp,
+        ingestion_token_last_used_at: syncTimestamp,
       })
       .eq("id", integration.integration_id)
       .eq("organization_id", integration.organization_id);
